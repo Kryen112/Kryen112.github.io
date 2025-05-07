@@ -187,6 +187,8 @@
                         this.winReported = false;
                         this.lastSequence = -1;
                         this.storageKey = "";
+                        this.isScouting = false;
+                        this.excludedBookStages = [0, 20, 47, 70, 77]; // Town, Village, Resort, Forget Tree, Island
 
                         this.host = document.getElementById("host");
                         this.port = document.getElementById("port");
@@ -404,6 +406,22 @@
                         }
                     }
 
+                    async scoutBooksOnShopOpen() {
+                        for (let i = 0; i < Stage_Status.length; i++) {
+                            if (this.excludedBookStages.includes(i)) {
+                                continue;
+                            }
+                            
+                            if (Stage_Status[i] === 3) {
+                                let x = this.client?.send({
+                                    cmd: CLIENT_PACKET_TYPE.LOCATION_SCOUTS,
+                                    create_as_hint: 2,
+                                    locations: [this.BOOK_OFFSET + i]
+                                });
+                            }
+                        }
+                    }
+
                     _tick() {
                         // fire off the async work, but catch errors so the loop never dies
                         this._doTickWork().catch((err) => {
@@ -449,6 +467,15 @@
                         if (Sequence_Step === 6 && this._pendingConnect && !this._connected) {
                             this._pendingConnect = false;
                             this._connect();
+                        }
+
+                        if (Sequence_Step === 54 && !this.isScouting) {
+                            this.isScouting = true;
+                            this.scoutBooksOnShopOpen();
+                        }
+
+                        if (Sequence_Step !== 54 && this.isScouting) {
+                            this.isScouting = false;
                         }
 
                         this.lastSequence = Sequence_Step;
