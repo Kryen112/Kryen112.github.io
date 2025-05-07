@@ -349,8 +349,10 @@
                             await this.client.connect(connectionInfo);
                             this._connected = true;
                         } catch (error) {
-                            if (error[0].target instanceof WebSocket) {
+                            if (Array.isArray(error) && error[0]?.target instanceof WebSocket) {
                                 this.log("Cannot connect to: " + error[0].target.url + " Please check the hostname and port, or the server's online status.", "error");
+                            } else {
+                                this.log("Unknown error during connection: " + error, "error");
                             }
                             this._connected = false;
                             Sequence_Step = 0;
