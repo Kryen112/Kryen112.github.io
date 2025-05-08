@@ -189,6 +189,7 @@
                         this.storageKey = "";
                         this.isScouting = false;
                         this.excludedBookStages = [0, 20, 47, 70, 77]; // Town, Village, Resort, Forget Tree, Island
+                        this.bookHints = {};
 
                         this.host = document.getElementById("host");
                         this.port = document.getElementById("port");
@@ -210,6 +211,7 @@
                         const saved = await getState(this.storageKey);
                         if (saved) {
                             this.receivedItems = saved.receivedItems;
+                            this.bookHints = saved.bookHints ?? {};
                             GameLoad(saved.save.replace(/\r\n|\r|\n/g, ""));
                         }
 
@@ -234,6 +236,7 @@
                             receivedItems: this.receivedItems,
                             stages: Stage_Status,
                             save: GameSave("0"),
+                            bookHints: this.bookHints ?? {},
                         });
                     }
 
@@ -278,6 +281,7 @@
                             window.ArchipelagoMod.xpMultiplier = xpMultiplier;
                             const dropMultiplier = this.client.data.slotData.drop_multiplier ?? 1;
                             window.ArchipelagoMod.dropMultiplier = dropMultiplier;
+                            window.ArchipelagoMod.bookHintSpoiler = this.bookHints ?? {};
                         });
 
                         this.client.addListener(SERVER_PACKET_TYPE.RECEIVED_ITEMS, async (packet) => {
@@ -295,6 +299,19 @@
                             } else {
                                 await this._applyItem(packet.items[0].item, true);
                             }
+                        });
+
+                        this.client.addListener(SERVER_PACKET_TYPE.LOCATION_INFO, (locationInfoPacket) => {
+                            locationInfoPacket.locations.forEach((networkItem) => {
+                                if (networkItem.location >= this.BOOK_OFFSET && networkItem.location < this.BOOK_OFFSET + 100) {
+                                    const stageIndex = networkItem.location - this.BOOK_OFFSET;
+                                    this.bookHints[stageIndex] = {
+                                        player: this.client.players.name(networkItem.player),
+                                        item: this.client.items.name(this.client.players.game(networkItem.player), networkItem.item),
+                                        itemClassification: networkItem.flags,
+                                    };
+                                }
+                            });
                         });
 
                         this.client.addListener(SERVER_PACKET_TYPE.PRINT_JSON, (packet) => {
@@ -411,9 +428,9 @@
                             if (this.excludedBookStages.includes(i)) {
                                 continue;
                             }
-                            
-                            if (Stage_Status[i] === 3) {
-                                let x = this.client?.send({
+
+                            if (Stage_Status[i] === 3 && !this.bookHints[i]) {
+                                this.client?.send({
                                     cmd: CLIENT_PACKET_TYPE.LOCATION_SCOUTS,
                                     create_as_hint: 2,
                                     locations: [this.BOOK_OFFSET + i],

@@ -3252,7 +3252,41 @@ function townScreens(){ // original name: wf()
                     Small_Text.TXoutputB(book_left+256,book_top+92+2,"          Fr",0xC0C0FF,0x000000);
 
             } else if ((Stage_Status[book_stage]&Beaten2) > 0){
-                centeredText(Large_Text,book_left+240,book_top+40,"Information Fee",0xFFFFFF,0x000000);
+                let maxLines = 1;
+                let itemTextColour = 0xFFFFFF;
+                if (window.ArchipelagoMod.bookHintSpoiler[book_stage]) {
+                    const bookOfStage = window.ArchipelagoMod.bookHintSpoiler[book_stage];
+                    centeredText(Large_Text,book_left+240,book_top+20,bookOfStage.player+"'s",0xEE00EE,0x000000);
+
+                    switch (bookOfStage.itemClassification) {
+                        case 1: // Progression
+                            itemTextColour = 0x9F79EE;
+                            break;
+                        case 2: // Useful
+                            itemTextColour = 0x4f94CD;
+                            break;
+                        case 4: // Trap
+                            itemTextColour = 0xED7B6E;
+                            break;
+                        case 0: // Filler
+                            itemTextColour = 0x09CBCB;
+                            break;
+                        default:
+                            itemTextColour = 0xFFFFFF;
+                            break;
+                    }
+
+                    const items = bookOfStage.item;
+                    const maxVisibleChars = 4 * 19;
+                    const needsEllipsis = items.length > maxVisibleChars;
+                    const truncated = needsEllipsis ? items.substring(0, maxVisibleChars - 3) + "..." : items;
+                    maxLines = Math.ceil(truncated.length/19);
+                    for (let i = 0; i < maxLines; i++) {
+                        centeredText(Large_Text,book_left+240,book_top+40+(20*i),truncated.substring(i*19,((i+1)*19)),itemTextColour,0x000000);
+                    }
+                } else {
+                    centeredText(Large_Text,book_left+240,book_top+40,"Information Fee",0xFFFFFF,0x000000);
+                }
                 if (Randomizer_Mode==1)
                      entry_cost = 500*(Book_Page*rows_per_page+Book_Row+1);  // book cost in randomizer
                 else entry_cost = 1000*(Book_Page*rows_per_page+Book_Row+1); // book cost
@@ -3263,9 +3297,9 @@ function townScreens(){ // original name: wf()
                         Team_Gold -= entry_cost;
                         antiCheatSet();
                     }
-                    filledRectCentered(book_left+240,book_top+80,120,32,0x990000); // highlights button when mouse hovers over information fee
+                    filledRectCentered(book_left+240,book_top+70+(20*(maxLines-1)),120,32,0x990000); // highlights button when mouse hovers over information fee
                 }
-                centeredText(Large_Text,book_left+240,book_top+80,"$"+entry_cost+" Buy",0xFFFFFF,0x000000);
+                centeredText(Large_Text,book_left+240,book_top+70+(20*(maxLines-1)),"$"+entry_cost+" Buy",0xFFFFFF,0x000000);
             } else {
                 centeredText(Large_Text,book_left+240,book_top+40,"?????",0xFFFFFF,0x000000);
                 centeredText(Large_Text,book_left+240,book_top+80,"???",0xFFFFFF,0x000000);
