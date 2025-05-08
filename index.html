@@ -300,7 +300,7 @@
                         this.client.addListener(SERVER_PACKET_TYPE.PRINT_JSON, (packet) => {
                             const container = document.createElement("div");
                             const connectedPlayerId = Number(this.client.data.slotData.player_id);
-                            packet.data.forEach(el => {
+                            packet.data.forEach((el) => {
                                 const span = document.createElement("span");
                                 const forPlayer = el.player ?? connectedPlayerId;
                                 if (el.type === "player_id") {
@@ -342,7 +342,7 @@
                         });
 
                         this.client.addListener(SERVER_PACKET_TYPE.CONNECTION_REFUSED, (packet) => {
-                            packet.errors.forEach(error => {
+                            packet.errors.forEach((error) => {
                                 this.log(error + "; please verify your connection settings.", "error");
                             });
                         });
@@ -416,7 +416,7 @@
                                 let x = this.client?.send({
                                     cmd: CLIENT_PACKET_TYPE.LOCATION_SCOUTS,
                                     create_as_hint: 2,
-                                    locations: [this.BOOK_OFFSET + i]
+                                    locations: [this.BOOK_OFFSET + i],
                                 });
                             }
                         }
