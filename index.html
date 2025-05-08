@@ -190,6 +190,7 @@
                         this.isScouting = false;
                         this.excludedBookStages = [0, 20, 47, 70, 77]; // Town, Village, Resort, Forget Tree, Island
                         this.bookHints = {};
+                        this.randomizedBookCosts = {};
 
                         this.host = document.getElementById("host");
                         this.port = document.getElementById("port");
@@ -212,6 +213,7 @@
                         if (saved) {
                             this.receivedItems = saved.receivedItems;
                             this.bookHints = saved.bookHints ?? {};
+                            this.randomizedBookCosts = saved.randomizedBookCosts ?? {};
                             GameLoad(saved.save.replace(/\r\n|\r|\n/g, ""));
                         }
 
@@ -237,6 +239,7 @@
                             stages: Stage_Status,
                             save: GameSave("0"),
                             bookHints: this.bookHints ?? {},
+                            randomizedBookCosts: this.randomizedBookCosts ?? {}
                         });
                     }
 
@@ -251,6 +254,52 @@
                         }
                         antiCheatSet();
                         return Stage_Status;
+                    }
+
+                    createRandomizedBookCosts(randomizerMode) {
+                        const result = {};
+                        const stageCount = Stage_Status.length;
+
+                        switch (randomizerMode) {
+                            case 1: {
+                                for (let stage = 0; stage < stageCount; stage++) {
+                                    const min = 100 * stage;
+                                    const max = 4000 * stage;
+
+                                    const r = Math.pow(Math.random(), 1.5);
+                                    const scaled = min + r * (max - min);
+
+                                    result[stage] = Math.max(1, Math.floor(scaled));
+                                }
+                                return result;
+                            }
+                            case 2: {
+                                for (let stage = 0; stage < stageCount; stage++) {
+                                    result[stage] = Math.floor(Math.random() * 99999) + 1;
+                                }
+                                return result;
+                            }
+                            case 3: {
+                                for (let stage = 0; stage < stageCount; stage++) {
+                                    result[stage] = Math.floor(Math.random() * 999999) + 1;
+                                }
+                                return result;
+                            }
+                            case 0:
+                            default:
+                                return {};
+                                break;
+                        }
+                    }
+
+                    isEmpty(obj) {
+                        for (const prop in obj) {
+                            if (Object.hasOwn(obj, prop)) {
+                            return false;
+                            }
+                        }
+                        
+                        return true;
                     }
 
                     async _connect() {
@@ -282,6 +331,12 @@
                             const dropMultiplier = this.client.data.slotData.drop_multiplier ?? 1;
                             window.ArchipelagoMod.dropMultiplier = dropMultiplier;
                             window.ArchipelagoMod.bookHintSpoiler = this.bookHints ?? {};
+                            const bookCostRandomizer = this.client.data.slotData.randomize_book_costs ?? 0;
+                            window.ArchipelagoMod.bookCostRandomizer = bookCostRandomizer;
+                            if (this.isEmpty(this.randomizedBookCosts)) {
+                                this.randomizedBookCosts = this.createRandomizedBookCosts(bookCostRandomizer);
+                            }
+                            window.ArchipelagoMod.randomizedBookCosts = this.randomizedBookCosts ?? {};
                         });
 
                         this.client.addListener(SERVER_PACKET_TYPE.RECEIVED_ITEMS, async (packet) => {
