@@ -187,6 +187,7 @@
                         this.winReported = false;
                         this.lastSequence = -1;
                         this.storageKey = "";
+                        this.sendShopHints = false;
                         this.isScouting = false;
                         this.excludedBookStages = [0, 20, 47, 70, 77]; // Town, Village, Resort, Forget Tree, Island
                         this.bookHints = {};
@@ -330,6 +331,7 @@
                             window.ArchipelagoMod.xpMultiplier = xpMultiplier;
                             const dropMultiplier = this.client.data.slotData.drop_multiplier ?? 1;
                             window.ArchipelagoMod.dropMultiplier = dropMultiplier;
+                            this.sendShopHints = this.client.data.slotData.shop_hints ?? false;
                             window.ArchipelagoMod.bookHintSpoiler = this.bookHints ?? {};
                             const bookCostRandomizer = this.client.data.slotData.randomize_book_costs ?? 0;
                             window.ArchipelagoMod.bookCostRandomizer = bookCostRandomizer;
@@ -541,7 +543,7 @@
                             this._connect();
                         }
 
-                        if (Sequence_Step === 54 && !this.isScouting) {
+                        if (Sequence_Step === 54 && !this.isScouting && this.sendShopHints) {
                             this.isScouting = true;
                             this.scoutBooksOnShopOpen();
                         }
