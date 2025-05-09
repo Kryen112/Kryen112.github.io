@@ -62,6 +62,7 @@ class APIntegration {
         this.deathLinkTime = ""; // Currently unused
         this.deathLinkCause = "";
         this.clickedDisconnect = false;
+        this.newGame = false;
 
         this.host = document.getElementById("host");
         this.port = document.getElementById("port");
@@ -139,6 +140,7 @@ class APIntegration {
 
     async saveState() {
         if (!this.storageKey) return;
+        Save_Code3 = genSaveCode(0);
         await setState(this.storageKey, {
             receivedItems: this.receivedItems,
             stages: Stage_Status,
@@ -378,10 +380,6 @@ class APIntegration {
     }
 
     async _applyItem(id, firstTime) {
-        if (firstTime) {
-            this.receivedItems.push(id);
-        }
-
         // location unlock
         if (id >= this.LOC_OFFSET && id < this.LOC_OFFSET + 999) {
             Stage_Status[id - this.LOC_OFFSET] |= Unlocked;
@@ -391,8 +389,12 @@ class APIntegration {
         else if (id >= this.ITEM_OFFSET && id < this.ITEM_OFFSET + 999 && firstTime) {
             const idx = id - this.ITEM_OFFSET;
             const slot = this._firstEmptyInvSlot();
-            if (slot >= 0) Item_Inv[slot] = idx;
-            else this.pendingItems.push(idx);
+            if (slot >= 0) {
+                this.receivedItems.push(id);
+                Item_Inv[slot] = idx;
+            } else {
+                this.pendingItems.push(id);
+            }
         }
 
         antiCheatSet();
@@ -410,9 +412,12 @@ class APIntegration {
     async _flushPending() {
         let slot;
         while (this.pendingItems.length && (slot = this._firstEmptyInvSlot()) >= 0) {
-            Item_Inv[slot] = this.pendingItems.shift();
-            await this.saveState();
+            const id = this.pendingItems.shift();
+            this.receivedItems.push(id);
+            const idx = id - this.ITEM_OFFSET;
+            Item_Inv[slot] = idx;
             antiCheatSet();
+            await this.saveState();
         }
     }
 
@@ -486,13 +491,16 @@ class APIntegration {
             if (Sequence_Step !== 54 && this.isScouting) {
                 this.isScouting = false;
             }
+
+            if (this.newGame) {
+                this.newGame = false;
+                this.receivedItems = [];
+            }
         }
 
         // on "new game", give everything
         if (Sequence_Step === 6 && this.lastSequence === 4) {
-            this.client?.socket.send({
-                cmd: "Sync",
-            });
+            this.newGame = true;
         }
 
         // connect once game is properly loaded
