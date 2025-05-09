@@ -55,6 +55,12 @@ class APIntegration {
         this.bookHints = {};
         this.randomizedBookCosts = {};
         this.slotData = {};
+        this.deathLinkSent = false;
+        this.deathLinkReceived = false;
+        this.deathLinkPending = false;
+        this.deathLinkSource = "";
+        this.deathLinkTime = ""; // Currently unused
+        this.deathLinkCause = "";
 
         this.host = document.getElementById("host");
         this.port = document.getElementById("port");
@@ -164,6 +170,20 @@ class APIntegration {
         return true;
     }
 
+    die(source, cause) {
+        this.log(`You died from ${source}'s death${cause ? `: ${cause}` : ""}.`, "error");
+
+        for (let i = 0; i < 4; i++) {
+            LP_Current[i] = 0;
+        }
+
+        this.deathLinkSource = "";
+        this.deathLinkTime = "";
+        this.deathLinkCause = "";
+
+        antiCheatSet();
+    }
+
     async _connect() {
         this.client = new Client();
         const host = this.host.value;
@@ -176,7 +196,6 @@ class APIntegration {
         this.storageKey = [host, port, game, slot].join(":");
 
         this.client.socket.on("receivedItems", async (packet) => {
-            console.log(packet);
             if (packet.items.length > 1 || (packet.items.length === 1 && packet.items[0].item === this.receivedItems[0])) {
                 const serverItems = packet.items.map((i) => i.item);
 
@@ -255,6 +274,14 @@ class APIntegration {
             this.chat.scrollTop = this.chat.scrollHeight;
         });
 
+        this.client.deathLink.on("deathReceived", (source, time, cause) => {
+            this.deathLinkReceived = true;
+            this.deathLinkPending = true;
+            this.deathLinkSource = source;
+            this.deathLinkTime = time;
+            this.deathLinkCause = cause;
+        });
+
         this.client.socket.on("connectionRefused", (packet) => {
             packet.errors.forEach((error) => {
                 this.log(error + "; please verify your connection settings.", "error");
@@ -291,8 +318,9 @@ class APIntegration {
             }
             window.ArchipelagoMod.randomizedBookCosts = this.randomizedBookCosts ?? {};
 
-            if (this.slotData.deathLink) {
+            if (this.slotData.death_link) {
                 this.client.deathLink.enableDeathLink();
+                this.client.updateTags(["AP", "DeathLink"]);
             }
 
             antiCheatSet();
@@ -393,6 +421,25 @@ class APIntegration {
             if (!this.winReported && (Stage_Status[this.STAGE_TO_WIN] & Beaten) === Beaten) {
                 this.winReported = true;
                 this.client?.goal();
+            }
+
+            if (this.client.deathLink.enabled) {
+                if (Sequence_Step >= 11 && Sequence_Step <= 13 && this.deathLinkPending) {
+                    this.deathLinkPending = false;
+                    this.die(this.deathLinkSource, this.deathLinkCause);
+                }
+
+                if (Sequence_Step === 30 && !this.deathLinkSent && !this.deathLinkReceived) {
+                    this.log("DeathLink: Sending death to your friends...");
+                    this.deathLinkSent = true;
+                    this.client.deathLink.sendDeathLink(this.slotData.player_name, this.slotData.player_name + " was defeated in Stick Ranger.");
+                }
+
+                if (Sequence_Step < 6) {
+                    this.deathLinkSent = false;
+                    this.deathLinkReceived = false;
+                    this.deathLinkPending = false;
+                }
             }
 
             if (Sequence_Step === 54 && !this.isScouting && this.sendShopHints) {
