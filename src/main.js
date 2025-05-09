@@ -279,12 +279,9 @@ class APIntegration {
 
             this._connected = true;
 
-            const goldMultiplier = this.slotData.gold_multiplier ?? 1;
-            window.ArchipelagoMod.goldMultiplier = goldMultiplier;
-            const xpMultiplier = this.slotData.xp_multiplier ?? 1;
-            window.ArchipelagoMod.xpMultiplier = xpMultiplier;
-            const dropMultiplier = this.slotData.drop_multiplier ?? 1;
-            window.ArchipelagoMod.dropMultiplier = dropMultiplier;
+            window.ArchipelagoMod.goldMultiplier = this.slotData.gold_multiplier ?? 1;
+            window.ArchipelagoMod.xpMultiplier = this.slotData.xp_multiplier ?? 1;
+            window.ArchipelagoMod.dropMultiplier = this.slotData.drop_multiplier ?? 1;
             this.sendShopHints = this.slotData.shop_hints ?? false;
             window.ArchipelagoMod.bookHintSpoiler = this.bookHints ?? {};
             const bookCostRandomizer = this.slotData.randomize_book_costs ?? 0;
