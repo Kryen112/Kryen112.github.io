@@ -71,6 +71,20 @@ class APIntegration {
         this.apDiv = document.getElementById("APConnection");
 
         this.connect.addEventListener("click", () => this._onConnectClick());
+        const listenForEnter = (input) => {
+            input.addEventListener("keydown", (event) => {
+                if (event.key === "Enter") {
+                    this._onConnectClick();
+                }
+            });
+        };
+        
+        listenForEnter(this.host);
+        listenForEnter(this.port);
+        listenForEnter(this.slotName);
+        listenForEnter(this.password);
+
+        document.addEventListener("keydown", this._handleGlobalEnter);
         window.addEventListener("beforeunload", () => this._onUnload());
         this._tick = this._tick.bind(this);
         requestAnimationFrame(this._tick);
