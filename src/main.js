@@ -1,4 +1,4 @@
-import { Client, ITEMS_HANDLING_FLAGS, SERVER_PACKET_TYPE, CLIENT_PACKET_TYPE } from "https://unpkg.com/archipelago.js@1.0.0/dist/archipelago.js";
+import { Client, itemsHandlingFlags } from "archipelago.js";
 
 // --- IndexedDB helpers ---
 function openDB() {
@@ -54,6 +54,7 @@ class APIntegration {
         this.excludedBookStages = [0, 20, 47, 70, 77]; // Town, Village, Resort, Forget Tree, Island
         this.bookHints = {};
         this.randomizedBookCosts = {};
+        this.slotData = {};
 
         this.host = document.getElementById("host");
         this.port = document.getElementById("port");
@@ -64,7 +65,7 @@ class APIntegration {
         this.apDiv = document.getElementById("APConnection");
 
         this.connect.addEventListener("click", () => this._onConnectClick());
-        window.addEventListener("beforeunload", async () => await this._onUnload()); //TODO this is now saync and it could break, look chatgpt
+        window.addEventListener("beforeunload", () => this._onUnload());
         this._tick = this._tick.bind(this);
         requestAnimationFrame(this._tick);
     }
@@ -102,13 +103,12 @@ class APIntegration {
             stages: Stage_Status,
             save: GameSave("0"),
             bookHints: this.bookHints ?? {},
-            randomizedBookCosts: this.randomizedBookCosts ?? {}
+            randomizedBookCosts: this.randomizedBookCosts ?? {},
         });
     }
 
-    async _onUnload() {
-        await this.saveState();
-        this.client?.disconnect();
+    _onUnload() {
+        this.client?.socket.disconnect();
     }
 
     restoreStagesBeaten(savedStages) {
@@ -151,59 +151,32 @@ class APIntegration {
             case 0:
             default:
                 return {};
-                break;
         }
     }
 
     isEmpty(obj) {
         for (const prop in obj) {
             if (Object.hasOwn(obj, prop)) {
-            return false;
+                return false;
             }
         }
-        
+
         return true;
     }
 
     async _connect() {
         this.client = new Client();
-        const connectionInfo = {
-            hostname: this.host.value,
-            port: parseInt(this.port.value),
-            game: "Stick Ranger",
-            name: this.slotName.value,
-            password: this.password.value,
-            items_handling: ITEMS_HANDLING_FLAGS.REMOTE_ALL,
-        };
+        const host = this.host.value;
+        const port = parseInt(this.port.value);
+        const game = "Stick Ranger";
+        const slot = this.slotName.value;
+        const password = this.password.value;
+        const url = `${host}:${port}`;
 
-        this.storageKey = [connectionInfo.hostname, connectionInfo.port, connectionInfo.game, connectionInfo.name].join(":");
+        this.storageKey = [host, port, game, slot].join(":");
 
-        this.client.addListener(SERVER_PACKET_TYPE.CONNECTED, async () => {
-            const saved = await getState(this.storageKey);
-            if (saved) {
-                this.receivedItems = saved.receivedItems;
-                Stage_Status = this.restoreStagesBeaten(saved.stages);
-            } else {
-                await this.saveState();
-            }
-
-            const goldMultiplier = this.client.data.slotData.gold_multiplier ?? 1;
-            window.ArchipelagoMod.goldMultiplier = goldMultiplier;
-            const xpMultiplier = this.client.data.slotData.xp_multiplier ?? 1;
-            window.ArchipelagoMod.xpMultiplier = xpMultiplier;
-            const dropMultiplier = this.client.data.slotData.drop_multiplier ?? 1;
-            window.ArchipelagoMod.dropMultiplier = dropMultiplier;
-            this.sendShopHints = this.client.data.slotData.shop_hints ?? false;
-            window.ArchipelagoMod.bookHintSpoiler = this.bookHints ?? {};
-            const bookCostRandomizer = this.client.data.slotData.randomize_book_costs ?? 0;
-            window.ArchipelagoMod.bookCostRandomizer = bookCostRandomizer;
-            if (this.isEmpty(this.randomizedBookCosts)) {
-                this.randomizedBookCosts = this.createRandomizedBookCosts(bookCostRandomizer);
-            }
-            window.ArchipelagoMod.randomizedBookCosts = this.randomizedBookCosts ?? {};
-        });
-
-        this.client.addListener(SERVER_PACKET_TYPE.RECEIVED_ITEMS, async (packet) => {
+        this.client.socket.on("receivedItems", async (packet) => {
+            console.log(packet);
             if (packet.items.length > 1 || (packet.items.length === 1 && packet.items[0].item === this.receivedItems[0])) {
                 const serverItems = packet.items.map((i) => i.item);
 
@@ -220,72 +193,108 @@ class APIntegration {
             }
         });
 
-        this.client.addListener(SERVER_PACKET_TYPE.LOCATION_INFO, (locationInfoPacket) => {
+        this.client.socket.on("locationInfo", (locationInfoPacket) => {
             locationInfoPacket.locations.forEach((networkItem) => {
                 if (networkItem.location >= this.BOOK_OFFSET && networkItem.location < this.BOOK_OFFSET + 100) {
                     const stageIndex = networkItem.location - this.BOOK_OFFSET;
                     this.bookHints[stageIndex] = {
-                        player: this.client.players.name(networkItem.player),
-                        item: this.client.items.name(this.client.players.game(networkItem.player), networkItem.item),
+                        player: this.client.players.findPlayer(networkItem.player).name,
+                        item: this.client.package.lookupItemName(this.client.players.findPlayer(networkItem.player).game, networkItem.item),
                         itemClassification: networkItem.flags,
                     };
                 }
             });
         });
 
-        this.client.addListener(SERVER_PACKET_TYPE.PRINT_JSON, (packet) => {
+        this.client.socket.on("printJSON", (printJSONPacket) => {
             const container = document.createElement("div");
-            const connectedPlayerId = Number(this.client.data.slotData.player_id);
-            packet.data.forEach((el) => {
+            if (printJSONPacket.item) {
+                const connectedPlayerId = printJSONPacket.item.player;
+                printJSONPacket.data.forEach((el) => {
+                    const span = document.createElement("span");
+                    if (el.type === "player_id") {
+                        const pid = Number(el.text);
+                        span.textContent = this.client.players.findPlayer(pid)?.name;
+                        if (pid === connectedPlayerId) {
+                            span.style.color = "#ee00ee";
+                        } else {
+                            span.style.color = "#eee8cd";
+                        }
+                    } else if (el.type === "item_id") {
+                        span.textContent = this.client.package.lookupItemName(this.client.players.findPlayer(el.player).game, Number(el.text));
+                        switch (printJSONPacket.item.flags) {
+                            case 1: // Progression
+                                span.style.color = "#9f79ee";
+                                break;
+                            case 2: // Useful
+                                span.style.color = "#4f94cd";
+                                break;
+                            case 4: // Trap
+                                span.style.color = "#ed7b6e";
+                                break;
+                            case 0: // Filler
+                            default:
+                                span.style.color = "#09cbcb";
+                                break;
+                        }
+                    } else if (el.type === "location_id") {
+                        span.textContent = this.client.package.lookupLocationName(this.client.players.findPlayer(el.player).game, Number(el.text));
+                        span.style.color = "limegreen";
+                    } else if (el.text) {
+                        span.textContent = el.text;
+                    }
+                    container.appendChild(span);
+                });
+            } else {
                 const span = document.createElement("span");
-                const forPlayer = el.player ?? connectedPlayerId;
-                if (el.type === "player_id") {
-                    const pid = Number(el.text);
-                    span.textContent = this.client.players.name(pid);
-                    if (pid === connectedPlayerId) {
-                        span.style.color = "#ee00ee";
-                    } else {
-                        span.style.color = "#eee8cd";
-                    }
-                } else if (el.type === "item_id") {
-                    span.textContent = this.client.items.name(this.client.players.game(forPlayer), Number(el.text));
-                    switch (packet.item.flags) {
-                        case 1: // Progression
-                            span.style.color = "#9f79ee";
-                            break;
-                        case 2: // Useful
-                            span.style.color = "#4f94cd";
-                            break;
-                        case 4: // Trap
-                            span.style.color = "#ed7b6e";
-                            break;
-                        case 0: // Filler
-                        default:
-                            span.style.color = "#09cbcb";
-                            break;
-                    }
-                } else if (el.type === "location_id") {
-                    span.textContent = this.client.locations.name(this.client.players.game(forPlayer), Number(el.text));
-                    span.style.color = "limegreen";
-                } else if (el.text) {
-                    span.textContent = el.text;
-                }
+                span.textContent = printJSONPacket.data[0].text;
                 container.appendChild(span);
-            });
+            }
 
             this.chat.appendChild(container);
             this.chat.scrollTop = this.chat.scrollHeight;
         });
 
-        this.client.addListener(SERVER_PACKET_TYPE.CONNECTION_REFUSED, (packet) => {
+        this.client.socket.on("connectionRefused", (packet) => {
             packet.errors.forEach((error) => {
                 this.log(error + "; please verify your connection settings.", "error");
             });
         });
 
         try {
-            await this.client.connect(connectionInfo);
+            const saved = await getState(this.storageKey);
+            if (saved) {
+                this.receivedItems = saved.receivedItems;
+                Stage_Status = this.restoreStagesBeaten(saved.stages);
+            } else {
+                await this.saveState();
+            }
+
+            this.slotData = await this.client.login(url, slot, game, {
+                password,
+                itemsHandlingFlags: itemsHandlingFlags.all,
+                tags: ["AP"],
+                slotData: true,
+            });
+
             this._connected = true;
+
+            const goldMultiplier = this.slotData.gold_multiplier ?? 1;
+            window.ArchipelagoMod.goldMultiplier = goldMultiplier;
+            const xpMultiplier = this.slotData.xp_multiplier ?? 1;
+            window.ArchipelagoMod.xpMultiplier = xpMultiplier;
+            const dropMultiplier = this.slotData.drop_multiplier ?? 1;
+            window.ArchipelagoMod.dropMultiplier = dropMultiplier;
+            this.sendShopHints = this.slotData.shop_hints ?? false;
+            window.ArchipelagoMod.bookHintSpoiler = this.bookHints ?? {};
+            const bookCostRandomizer = this.slotData.randomize_book_costs ?? 0;
+            window.ArchipelagoMod.bookCostRandomizer = bookCostRandomizer;
+            if (this.isEmpty(this.randomizedBookCosts)) {
+                this.randomizedBookCosts = this.createRandomizedBookCosts(bookCostRandomizer);
+            }
+            window.ArchipelagoMod.randomizedBookCosts = this.randomizedBookCosts ?? {};
+
+            antiCheatSet();
         } catch (error) {
             if (Array.isArray(error) && error[0]?.target instanceof WebSocket) {
                 this.log("Cannot connect to: " + error[0].target.url + " Please check the hostname and port, or the server's online status.", "error");
@@ -299,7 +308,7 @@ class APIntegration {
     }
 
     async sendLocation(id) {
-        if (this.client) this.client.locations.check(id);
+        this.client.check(id);
         await this.saveState();
     }
 
@@ -349,17 +358,13 @@ class APIntegration {
             }
 
             if (Stage_Status[i] === 3 && !this.bookHints[i]) {
-                this.client?.send({
-                    cmd: CLIENT_PACKET_TYPE.LOCATION_SCOUTS,
-                    create_as_hint: 2,
-                    locations: [this.BOOK_OFFSET + i],
-                });
+                this.client.scout([this.BOOK_OFFSET + i], 2);
             }
         }
+        await this.saveState();
     }
 
     _tick() {
-        // fire off the async work, but catch errors so the loop never dies
         this._doTickWork().catch((err) => {
             console.error("Tick error:", err);
         });
@@ -368,34 +373,41 @@ class APIntegration {
     }
 
     async _doTickWork() {
-        //TODO this is now saync and it could break, look chatgpt
-        // scan beaten/booked changes
-        for (let i = 0; i < Stage_Status.length; i++) {
-            if ((this.prevStage[i] & Beaten) === 0 && (Stage_Status[i] & Beaten) !== 0) {
-                await this.sendLocation(i + this.STAGE_COMPLETE_OFFSET);
+        if (this._connected) {
+            // scan beaten/booked changes
+            for (let i = 0; i < Stage_Status.length; i++) {
+                if ((this.prevStage[i] & Beaten) === 0 && (Stage_Status[i] & Beaten) !== 0) {
+                    await this.sendLocation(i + this.STAGE_COMPLETE_OFFSET);
+                }
+                if ((this.prevStage[i] & Booked) === 0 && (Stage_Status[i] & Booked) !== 0) {
+                    await this.sendLocation(i + 10100);
+                }
             }
-            if ((this.prevStage[i] & Booked) === 0 && (Stage_Status[i] & Booked) !== 0) {
-                await this.sendLocation(i + 10100);
+            this.prevStage = [...Stage_Status];
+
+            // flush inventory
+            await this._flushPending();
+
+            // report win
+            if (!this.winReported && (Stage_Status[this.STAGE_TO_WIN] & Beaten) === Beaten) {
+                this.winReported = true;
+                this.client?.goal();
             }
-        }
-        this.prevStage = [...Stage_Status];
 
-        // flush inventory
-        await this._flushPending();
+            if (Sequence_Step === 54 && !this.isScouting && this.sendShopHints) {
+                this.isScouting = true;
+                this.scoutBooksOnShopOpen();
+            }
 
-        // report win
-        if (!this.winReported && (Stage_Status[this.STAGE_TO_WIN] & Beaten) === Beaten) {
-            this.winReported = true;
-            this.client?.send({
-                cmd: "StatusUpdate",
-                status: 30,
-            });
+            if (Sequence_Step !== 54 && this.isScouting) {
+                this.isScouting = false;
+            }
         }
 
         // on "new game", give everything
         if (Sequence_Step === 6 && this.lastSequence === 4) {
-            this.client?.send({
-                cmd: CLIENT_PACKET_TYPE.SYNC,
+            this.client?.socket.send({
+                cmd: "Sync",
             });
         }
 
@@ -403,15 +415,6 @@ class APIntegration {
         if (Sequence_Step === 6 && this._pendingConnect && !this._connected) {
             this._pendingConnect = false;
             this._connect();
-        }
-
-        if (Sequence_Step === 54 && !this.isScouting && this.sendShopHints) {
-            this.isScouting = true;
-            this.scoutBooksOnShopOpen();
-        }
-
-        if (Sequence_Step !== 54 && this.isScouting) {
-            this.isScouting = false;
         }
 
         this.lastSequence = Sequence_Step;
