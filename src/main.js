@@ -96,10 +96,10 @@ class APIntegration {
     }
 
     async _onConnectClick() {
-        this.connectionInfo.textContent = "Connected at: " + this.host.value + ":"  + this.port.value + " - " + this.slotName.value;
+        this.connectionInfo.textContent = "Connected at: " + this.host.value + ":" + this.port.value + " - " + this.slotName.value;
         if (!this.clickedDisconnect) {
             this.storageKey = [this.host.value, this.port.value, "Stick Ranger", this.slotName.value].join(":");
-    
+
             const saved = await getState(this.storageKey);
             if (saved) {
                 this.receivedItems = saved.receivedItems;
@@ -357,7 +357,6 @@ class APIntegration {
                 this.client.deathLink.enableDeathLink();
                 this.client.updateTags(["AP", "DeathLink"]);
             }
-            Team_Gold = 99999
 
             antiCheatSet();
         } catch (error) {
