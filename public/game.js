@@ -2652,7 +2652,7 @@ function PvEscreens(){ // original name: vf()
             Large_Text.TXoutputB(Win_Hcenter-128,T+92,"        LP Bars : "+options_list4[Sett_LP_Bar_Disp],0xFF0000,0x000000);
             Sett_LP_Bar_Disp = cycle(Sett_LP_Bar_Disp+Sett_Change,0,3);
         }
-        options_list5 = ["Square","Triangle","Shadow","OFF"]; // PL Symbol setting
+        options_list5 = ["AP logo","Square","Triangle","Shadow","OFF"]; // PL Symbol setting
         Large_Text.TXoutputB(Win_Hcenter-128,T+105,"      PL Symbol : "+options_list5[Sett_PL_Symbol],0xFFFFFF,0x000000);
         if (isMouseHovered(Win_Hcenter-128,T+105,256,13)){
             Large_Text.TXoutputB(Win_Hcenter-128,T+105,"      PL Symbol : "+options_list5[Sett_PL_Symbol],0xFF0000,0x000000);
@@ -6965,7 +6965,7 @@ SR_Player.prototype.PLrenderPlayer = function(){ // Pg.prototype.b
         }
 
         Display_Mode2 = Display_Mode = 1;
-        if (Selected_Player==s && Game_Mode==0 && Sett_PL_Symbol==2){
+        if (Selected_Player==s && Game_Mode==0 && Sett_PL_Symbol==3){
             for (var j=0; j<11; j++)
                 dispItemCentered(Effect_Img,floor(this.PL_joint[s][j].x),floor(this.PL_joint[s][j].y),12,12,0,0,12,12,0x50FF0000); // PL symbol shadow
         } else if (Anger_Crown_Lightning>0){
@@ -7133,8 +7133,15 @@ SR_Player.prototype.PLrenderPlayer = function(){ // Pg.prototype.b
             }
             if (Selected_Player==s && Game_Mode==0){
                 if (Sett_PL_Symbol==0){
-                    filledRect(floor(this.PL_joint[s][0].x)-1,floor(this.PL_joint[s][0].y)-8,3,3,0xFFFF00); // draw square symbol above player
+                    filledRect(floor(this.PL_joint[s][0].x)-1,floor(this.PL_joint[s][0].y)-14,3,3,0xCB7783);
+                    filledRect(floor(this.PL_joint[s][0].x)+2,floor(this.PL_joint[s][0].y)-13,3,3,0x74C275);
+                    filledRect(floor(this.PL_joint[s][0].x)+2,floor(this.PL_joint[s][0].y)-10,3,3,0xCB94C2);
+                    filledRect(floor(this.PL_joint[s][0].x)-4,floor(this.PL_joint[s][0].y)-13,3,3,0xEDE692);
+                    filledRect(floor(this.PL_joint[s][0].x)-4,floor(this.PL_joint[s][0].y)-10,3,3,0x757FC0);
+                    filledRect(floor(this.PL_joint[s][0].x)-1,floor(this.PL_joint[s][0].y)-8,3,3,0xD9A07D);
                 } else if (Sett_PL_Symbol==1){
+                    filledRect(floor(this.PL_joint[s][0].x)-1,floor(this.PL_joint[s][0].y)-8,3,3,0xFFFF00); // draw square symbol above player
+                } else if (Sett_PL_Symbol==2){
                     drawLine(floor(this.PL_joint[s][0].x)-3,floor(this.PL_joint[s][0].y)-14,floor(this.PL_joint[s][0].x)+3,floor(this.PL_joint[s][0].y)-14,0xFFFF00); // draw triangle symbol above player
                     drawLine(floor(this.PL_joint[s][0].x)-3,floor(this.PL_joint[s][0].y)-14,floor(this.PL_joint[s][0].x)+0.5,floor(this.PL_joint[s][0].y)-7,0xFFFF00);
                     drawLine(floor(this.PL_joint[s][0].x)+3.5,floor(this.PL_joint[s][0].y)-14,floor(this.PL_joint[s][0].x)+0.5,floor(this.PL_joint[s][0].y)-7,0xFFFF00);
