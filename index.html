@@ -6,6 +6,13 @@
             @font-face {
                 font-family: dan-ball;
                 src: url("src/dan-ball.otf") format("opentype");
+                unicode-range: U+0020-0027, U+002A-007D, U+00A5;
+                size-adjust: 65%;
+            }
+
+            @font-face {
+                font-family: dan-ball;
+                src: local("monospace");
             }
 
             #cv:-webkit-full-screen {
@@ -36,7 +43,7 @@
                 float: left;
             }
 
-            .right-panel {
+            #right-panel {
                 float: right;
                 width: 100%;
                 background-color: rgb(51, 51, 51);
@@ -70,8 +77,6 @@
                 border: 2px solid rgb(76, 76, 76);
                 border-radius: 10px;
                 overflow-y: auto;
-                font-family: monospace;
-                font-size: 0.9em;
                 box-sizing: border-box;
             }
 
@@ -86,12 +91,10 @@
             }
 
             #connectionInfo {
-                font-size: 0.9em;
                 float: left;
             }
 
             #disconnect {
-                font-size: 0.8em;
                 float: right;
                 background-color: rgb(76, 76, 76);
                 border: none;
@@ -102,6 +105,56 @@
             #disconnect:hover {
                 color: rgb(255, 80, 80);
                 cursor: pointer;
+            }
+
+            .switch {
+                position: relative;
+                display: inline-block;
+                width: 34px;
+                height: 20px;
+            }
+
+            .switch input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }
+
+            .slider {
+                position: absolute;
+                cursor: pointer;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: #ccc;
+                transition: 0.2s;
+                border-radius: 20px;
+            }
+
+            .slider:before {
+                position: absolute;
+                content: "";
+                height: 14px;
+                width: 14px;
+                left: 3px;
+                bottom: 3px;
+                background-color: white;
+                transition: 0.2s;
+                border-radius: 50%;
+            }
+
+            input:checked + .slider {
+                background-color: #2196f3;
+            }
+
+            input:checked + .slider:before {
+                transform: translateX(14px);
+            }
+
+            #fontSwitch {
+                color: white;
+                font-family: dan-ball;
             }
         </style>
     </head>
@@ -148,10 +201,16 @@
             </div>
             <div id="fullScreenButton">
                 <input type="submit" value="Full Screen" onclick="fullScreen();" />
+                <label class="switch">
+                    <input type="checkbox" id="fontToggle" />
+                    <span class="slider round"></span>
+                </label>
+
+                <span id="fontSwitch">Dan-ball font</span>
             </div>
         </div>
 
-        <div class="right-panel">
+        <div id="right-panel">
             <div id="APConnection">
                 <p>Archipelago connection</p>
                 <table>
@@ -181,5 +240,45 @@
                 </div>
             </div>
         </div>
+        <script>
+            const fontToggle = document.getElementById("fontToggle");
+            fontToggle.addEventListener("change", applyFontToggle);
+
+            function applyFontToggle() {
+                const boxes = [document.getElementById("right-panel"), document.getElementById("chat")];
+                const textInputs = [document.getElementById("host"), document.getElementById("port"), document.getElementById("slotName"), document.getElementById("password")];
+                const buttons = [document.getElementById("connect"), document.getElementById("disconnect")];
+                const font = "dan-ball, monospace";
+
+                if (fontToggle.checked) {
+                    boxes.forEach((box) => {
+                        box.style.fontFamily = font;
+                    });
+                    buttons.forEach((btn, i) => {
+                        btn.style.fontFamily = font;
+                        btn.style.fontSize = i === 0 ? "1.2em" : "1em"; // connect = 1.2em, disconnect = 1em
+                    });
+                    textInputs.forEach((input) => {
+                        input.style.fontFamily = font;
+                        input.style.fontSize = "1.2em";
+                    });
+                } else {
+                    boxes.forEach((box) => {
+                        box.style.fontFamily = "monospace";
+                        box.style.fontSize = "0.9em";
+                    });
+                    buttons.forEach((btn) => {
+                        btn.style.fontSize = "";
+                        btn.style.fontFamily = "";
+                    });
+                    textInputs.forEach((input) => {
+                        input.style.fontSize = "";
+                        input.style.fontFamily = "";
+                    });
+                }
+            }
+
+            applyFontToggle();
+        </script>
     </body>
 </html>
