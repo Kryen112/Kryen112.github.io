@@ -53,6 +53,10 @@
                 align-items: center;
             }
 
+            #connect {
+                cursor: pointer;
+            }
+
             #chat {
                 flex: 1;
                 width: 500px;
@@ -62,6 +66,35 @@
                 padding: 4px;
                 font-family: monospace;
                 font-size: 0.9em;
+            }
+
+            #connectionBox {
+                justify-content: space-between;
+                align-items: center;
+                display: none;
+                position: sticky;
+                top: -4px;
+                margin: -4px -4px 0px -4px;
+                padding: 2px;
+                background-color: rgb(76, 76, 76);
+            }
+
+            #connectionInfo {
+                float: left;
+            }
+
+            #disconnect {
+                font-size: 0.8em;
+                float: right;
+                background-color: rgb(76, 76, 76);
+                border: none;
+                color: white;
+                border-left: 2px solid rgb(91, 91, 91);
+            }
+
+            #disconnect:hover {
+                color: rgb(255, 80, 80);
+                cursor: pointer;
             }
         </style>
     </head>
@@ -134,7 +167,12 @@
                 </table>
                 <button id="connect">Connect</button>
             </div>
-            <div id="chat"></div>
+            <div id="chat">
+                <div id="connectionBox">
+                    <span id="connectionInfo"></span>
+                    <button id="disconnect">Disconnect</button>
+                </div>
+            </div>
         </div>
     </body>
 </html>

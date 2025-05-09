@@ -61,16 +61,21 @@ class APIntegration {
         this.deathLinkSource = "";
         this.deathLinkTime = ""; // Currently unused
         this.deathLinkCause = "";
+        this.clickedDisconnect = false;
 
         this.host = document.getElementById("host");
         this.port = document.getElementById("port");
         this.slotName = document.getElementById("slotName");
         this.password = document.getElementById("password");
         this.connect = document.getElementById("connect");
+        this.connectionBox = document.getElementById("connectionBox");
+        this.connectionInfo = document.getElementById("connectionInfo");
+        this.disconnect = document.getElementById("disconnect");
         this.chat = document.getElementById("chat");
         this.apDiv = document.getElementById("APConnection");
 
         this.connect.addEventListener("click", () => this._onConnectClick());
+        this.disconnect.addEventListener("click", () => this._onDisconnectClick());
         const listenForEnter = (input) => {
             input.addEventListener("keydown", (event) => {
                 if (event.key === "Enter") {
@@ -78,7 +83,7 @@ class APIntegration {
                 }
             });
         };
-        
+
         listenForEnter(this.host);
         listenForEnter(this.port);
         listenForEnter(this.slotName);
@@ -91,19 +96,35 @@ class APIntegration {
     }
 
     async _onConnectClick() {
-        this.storageKey = [this.host.value, this.port.value, "Stick Ranger", this.slotName.value].join(":");
-
-        const saved = await getState(this.storageKey);
-        if (saved) {
-            this.receivedItems = saved.receivedItems;
-            this.bookHints = saved.bookHints ?? {};
-            this.randomizedBookCosts = saved.randomizedBookCosts ?? {};
-            GameLoad(saved.save.replace(/\r\n|\r|\n/g, ""));
+        this.connectionInfo.textContent = "Connected at: " + this.host.value + ":"  + this.port.value + " - " + this.slotName.value;
+        if (!this.clickedDisconnect) {
+            this.storageKey = [this.host.value, this.port.value, "Stick Ranger", this.slotName.value].join(":");
+    
+            const saved = await getState(this.storageKey);
+            if (saved) {
+                this.receivedItems = saved.receivedItems;
+                this.bookHints = saved.bookHints ?? {};
+                this.randomizedBookCosts = saved.randomizedBookCosts ?? {};
+                GameLoad(saved.save.replace(/\r\n|\r|\n/g, ""));
+            }
         }
 
+        this.clickedDisconnect = false;
         this._pendingConnect = true;
         this.apDiv.style.display = "none";
+        this.connectionBox.style.display = "flex";
         this.log("Waiting for the game to enter the map...", "info");
+    }
+
+    async _onDisconnectClick() {
+        this.clickedDisconnect = true;
+        await this.saveState();
+        this._pendingConnect = false;
+        this._connected = false;
+        this.apDiv.style.display = "flex";
+        this.connectionBox.style.display = "none";
+        this.log("Disconnected from multiworld server.", "info");
+        this.client?.socket.disconnect();
     }
 
     log(msg, type = "info") {
@@ -336,6 +357,7 @@ class APIntegration {
                 this.client.deathLink.enableDeathLink();
                 this.client.updateTags(["AP", "DeathLink"]);
             }
+            Team_Gold = 99999
 
             antiCheatSet();
         } catch (error) {
@@ -347,6 +369,7 @@ class APIntegration {
             this._connected = false;
             Sequence_Step = 0;
             this.apDiv.style.display = "flex";
+            this.connectionBox.style.display = "none";
         }
     }
 
@@ -474,7 +497,7 @@ class APIntegration {
         }
 
         // connect once game is properly loaded
-        if (Sequence_Step === 6 && this._pendingConnect && !this._connected) {
+        if (Sequence_Step >= 6 && this._pendingConnect && !this._connected) {
             this._pendingConnect = false;
             this._connect();
         }
