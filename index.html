@@ -161,11 +161,6 @@
 
     <body>
         <div class="left-panel">
-            <div id="disable_electron_warnings">
-                <script type="text/javascript">
-                    process.env["ELECTRON_DISABLE_SECURITY_WARNINGS"] = "true";
-                </script>
-            </div>
             <canvas id="cv"></canvas>
             <script src="/game.js"></script>
             <script type="module" src="/src/main.js"></script>
