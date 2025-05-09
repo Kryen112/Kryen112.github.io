@@ -360,6 +360,11 @@ class APIntegration {
                 this.client.updateTags(["AP", "DeathLink"]);
             }
 
+            if (Item_Inv[this.MOUSE_SLOT]) { // Guard against having an item in hand on connect, if inventory was full on disconnect
+                this.pendingItems.push(Item_Inv[this.MOUSE_SLOT]);
+                Item_Inv[this.MOUSE_SLOT] = 0;
+            }
+
             antiCheatSet();
         } catch (error) {
             if (Array.isArray(error) && error[0]?.target instanceof WebSocket) {
