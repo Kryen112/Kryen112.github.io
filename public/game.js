@@ -1478,23 +1478,6 @@ function antiCheatCheck(){ // original name: Ne()
         }
     }
     if (Game_Mode==0 || Game_Mode==2){
-        en_highest_lv = 0;
-        for (var s=0; s<Stage_Count; s++){
-            if ((Stage_Status[s]&Unlocked) != 0){
-                enemy_types = Book_Indexer[s+1]-Book_Indexer[s];
-                for (var e=0; e<enemy_types; e++){
-                    if (EN_Info[Book_Indexer[s]+e][EN_Lvl]>en_highest_lv)
-                        en_highest_lv = EN_Info[Book_Indexer[s]+e][EN_Lvl];
-                    e += EN_Info[Book_Indexer[s]+e][En_2nd_Att];
-                }
-            }
-        }
-        if (LV[0]>en_highest_lv+10+2){
-            console.log("Error: team level too high for current progress");
-            Game_Canvas = null;
-        }
-    }
-    if (Game_Mode==0 || Game_Mode==2){
         xp_for_prev_LV = 4753000;
         xp_for_next_LV = 9999999;
         if (LV[0] < 98){

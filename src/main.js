@@ -291,6 +291,10 @@ class APIntegration {
             }
             window.ArchipelagoMod.randomizedBookCosts = this.randomizedBookCosts ?? {};
 
+            if (this.slotData.deathLink) {
+                this.client.deathLink.enableDeathLink();
+            }
+
             antiCheatSet();
         } catch (error) {
             if (Array.isArray(error) && error[0]?.target instanceof WebSocket) {
