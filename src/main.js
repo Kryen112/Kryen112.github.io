@@ -234,7 +234,7 @@ class APIntegration {
         this.storageKey = [host, port, game, slot].join(":");
 
         this.client.socket.on("receivedItems", async (packet) => {
-            const serverItems = packet.items.map(i => i.item);
+            const serverItems = packet.items.map((i) => i.item);
             const isReconnect = packet.index === 0 && packet.items.length > 1 && this.receivedItems.length > 0;
 
             for (const id of serverItems) {
@@ -503,7 +503,7 @@ class APIntegration {
 
         const unequipCount = Math.min(emptySlots.length, equippedRangers.length);
         for (let i = 0; i < unequipCount; i++) {
-            const selectedRanger = equippedRangers.shift()
+            const selectedRanger = equippedRangers.shift();
             moveItemWithCompos(selectedRanger, emptySlots[i]);
             MP_Bar[selectedRanger] = 0;
             Players.PL_gladr_resid_count[selectedRanger] = 0;
@@ -536,7 +536,22 @@ class APIntegration {
         }
     }
 
-    spawnEnemies() {}
+    spawnEnemies() {
+        // IDs to exclude (Invisible boss attacks)
+        const excludedIds = new Set([40, 115, 163, 244, 333, 334, 335, 336, 337]);
+
+        const spawnAmount = this.randomRangeInt(3, 10);
+        for (let i = 0; i < spawnAmount; i++) {
+            let randomType;
+            do {
+                randomType = this.randomRangeInt(1, 338);
+            } while (excludedIds.has(randomType));
+            const en_xpos = Math.floor(Math.random() * ((Win_Width >> 3) - 4 - 12 + 1)) + 12;
+            const en_ypos = fiftyfifty(Terrain.TR_low_surface[en_xpos], Terrain.TR_high_surface[en_xpos]);
+
+            Enemies.ENadd(en_xpos, en_ypos, randomType);
+        }
+    }
 
     _firstEmptyInvSlot() {
         for (let i = this.INV_START; i < Item_Inv.length; i++) {
@@ -647,6 +662,10 @@ class APIntegration {
         }
 
         this.lastSequence = Sequence_Step;
+    }
+
+    randomRangeInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 }
 
