@@ -37,6 +37,7 @@ class APIntegration {
         this.BOOK_OFFSET = 10100;
         this.LOC_OFFSET = 11000;
         this.ITEM_OFFSET = 12000;
+        this.TRAPS_OFFSET = 13000;
         this.INV_START = 16;
         this.MOUSE_SLOT = 40;
         this.STAGE_TO_WIN = 88; // Hell Castle ID
@@ -245,7 +246,11 @@ class APIntegration {
                     await this._applyItem(id, true);
                 }
             } else {
-                await this._applyItem(packet.items[0].item, true);
+                if (packet.items[0].flags === 4 || packet.items[0].item >= this.TRAPS_OFFSET) {
+                    this._applyTrap(packet.items[0].item);
+                } else {
+                    await this._applyItem(packet.items[0].item, true);
+                }
             }
         });
 
@@ -404,6 +409,102 @@ class APIntegration {
 
         antiCheatSet();
         await this.saveState();
+    }
+
+    _applyTrap(id) {
+        switch (id) {
+            case 13000: // Unequip items
+                this.unequipItems();
+                break;
+            case 13001: // -50% gold
+                break;
+            case 13002: // Kill a Ranger
+                break;
+            case 13003: // Freeze Rangers
+                break;
+            case 13004: // Spawn enemies
+                break;
+            default:
+                break;
+        }
+    }
+
+    unequipItems() {
+        // Determine which rangers have items equipped
+        const equippedRangers = [4, 5, 6, 7].filter((i) => Item_Inv[i]);
+
+        if (equippedRangers.length === 0) {
+            return;
+        }
+
+        // Shuffle utility
+        const shuffle = (array) => {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        };
+
+        // Get all empty inventory slots (excluding MOUSE_SLOT)
+        const emptySlots = [];
+        for (let i = this.INV_START; i < Item_Inv.length; i++) {
+            if (i !== this.MOUSE_SLOT && !Item_Inv[i]) {
+                emptySlots.push(i);
+            }
+        }
+
+        const emptyCount = emptySlots.length;
+        shuffle(equippedRangers);
+        shuffle(emptySlots);
+
+        if (emptyCount === 0) {
+            // Case 0: Inventory full
+            if (equippedRangers.length > 0) {
+                const src = equippedRangers[0];
+                Item_Inv[this.MOUSE_SLOT] = Item_Inv[src];
+                Item_Inv[src] = 0;
+            }
+        } else if (emptyCount === 1) {
+            // Case 1: 1 empty inv slot -> 1 to inv, 1 to mouse
+            if (equippedRangers.length > 0) {
+                Item_Inv[this.MOUSE_SLOT] = Item_Inv[equippedRangers[0]];
+                Item_Inv[equippedRangers[0]] = 0;
+            }
+            if (equippedRangers.length > 1) {
+                Item_Inv[emptySlots[0]] = Item_Inv[equippedRangers[1]];
+                Item_Inv[equippedRangers[1]] = 0;
+            }
+        } else if (emptyCount === 2) {
+            // Case 2: 2 empty inv slots -> 2 to inv, 1 to mouse
+            if (equippedRangers.length > 0) {
+                Item_Inv[this.MOUSE_SLOT] = Item_Inv[equippedRangers[0]];
+                Item_Inv[equippedRangers[0]] = 0;
+            }
+            for (let i = 1; i <= 2 && i < equippedRangers.length; i++) {
+                Item_Inv[emptySlots[i - 1]] = Item_Inv[equippedRangers[i]];
+                Item_Inv[equippedRangers[i]] = 0;
+            }
+        } else if (emptyCount === 3) {
+            // Case 3: 3 empty inv slots -> 3 to inv, 1 to mouse
+            if (equippedRangers.length > 0) {
+                Item_Inv[this.MOUSE_SLOT] = Item_Inv[equippedRangers[0]];
+                Item_Inv[equippedRangers[0]] = 0;
+            }
+            for (let i = 1; i <= 3 && i < equippedRangers.length; i++) {
+                Item_Inv[emptySlots[i - 1]] = Item_Inv[equippedRangers[i]];
+                Item_Inv[equippedRangers[i]] = 0;
+            }
+        } else {
+            // Case 4+: 4+ empty inv slots -> unequip all into random inv slots
+            for (let i = 0; i < equippedRangers.length; i++) {
+                const slot = emptySlots[i % emptySlots.length];
+                Item_Inv[slot] = Item_Inv[equippedRangers[i]];
+                Item_Inv[equippedRangers[i]] = 0;
+            }
+        }
+
+        antiCheatSet();
     }
 
     _firstEmptyInvSlot() {
