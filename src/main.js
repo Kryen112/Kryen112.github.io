@@ -417,6 +417,7 @@ class APIntegration {
                 this.unequipItems();
                 break;
             case 13001: // -50% gold
+                this.loseHalfGold();
                 break;
             case 13002: // Kill a Ranger
                 break;
@@ -504,6 +505,11 @@ class APIntegration {
             }
         }
 
+        antiCheatSet();
+    }
+
+    loseHalfGold() {
+        Team_Gold -= Math.floor(Team_Gold / 2);
         antiCheatSet();
     }
 
