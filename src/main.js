@@ -536,7 +536,13 @@ class APIntegration {
         }
     }
 
-    spawnEnemies() {}
+    spawnEnemies() {
+        for (let i = 0; i < 3; i++) {
+            const en_xpos = floor(randomRange(12,(Win_Width>>3)-4));
+            const en_ypos = fiftyfifty(Terrain.TR_low_surface[en_xpos],Terrain.TR_high_surface[en_xpos]);
+            Enemies.ENadd( en_xpos, en_ypos, Stage_Spawns[Current_Stage][Current_Screen][3*1+3] );
+        }
+    }
 
     _firstEmptyInvSlot() {
         for (let i = this.INV_START; i < Item_Inv.length; i++) {
