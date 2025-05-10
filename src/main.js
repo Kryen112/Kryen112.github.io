@@ -234,26 +234,33 @@ class APIntegration {
         this.storageKey = [host, port, game, slot].join(":");
 
         this.client.socket.on("receivedItems", async (packet) => {
-            if (packet.items.length > 1 || (packet.items.length === 1 && packet.items[0].item === this.receivedItems[0])) { // The second part of this if prevents a seceond send of an item if the second items is identical to the first...
-                const serverItems = packet.items.map((i) => i.item);
+            const serverItems = packet.items.map(i => i.item);
+            const isReconnect = packet.index === 0 && packet.items.length > 1 && this.receivedItems.length > 0;
 
-                for (const id of serverItems) {
-                    await this._applyItem(id, false);
+            for (const id of serverItems) {
+                await this._applyItem(id, false);
+            }
+
+            if (isReconnect) {
+                const newItems = [...serverItems];
+                for (const id of this.receivedItems) {
+                    const index = newItems.indexOf(id);
+                    if (index !== -1) newItems.splice(index, 1);
                 }
-
-                let difference = serverItems.filter((item) => !this.receivedItems.includes(item));
-                for (const id of difference) {
-                    if (packet.items[0].flags === 4 || id >= this.TRAPS_OFFSET) {
+                for (const id of newItems) {
+                    if (id >= this.TRAPS_OFFSET || packet.items[0].flags === 4) {
                         await this._applyTrap(id);
                     } else {
                         await this._applyItem(id, true);
                     }
                 }
             } else {
-                if (packet.items[0].flags === 4 || packet.items[0].item >= this.TRAPS_OFFSET) {
-                    await this._applyTrap(packet.items[0].item);
-                } else {
-                    await this._applyItem(packet.items[0].item, true);
+                for (const id of serverItems) {
+                    if (id >= this.TRAPS_OFFSET || packet.items[0].flags === 4) {
+                        await this._applyTrap(id);
+                    } else {
+                        await this._applyItem(id, true);
+                    }
                 }
             }
         });
@@ -398,6 +405,7 @@ class APIntegration {
         // location unlock
         if (id >= this.LOC_OFFSET && id < this.LOC_OFFSET + 999) {
             Stage_Status[id - this.LOC_OFFSET] |= Unlocked;
+            antiCheatSet();
         }
 
         // item grant
@@ -407,16 +415,17 @@ class APIntegration {
             if (slot >= 0) {
                 this.receivedItems.push(id);
                 Item_Inv[slot] = idx;
+                antiCheatSet();
             } else {
                 this.pendingItems.push(id);
             }
         }
 
-        antiCheatSet();
         await this.saveState();
     }
 
     async _applyTrap(id) {
+        this.receivedItems.push(id);
         switch (id) {
             case 13000: // Unequip items
                 this.unequipItems();
@@ -504,6 +513,7 @@ class APIntegration {
 
     loseHalfGold() {
         Team_Gold -= Math.floor(Team_Gold / 2);
+        antiCheatSet();
     }
 
     killRanger() {
@@ -515,12 +525,14 @@ class APIntegration {
 
         const target = aliveRangers[Math.floor(Math.random() * aliveRangers.length)];
         LP_Current[target] = 0;
+        antiCheatSet();
     }
 
     freezeRangers() {
         for (let i = 0; i < Stickmen_Slots; i++) {
             const randomTicks = Math.floor(Math.random() * 750) + 1;
             Players.PL_frozen_ticks[i] = randomTicks;
+            antiCheatSet();
         }
     }
 
