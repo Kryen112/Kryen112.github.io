@@ -243,11 +243,15 @@ class APIntegration {
 
                 let difference = serverItems.filter((item) => !this.receivedItems.includes(item));
                 for (const id of difference) {
-                    await this._applyItem(id, true);
+                    if (packet.items[0].flags === 4 || id >= this.TRAPS_OFFSET) {
+                        await this._applyTrap(id);
+                    } else {
+                        await this._applyItem(id, true);
+                    }
                 }
             } else {
                 if (packet.items[0].flags === 4 || packet.items[0].item >= this.TRAPS_OFFSET) {
-                    this._applyTrap(packet.items[0].item);
+                    await this._applyTrap(packet.items[0].item);
                 } else {
                     await this._applyItem(packet.items[0].item, true);
                 }
@@ -365,7 +369,8 @@ class APIntegration {
                 this.client.updateTags(["AP", "DeathLink"]);
             }
 
-            if (Item_Inv[this.MOUSE_SLOT]) { // Guard against having an item in hand on connect, if inventory was full on disconnect
+            if (Item_Inv[this.MOUSE_SLOT]) {
+                // Guard against having an item in hand on connect, if inventory was full on disconnect
                 this.pendingItems.push(Item_Inv[this.MOUSE_SLOT]);
                 Item_Inv[this.MOUSE_SLOT] = 0;
             }
@@ -411,7 +416,7 @@ class APIntegration {
         await this.saveState();
     }
 
-    _applyTrap(id) {
+    async _applyTrap(id) {
         switch (id) {
             case 13000: // Unequip items
                 this.unequipItems();
@@ -426,19 +431,20 @@ class APIntegration {
                 this.freezeRangers();
                 break;
             case 13004: // Spawn enemies
+                this.spawnEnemies();
                 break;
             default:
                 break;
         }
+
+        await this.saveState();
+        antiCheatSet();
     }
 
     unequipItems() {
         // Determine which rangers have items equipped
         const equippedRangers = [4, 5, 6, 7].filter((i) => Item_Inv[i]);
-
-        if (equippedRangers.length === 0) {
-            return;
-        }
+        if (equippedRangers.length === 0) return;
 
         // Shuffle utility
         const shuffle = (array) => {
@@ -447,6 +453,23 @@ class APIntegration {
                 [array[i], array[j]] = [array[j], array[i]];
             }
             return array;
+        };
+
+        const storeItemSafely = (itemIndex) => {
+            if (!itemIndex) return;
+            if (Item_Inv[this.MOUSE_SLOT] === 0) {
+                Item_Inv[this.MOUSE_SLOT] = itemIndex;
+            } else {
+                this.pendingItems.push(this.ITEM_OFFSET + itemIndex);
+            }
+        };
+
+        const unequipToMouse = () => {
+            if (equippedRangers.length > 0) {
+                const src = equippedRangers.shift();
+                storeItemSafely(Item_Inv[src]);
+                Item_Inv[src] = 0;
+            }
         };
 
         // Get all empty inventory slots (excluding MOUSE_SLOT)
@@ -463,40 +486,30 @@ class APIntegration {
 
         if (emptyCount === 0) {
             // Case 0: Inventory full
-            if (equippedRangers.length > 0) {
-                const src = equippedRangers[0];
-                Item_Inv[this.MOUSE_SLOT] = Item_Inv[src];
-                Item_Inv[src] = 0;
-            }
+            unequipToMouse();
         } else if (emptyCount === 1) {
             // Case 1: 1 empty inv slot -> 1 to inv, 1 to mouse
+            unequipToMouse();
             if (equippedRangers.length > 0) {
-                Item_Inv[this.MOUSE_SLOT] = Item_Inv[equippedRangers[0]];
-                Item_Inv[equippedRangers[0]] = 0;
-            }
-            if (equippedRangers.length > 1) {
-                Item_Inv[emptySlots[0]] = Item_Inv[equippedRangers[1]];
-                Item_Inv[equippedRangers[1]] = 0;
+                const src = equippedRangers.shift();
+                Item_Inv[emptySlots[0]] = Item_Inv[src];
+                Item_Inv[src] = 0;
             }
         } else if (emptyCount === 2) {
             // Case 2: 2 empty inv slots -> 2 to inv, 1 to mouse
-            if (equippedRangers.length > 0) {
-                Item_Inv[this.MOUSE_SLOT] = Item_Inv[equippedRangers[0]];
-                Item_Inv[equippedRangers[0]] = 0;
-            }
-            for (let i = 1; i <= 2 && i < equippedRangers.length; i++) {
-                Item_Inv[emptySlots[i - 1]] = Item_Inv[equippedRangers[i]];
-                Item_Inv[equippedRangers[i]] = 0;
+            unequipToMouse();
+            for (let i = 0; i < Math.min(emptyCount, equippedRangers.length); i++) {
+                const src = equippedRangers.shift();
+                Item_Inv[emptySlots[i]] = Item_Inv[src];
+                Item_Inv[src] = 0;
             }
         } else if (emptyCount === 3) {
             // Case 3: 3 empty inv slots -> 3 to inv, 1 to mouse
-            if (equippedRangers.length > 0) {
-                Item_Inv[this.MOUSE_SLOT] = Item_Inv[equippedRangers[0]];
-                Item_Inv[equippedRangers[0]] = 0;
-            }
-            for (let i = 1; i <= 3 && i < equippedRangers.length; i++) {
-                Item_Inv[emptySlots[i - 1]] = Item_Inv[equippedRangers[i]];
-                Item_Inv[equippedRangers[i]] = 0;
+            unequipToMouse();
+            for (let i = 0; i < Math.min(emptyCount, equippedRangers.length); i++) {
+                const src = equippedRangers.shift();
+                Item_Inv[emptySlots[i]] = Item_Inv[src];
+                Item_Inv[src] = 0;
             }
         } else {
             // Case 4+: 4+ empty inv slots -> unequip all into random inv slots
@@ -506,13 +519,10 @@ class APIntegration {
                 Item_Inv[equippedRangers[i]] = 0;
             }
         }
-
-        antiCheatSet();
     }
 
     loseHalfGold() {
         Team_Gold -= Math.floor(Team_Gold / 2);
-        antiCheatSet();
     }
 
     killRanger() {
@@ -524,8 +534,6 @@ class APIntegration {
 
         const target = aliveRangers[Math.floor(Math.random() * aliveRangers.length)];
         LP_Current[target] = 0;
-
-        antiCheatSet();
     }
 
     freezeRangers() {
@@ -534,6 +542,8 @@ class APIntegration {
             Players.PL_frozen_ticks[i] = randomTicks;
         }
     }
+
+    spawnEnemies() {}
 
     _firstEmptyInvSlot() {
         for (let i = this.INV_START; i < Item_Inv.length; i++) {
