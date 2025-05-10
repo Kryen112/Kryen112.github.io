@@ -423,6 +423,7 @@ class APIntegration {
                 this.killRanger();
                 break;
             case 13003: // Freeze Rangers
+                this.freezeRangers();
                 break;
             case 13004: // Spawn enemies
                 break;
@@ -525,6 +526,13 @@ class APIntegration {
         LP_Current[target] = 0;
 
         antiCheatSet();
+    }
+
+    freezeRangers() {
+        for (let i = 0; i < Stickmen_Slots; i++) {
+            const randomTicks = Math.floor(Math.random() * 750) + 1;
+            Players.PL_frozen_ticks[i] = randomTicks;
+        }
     }
 
     _firstEmptyInvSlot() {
