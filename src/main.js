@@ -536,7 +536,43 @@ class APIntegration {
         }
     }
 
-    spawnEnemies() {}
+    spawnEnemies() {
+        // IDs with 0 gold drop or boss attack: 40, 115, 163, 244, 333, 334, 335, 336, 337
+        for (let i = 0; i < 322; i++) {
+            const en_xpos = floor(randomRange(12, (Win_Width >> 3) - 4));
+            const en_ypos = fiftyfifty(
+                Terrain.TR_low_surface[en_xpos],
+                Terrain.TR_high_surface[en_xpos]
+            );
+            console.log(i);
+            
+            console.log(EN_Info[i]);
+            
+            // Enemies.ENadd(en_xpos, en_ypos, 500);            
+        }
+
+        for (let i = 0; i < 2; i++) {
+            const en_xpos = floor(randomRange(12, (Win_Width >> 3) - 4));
+            const en_ypos = fiftyfifty(
+                Terrain.TR_low_surface[en_xpos],
+                Terrain.TR_high_surface[en_xpos]
+            );
+            Enemies.ENadd(en_xpos, en_ypos, 338);            
+            
+        }
+        // const spawnAmount = floor(this.randomRangeInt(1, 11));
+        // for (let i = 0; i < spawnAmount; i++) {
+        //     const randomType = floor(this.randomRangeInt(1, 501));
+        //     console.log(randomType);
+            
+        //     const en_xpos = floor(randomRange(12, (Win_Width >> 3) - 4));
+        //     const en_ypos = fiftyfifty(
+        //         Terrain.TR_low_surface[en_xpos],
+        //         Terrain.TR_high_surface[en_xpos]
+        //     );
+        //     Enemies.ENadd(en_xpos, en_ypos, randomType);
+        // }
+    }
 
     _firstEmptyInvSlot() {
         for (let i = this.INV_START; i < Item_Inv.length; i++) {
@@ -647,6 +683,10 @@ class APIntegration {
         }
 
         this.lastSequence = Sequence_Step;
+    }
+
+    randomRangeInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 }
 
