@@ -420,6 +420,7 @@ class APIntegration {
                 this.loseHalfGold();
                 break;
             case 13002: // Kill a Ranger
+                this.killRanger();
                 break;
             case 13003: // Freeze Rangers
                 break;
@@ -510,6 +511,19 @@ class APIntegration {
 
     loseHalfGold() {
         Team_Gold -= Math.floor(Team_Gold / 2);
+        antiCheatSet();
+    }
+
+    killRanger() {
+        const aliveRangers = [0, 1, 2, 3].filter((i) => LP_Current[i] > 0);
+
+        if (aliveRangers.length === 0) {
+            return;
+        }
+
+        const target = aliveRangers[Math.floor(Math.random() * aliveRangers.length)];
+        LP_Current[target] = 0;
+
         antiCheatSet();
     }
 
