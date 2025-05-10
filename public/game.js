@@ -1591,7 +1591,7 @@ function antiCheatCheck(){ // original name: Ne()
                                             Check_Var2_Rank1 = (Rank[1]|1);
 
     if (Check_Var_Secondary != (Check_Var_Total^16777215)){
-        //console.log("Error: Check_Var_Secondary does not match previous check");
+        console.log("Error: Check_Var_Secondary does not match previous check");
         Game_Canvas = null;
     }
     if (Check_Var_Team_EXP != Check_Var2_Team_EXP){
@@ -1631,7 +1631,7 @@ function antiCheatCheck(){ // original name: Ne()
         Game_Canvas = null;
     }
     if (Check_Var_LP_Current != Check_Var2_LP_Current){
-        //console.log("LP_Current:"+Check_Var_LP_Current+" != LP_Current2:"+Check_Var2_LP_Current);
+        console.log("LP_Current:"+Check_Var_LP_Current+" != LP_Current2:"+Check_Var2_LP_Current);
         Game_Canvas = null;
     }
     if (Check_Var_MP_Bar != Check_Var2_MP_Bar){

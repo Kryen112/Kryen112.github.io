@@ -234,7 +234,7 @@ class APIntegration {
         this.storageKey = [host, port, game, slot].join(":");
 
         this.client.socket.on("receivedItems", async (packet) => {
-            if (packet.items.length > 1 || (packet.items.length === 1 && packet.items[0].item === this.receivedItems[0])) {
+            if (packet.items.length > 1 || (packet.items.length === 1 && packet.items[0].item === this.receivedItems[0])) { // The second part of this if prevents a seceond send of an item if the second items is identical to the first...
                 const serverItems = packet.items.map((i) => i.item);
 
                 for (const id of serverItems) {
@@ -442,11 +442,9 @@ class APIntegration {
     }
 
     unequipItems() {
-        // Determine which rangers have items equipped
         const equippedRangers = [4, 5, 6, 7].filter((i) => Item_Inv[i]);
         if (equippedRangers.length === 0) return;
 
-        // Shuffle utility
         const shuffle = (array) => {
             for (let i = array.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -455,24 +453,31 @@ class APIntegration {
             return array;
         };
 
-        const storeItemSafely = (itemIndex) => {
-            if (!itemIndex) return;
-            if (Item_Inv[this.MOUSE_SLOT] === 0) {
-                Item_Inv[this.MOUSE_SLOT] = itemIndex;
-            } else {
-                this.pendingItems.push(this.ITEM_OFFSET + itemIndex);
-            }
+        const moveItemWithCompos = (from, to) => {
+            const item = Item_Inv[from];
+            const comp1 = Comp1_Inv[from];
+            const comp2 = Comp2_Inv[from];
+
+            Item_Inv[to] = item;
+            Comp1_Inv[to] = comp1;
+            Comp2_Inv[to] = comp2;
+
+            Item_Inv[from] = 0;
+            Comp1_Inv[from] = 0;
+            Comp2_Inv[from] = 0;
+            antiCheatSet();
         };
 
         const unequipToMouse = () => {
-            if (equippedRangers.length > 0) {
-                const src = equippedRangers.shift();
-                storeItemSafely(Item_Inv[src]);
-                Item_Inv[src] = 0;
+            if (equippedRangers.length > 0 && Item_Inv[this.MOUSE_SLOT] === 0) {
+                const selectedRanger = equippedRangers.shift();
+                moveItemWithCompos(selectedRanger, this.MOUSE_SLOT);
+                MP_Bar[selectedRanger] = 0;
+                Players.PL_gladr_resid_count[selectedRanger] = 0;
+                antiCheatSet();
             }
         };
 
-        // Get all empty inventory slots (excluding MOUSE_SLOT)
         const emptySlots = [];
         for (let i = this.INV_START; i < Item_Inv.length; i++) {
             if (i !== this.MOUSE_SLOT && !Item_Inv[i]) {
@@ -480,44 +485,20 @@ class APIntegration {
             }
         }
 
-        const emptyCount = emptySlots.length;
         shuffle(equippedRangers);
         shuffle(emptySlots);
 
-        if (emptyCount === 0) {
-            // Case 0: Inventory full
+        if (emptySlots.length < 4 && Item_Inv[this.MOUSE_SLOT] === 0) {
             unequipToMouse();
-        } else if (emptyCount === 1) {
-            // Case 1: 1 empty inv slot -> 1 to inv, 1 to mouse
-            unequipToMouse();
-            if (equippedRangers.length > 0) {
-                const src = equippedRangers.shift();
-                Item_Inv[emptySlots[0]] = Item_Inv[src];
-                Item_Inv[src] = 0;
-            }
-        } else if (emptyCount === 2) {
-            // Case 2: 2 empty inv slots -> 2 to inv, 1 to mouse
-            unequipToMouse();
-            for (let i = 0; i < Math.min(emptyCount, equippedRangers.length); i++) {
-                const src = equippedRangers.shift();
-                Item_Inv[emptySlots[i]] = Item_Inv[src];
-                Item_Inv[src] = 0;
-            }
-        } else if (emptyCount === 3) {
-            // Case 3: 3 empty inv slots -> 3 to inv, 1 to mouse
-            unequipToMouse();
-            for (let i = 0; i < Math.min(emptyCount, equippedRangers.length); i++) {
-                const src = equippedRangers.shift();
-                Item_Inv[emptySlots[i]] = Item_Inv[src];
-                Item_Inv[src] = 0;
-            }
-        } else {
-            // Case 4+: 4+ empty inv slots -> unequip all into random inv slots
-            for (let i = 0; i < equippedRangers.length; i++) {
-                const slot = emptySlots[i % emptySlots.length];
-                Item_Inv[slot] = Item_Inv[equippedRangers[i]];
-                Item_Inv[equippedRangers[i]] = 0;
-            }
+        }
+
+        const unequipCount = Math.min(emptySlots.length, equippedRangers.length);
+        for (let i = 0; i < unequipCount; i++) {
+            const selectedRanger = equippedRangers.shift()
+            moveItemWithCompos(selectedRanger, emptySlots[i]);
+            MP_Bar[selectedRanger] = 0;
+            Players.PL_gladr_resid_count[selectedRanger] = 0;
+            antiCheatSet();
         }
     }
 
