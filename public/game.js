@@ -12077,7 +12077,7 @@ SR_Animated_Indicator.prototype.INreset = function(){ // aa.j
 
 // little numbers
 SR_Animated_Indicator.prototype.INadd = function(x_pos,y_pos,direction,value,color){ // aa.add
-    if (this.IN_index != Ind_Limit){ // limit the quantitiy of damage numbers to Ind_Limit
+    if (this.IN_index != Ind_Limit){ // limit the quantity of damage numbers to Ind_Limit
         // limit position to stay inside the screen
         x_pos = clamp(x_pos,16,Win_Width-16-1);
         y_pos = clamp(y_pos,8,Inv_Top-8-1);

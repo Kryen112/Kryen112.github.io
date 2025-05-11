@@ -570,7 +570,10 @@ class APIntegration {
     }
 
     loseHalfGold() {
-        Team_Gold -= Math.floor(Team_Gold / 2);
+        const lostGold = Math.floor(Team_Gold / 2);
+        Team_Gold -= lostGold;
+        this.log("You lost $" + lostGold + "!", "error");
+        Indicators.INadd(Players.PL_joint[Selected_Player][0].x,Players.PL_joint[Selected_Player][0].y,0,"-$"+lostGold,0xFF3F3F)
         antiCheatSet();
     }
 
