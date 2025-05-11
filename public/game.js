@@ -973,6 +973,10 @@ function saveGame(save_string_var){ // original name: ue()
 // takes the item array and the element number and returns the value of that element in that array
 function getVal(item,element){ // original name: w()
     // if the element you are trying to access is beyond the range of the array
+    if (item > 563) {
+        console.log(item, element);
+    }
+
     if (Item_Catalogue[item].length <= element){
         return 0;
     } else { // if the value is a weapon/item color, projectile color, or residue color

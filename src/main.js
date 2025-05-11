@@ -65,6 +65,8 @@ class APIntegration {
         this.clickedDisconnect = false;
         this.newGame = false;
         this.pendingTraps = [];
+        this.deathMouseItem = {};
+        this.connectMouseItem = {};
 
         this.host = document.getElementById("host");
         this.port = document.getElementById("port");
@@ -116,6 +118,8 @@ class APIntegration {
                 this.receivedItems = saved.receivedItems;
                 this.bookHints = saved.bookHints ?? {};
                 this.randomizedBookCosts = saved.randomizedBookCosts ?? {};
+                this.deathMouseItem = saved.deathMouseItem ?? {};
+                this.connectMouseItem = saved.connectMouseItem ?? {};
                 GameLoad(saved.save.replace(/\r\n|\r|\n/g, ""));
             }
         }
@@ -174,6 +178,8 @@ class APIntegration {
             save: GameSave("0"),
             bookHints: this.bookHints ?? {},
             randomizedBookCosts: this.randomizedBookCosts ?? {},
+            deathMouseItem: this.deathMouseItem ?? {},
+            connectMouseItem: this.connectMouseItem ?? {},
         });
     }
 
@@ -410,8 +416,18 @@ class APIntegration {
 
             if (Item_Inv[this.MOUSE_SLOT]) {
                 // Guard against having an item in hand on connect, if inventory was full on disconnect
-                this.pendingItems.push(Item_Inv[this.MOUSE_SLOT]);
+                this.connectMouseItem = {
+                    itemId: Item_Inv[this.MOUSE_SLOT],
+                    compo1: Comp1_Inv[this.MOUSE_SLOT],
+                    compo2: Comp2_Inv[this.MOUSE_SLOT],
+                };
+
                 Item_Inv[this.MOUSE_SLOT] = 0;
+                Comp1_Inv[this.MOUSE_SLOT] = 0;
+                Comp2_Inv[this.MOUSE_SLOT] = 0;
+                antiCheatSet();
+                await this.saveState();
+                this.log("Storing mouse item (" + Item_Catalogue[this.connectMouseItem.itemId][0] + ") to be recovered when in-game again.", "info");
             }
 
             this.chatLine.style.display = "flex";
@@ -680,6 +696,55 @@ class APIntegration {
                     this.deathLinkSent = false;
                     this.deathLinkReceived = false;
                     this.deathLinkPending = false;
+                }
+            }
+
+            // On Game Over, place any item inside the Mouse Slot into a queue to go back into the inventory, and clear the trap queue
+            if (Sequence_Step === 30) {
+                if (Item_Inv[this.MOUSE_SLOT]) {
+                    this.deathMouseItem = {
+                        itemId: Item_Inv[this.MOUSE_SLOT],
+                        compo1: Comp1_Inv[this.MOUSE_SLOT],
+                        compo2: Comp2_Inv[this.MOUSE_SLOT],
+                    };
+
+                    Item_Inv[this.MOUSE_SLOT] = 0;
+                    Comp1_Inv[this.MOUSE_SLOT] = 0;
+                    Comp2_Inv[this.MOUSE_SLOT] = 0;
+                    antiCheatSet();
+                    await this.saveState();
+                    this.log("Storing mouse item (" + Item_Catalogue[this.deathMouseItem.itemId][0] + ") to be recovered when in-game again.", "info");
+                }
+
+                // Reset pending traps, to not trap the player upon connect again
+                this.pendingTraps = [];
+            }
+
+            // Replace mouse item on death into inventory once it's all available
+            if (this.isInPlayableSequenceStep() && this.deathMouseItem?.itemId > 0) {
+                const firstEmptyInvSlot = this._firstEmptyInvSlot();
+                if (firstEmptyInvSlot !== -1) {
+                    Item_Inv[firstEmptyInvSlot] = this.deathMouseItem.itemId;
+                    Comp1_Inv[firstEmptyInvSlot] = this.deathMouseItem.compo1;
+                    Comp2_Inv[firstEmptyInvSlot] = this.deathMouseItem.compo2;
+                    this.deathMouseItem = {};
+                    antiCheatSet();
+                    await this.saveState();
+                    this.log("Mouse item (" + Item_Catalogue[Item_Inv[firstEmptyInvSlot]][0] + ") recovered into inventory.", "info");
+                }
+            }
+
+            // Replace mouse item on connect into inventory once it's all available
+            if (this.isInPlayableSequenceStep() && this.connectMouseItem?.itemId > 0) {
+                const firstEmptyInvSlot = this._firstEmptyInvSlot();
+                if (firstEmptyInvSlot !== -1) {
+                    Item_Inv[firstEmptyInvSlot] = this.connectMouseItem.itemId;
+                    Comp1_Inv[firstEmptyInvSlot] = this.connectMouseItem.compo1;
+                    Comp2_Inv[firstEmptyInvSlot] = this.connectMouseItem.compo2;
+                    this.connectMouseItem = {};
+                    antiCheatSet();
+                    await this.saveState();
+                    this.log("Mouse item (" + Item_Catalogue[Item_Inv[firstEmptyInvSlot]][0] + ") recovered into inventory.", "info");
                 }
             }
 
