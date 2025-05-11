@@ -64,6 +64,7 @@ class APIntegration {
         this.deathLinkCause = "";
         this.clickedDisconnect = false;
         this.newGame = false;
+        this.pendingTraps = [];
 
         this.host = document.getElementById("host");
         this.port = document.getElementById("port");
@@ -424,26 +425,34 @@ class APIntegration {
         await this.saveState();
     }
 
+    isInPlayableSequenceStep() {
+        return [12, 52, 53, 54, 55].includes(Sequence_Step);
+    }
+
     async _applyTrap(id) {
-        this.receivedItems.push(id);
-        switch (id) {
-            case 13000: // Unequip items
-                this.unequipItems();
-                break;
-            case 13001: // -50% gold
-                this.loseHalfGold();
-                break;
-            case 13002: // Kill a Ranger
-                this.killRanger();
-                break;
-            case 13003: // Freeze Rangers
-                this.freezeRangers();
-                break;
-            case 13004: // Spawn enemies
-                this.spawnEnemies();
-                break;
-            default:
-                break;
+        if (this.isInPlayableSequenceStep()) {
+            this.receivedItems.push(id);
+            switch (id) {
+                case 13000: // Unequip items
+                    this.unequipItems();
+                    break;
+                case 13001: // -50% gold
+                    this.loseHalfGold();
+                    break;
+                case 13002: // Kill a Ranger
+                    this.killRanger();
+                    break;
+                case 13003: // Freeze Rangers
+                    this.freezeRangers();
+                    break;
+                case 13004: // Spawn enemies
+                    this.spawnEnemies();
+                    break;
+                default:
+                    break;
+            }
+        } else {
+            this.pendingTraps.push(id);
         }
 
         await this.saveState();
@@ -609,6 +618,12 @@ class APIntegration {
 
             // flush inventory
             await this._flushPending();
+
+            if (this.isInPlayableSequenceStep() && this.pendingTraps.length !== 0) {
+                while (this.pendingTraps.length > 0) {
+                    this._applyTrap(this.pendingTraps.shift());
+                }
+            }
 
             // report win
             if (!this.winReported && (Stage_Status[this.STAGE_TO_WIN] & Beaten) === Beaten) {
