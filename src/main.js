@@ -74,11 +74,13 @@ class APIntegration {
         this.connectionBox = document.getElementById("connectionBox");
         this.connectionInfo = document.getElementById("connectionInfo");
         this.disconnect = document.getElementById("disconnect");
-        this.chat = document.getElementById("chat");
+        this.chatLine = document.getElementById("chatLine");
+        this.message = document.getElementById("message");
+        this.send = document.getElementById("send");
+        this.chatMessages = document.getElementById("chatMessages");
         this.apDiv = document.getElementById("APConnection");
 
         this.connect.addEventListener("click", () => this._onConnectClick());
-        this.disconnect.addEventListener("click", () => this._onDisconnectClick());
         const listenForEnter = (input) => {
             input.addEventListener("keydown", (event) => {
                 if (event.key === "Enter") {
@@ -86,13 +88,19 @@ class APIntegration {
                 }
             });
         };
-
         listenForEnter(this.host);
         listenForEnter(this.port);
         listenForEnter(this.slotName);
         listenForEnter(this.password);
 
-        document.addEventListener("keydown", this._handleGlobalEnter);
+        this.disconnect.addEventListener("click", () => this._onDisconnectClick());
+        this.send.addEventListener("click", () => this._onSendClick());
+        this.message.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                this._onSendClick();
+            }
+        });
+
         window.addEventListener("beforeunload", () => this._onUnload());
         this._tick = this._tick.bind(this);
         requestAnimationFrame(this._tick);
@@ -126,18 +134,35 @@ class APIntegration {
         this._connected = false;
         this.apDiv.style.display = "flex";
         this.connectionBox.style.display = "none";
+        this.chatLine.style.display = "none";
         this.log("Disconnected from multiworld server.", "info");
         this.client?.socket.disconnect();
     }
 
+    _onSendClick() {
+        const text = this.message.value.trim();
+        if (text.length === 0) {
+            return;
+        }
+
+        this.client.messages.say(text);
+        if (text[0] === "/") {
+            this.log("Cannot issue command " + text.slice(1).split(" ")[0] + ". Client commands are not yet supported.");
+        }
+        this.message.value = "";
+    }
+
     log(msg, type = "info") {
         const container = document.createElement("div");
-        container.textContent = msg;
+        const span = document.createElement("span");
+        span.textContent = msg;
         if (type === "error") {
-            container.style.color = "red";
+            span.style.color = "red";
         }
-        this.chat.append(container);
-        this.chat.scrollTop = this.chat.scrollHeight;
+        container.appendChild(span);
+        container.style.lineHeight = "16px";
+        this.chatMessages.append(container);
+        this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
     }
 
     async saveState() {
@@ -318,14 +343,20 @@ class APIntegration {
                     }
                     container.appendChild(span);
                 });
+            } else if (printJSONPacket.type === "CommandResult") {
+                const pre = document.createElement("pre");
+                pre.textContent = printJSONPacket.data[0].text;
+                pre.style.margin = 0;
+                container.appendChild(pre);
             } else {
                 const span = document.createElement("span");
                 span.textContent = printJSONPacket.data[0].text;
                 container.appendChild(span);
             }
 
-            this.chat.appendChild(container);
-            this.chat.scrollTop = this.chat.scrollHeight;
+            container.style.lineHeight = "16px";
+            this.chatMessages.appendChild(container);
+            this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
         });
 
         this.client.deathLink.on("deathReceived", (source, time, cause) => {
@@ -383,6 +414,7 @@ class APIntegration {
                 Item_Inv[this.MOUSE_SLOT] = 0;
             }
 
+            this.chatLine.style.display = "flex";
             antiCheatSet();
         } catch (error) {
             if (Array.isArray(error) && error[0]?.target instanceof WebSocket) {
@@ -394,6 +426,7 @@ class APIntegration {
             Sequence_Step = 0;
             this.apDiv.style.display = "flex";
             this.connectionBox.style.display = "none";
+            this.chatLine.style.display = "none";
         }
     }
 
