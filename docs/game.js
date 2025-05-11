@@ -973,6 +973,10 @@ function saveGame(save_string_var){ // original name: ue()
 // takes the item array and the element number and returns the value of that element in that array
 function getVal(item,element){ // original name: w()
     // if the element you are trying to access is beyond the range of the array
+    if (item > 563) {
+        console.log(item, element);
+    }
+
     if (Item_Catalogue[item].length <= element){
         return 0;
     } else { // if the value is a weapon/item color, projectile color, or residue color
@@ -1478,23 +1482,6 @@ function antiCheatCheck(){ // original name: Ne()
         }
     }
     if (Game_Mode==0 || Game_Mode==2){
-        en_highest_lv = 0;
-        for (var s=0; s<Stage_Count; s++){
-            if ((Stage_Status[s]&Unlocked) != 0){
-                enemy_types = Book_Indexer[s+1]-Book_Indexer[s];
-                for (var e=0; e<enemy_types; e++){
-                    if (EN_Info[Book_Indexer[s]+e][EN_Lvl]>en_highest_lv)
-                        en_highest_lv = EN_Info[Book_Indexer[s]+e][EN_Lvl];
-                    e += EN_Info[Book_Indexer[s]+e][En_2nd_Att];
-                }
-            }
-        }
-        if (LV[0]>en_highest_lv+10+2){
-            console.log("Error: team level too high for current progress");
-            Game_Canvas = null;
-        }
-    }
-    if (Game_Mode==0 || Game_Mode==2){
         xp_for_prev_LV = 4753000;
         xp_for_next_LV = 9999999;
         if (LV[0] < 98){
@@ -1608,7 +1595,7 @@ function antiCheatCheck(){ // original name: Ne()
                                             Check_Var2_Rank1 = (Rank[1]|1);
 
     if (Check_Var_Secondary != (Check_Var_Total^16777215)){
-        //console.log("Error: Check_Var_Secondary does not match previous check");
+        console.log("Error: Check_Var_Secondary does not match previous check");
         Game_Canvas = null;
     }
     if (Check_Var_Team_EXP != Check_Var2_Team_EXP){
@@ -1648,7 +1635,7 @@ function antiCheatCheck(){ // original name: Ne()
         Game_Canvas = null;
     }
     if (Check_Var_LP_Current != Check_Var2_LP_Current){
-        //console.log("LP_Current:"+Check_Var_LP_Current+" != LP_Current2:"+Check_Var2_LP_Current);
+        console.log("LP_Current:"+Check_Var_LP_Current+" != LP_Current2:"+Check_Var2_LP_Current);
         Game_Canvas = null;
     }
     if (Check_Var_MP_Bar != Check_Var2_MP_Bar){
@@ -2669,7 +2656,7 @@ function PvEscreens(){ // original name: vf()
             Large_Text.TXoutputB(Win_Hcenter-128,T+92,"        LP Bars : "+options_list4[Sett_LP_Bar_Disp],0xFF0000,0x000000);
             Sett_LP_Bar_Disp = cycle(Sett_LP_Bar_Disp+Sett_Change,0,3);
         }
-        options_list5 = ["Square","Triangle","Shadow","OFF"]; // PL Symbol setting
+        options_list5 = ["AP logo","Square","Triangle","Shadow","OFF"]; // PL Symbol setting
         Large_Text.TXoutputB(Win_Hcenter-128,T+105,"      PL Symbol : "+options_list5[Sett_PL_Symbol],0xFFFFFF,0x000000);
         if (isMouseHovered(Win_Hcenter-128,T+105,256,13)){
             Large_Text.TXoutputB(Win_Hcenter-128,T+105,"      PL Symbol : "+options_list5[Sett_PL_Symbol],0xFF0000,0x000000);
@@ -5259,6 +5246,7 @@ window.fff = SR_Player.prototype.PLsetHeldChar;
 SR_Player.prototype.PLsetHeldChar = function(){ // Pg.prototype.jb
     var dist_vector = new Vector2D;
     var grab_reach = 20;
+    var grab_reach_selected = 8;
     var dist_from_cursor;
     var prev_dist_from_cursor = grab_reach;
 
@@ -5271,6 +5259,13 @@ SR_Player.prototype.PLsetHeldChar = function(){ // Pg.prototype.jb
                 dist_vector.x = Mouse_Xpos-this.PL_joint_destination[s][j].x;
                 dist_vector.y = Mouse_Ypos-this.PL_joint_destination[s][j].y;
                 dist_from_cursor = magnitudeOf(dist_vector);
+                // If it's the selected player and it's within tighter radius, always grab
+                if (s===Selected_Player && dist_from_cursor<grab_reach_selected && (LP_Current[s]!=0 || Sett_Drag_Dead_Body!=0)) {
+                    this.PL_held_player = s;
+                    this.PL_held_joint = j;
+                    return;
+                }
+                // Otherwise do regular "closest found" logic
                 if (dist_from_cursor<grab_reach && dist_from_cursor<prev_dist_from_cursor && (LP_Current[s]!=0 || Sett_Drag_Dead_Body!=0)){
                     prev_dist_from_cursor = dist_from_cursor;
                     this.PL_held_player = s;
@@ -6982,7 +6977,7 @@ SR_Player.prototype.PLrenderPlayer = function(){ // Pg.prototype.b
         }
 
         Display_Mode2 = Display_Mode = 1;
-        if (Selected_Player==s && Game_Mode==0 && Sett_PL_Symbol==2){
+        if (Selected_Player==s && Game_Mode==0 && Sett_PL_Symbol==3){
             for (var j=0; j<11; j++)
                 dispItemCentered(Effect_Img,floor(this.PL_joint[s][j].x),floor(this.PL_joint[s][j].y),12,12,0,0,12,12,0x50FF0000); // PL symbol shadow
         } else if (Anger_Crown_Lightning>0){
@@ -7150,8 +7145,15 @@ SR_Player.prototype.PLrenderPlayer = function(){ // Pg.prototype.b
             }
             if (Selected_Player==s && Game_Mode==0){
                 if (Sett_PL_Symbol==0){
-                    filledRect(floor(this.PL_joint[s][0].x)-1,floor(this.PL_joint[s][0].y)-8,3,3,0xFFFF00); // draw square symbol above player
+                    filledRect(floor(this.PL_joint[s][0].x)-1,floor(this.PL_joint[s][0].y)-14,3,3,0xCB7783);
+                    filledRect(floor(this.PL_joint[s][0].x)+2,floor(this.PL_joint[s][0].y)-13,3,3,0x74C275);
+                    filledRect(floor(this.PL_joint[s][0].x)+2,floor(this.PL_joint[s][0].y)-10,3,3,0xCB94C2);
+                    filledRect(floor(this.PL_joint[s][0].x)-4,floor(this.PL_joint[s][0].y)-13,3,3,0xEDE692);
+                    filledRect(floor(this.PL_joint[s][0].x)-4,floor(this.PL_joint[s][0].y)-10,3,3,0x757FC0);
+                    filledRect(floor(this.PL_joint[s][0].x)-1,floor(this.PL_joint[s][0].y)-8,3,3,0xD9A07D);
                 } else if (Sett_PL_Symbol==1){
+                    filledRect(floor(this.PL_joint[s][0].x)-1,floor(this.PL_joint[s][0].y)-8,3,3,0xFFFF00); // draw square symbol above player
+                } else if (Sett_PL_Symbol==2){
                     drawLine(floor(this.PL_joint[s][0].x)-3,floor(this.PL_joint[s][0].y)-14,floor(this.PL_joint[s][0].x)+3,floor(this.PL_joint[s][0].y)-14,0xFFFF00); // draw triangle symbol above player
                     drawLine(floor(this.PL_joint[s][0].x)-3,floor(this.PL_joint[s][0].y)-14,floor(this.PL_joint[s][0].x)+0.5,floor(this.PL_joint[s][0].y)-7,0xFFFF00);
                     drawLine(floor(this.PL_joint[s][0].x)+3.5,floor(this.PL_joint[s][0].y)-14,floor(this.PL_joint[s][0].x)+0.5,floor(this.PL_joint[s][0].y)-7,0xFFFF00);
@@ -12083,7 +12085,7 @@ SR_Animated_Indicator.prototype.INreset = function(){ // aa.j
 
 // little numbers
 SR_Animated_Indicator.prototype.INadd = function(x_pos,y_pos,direction,value,color){ // aa.add
-    if (this.IN_index != Ind_Limit){ // limit the quantitiy of damage numbers to Ind_Limit
+    if (this.IN_index != Ind_Limit){ // limit the quantity of damage numbers to Ind_Limit
         // limit position to stay inside the screen
         x_pos = clamp(x_pos,16,Win_Width-16-1);
         y_pos = clamp(y_pos,8,Inv_Top-8-1);

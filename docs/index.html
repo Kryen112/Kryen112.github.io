@@ -3,6 +3,18 @@
     <head>
         <title>Archipelago - Stick Ranger</title>
         <style>
+            @font-face {
+                font-family: dan-ball;
+                src: url("/assets/dan-ball-6ABAm9zV.otf") format("opentype");
+                unicode-range: U+0020-0027, U+002A-007D, U+00A5;
+                size-adjust: 60%;
+            }
+
+            @font-face {
+                font-family: dan-ball;
+                src: local("monospace");
+            }
+
             #cv:-webkit-full-screen {
                 image-rendering: pixelated;
                 image-rendering: -moz-crisp-edges;
@@ -21,6 +33,12 @@
                 display: flex;
             }
 
+            body.font-danball pre {
+                font-family: "dan-ball", monospace;
+                font-size: 0.9em;
+                letter-spacing: 0.5px;
+            }
+
             html,
             body {
                 height: 100%;
@@ -31,9 +49,9 @@
                 float: left;
             }
 
-            .right-panel {
+            #right-panel {
                 float: right;
-                width: 512px;
+                width: 100%;
                 background-color: rgb(51, 51, 51);
                 color: white;
                 display: flex;
@@ -41,6 +59,8 @@
                 align-items: center;
                 border-radius: 10px;
                 margin: 10px;
+                resize: both;
+                overflow: auto;
             }
 
             #saveCode {
@@ -53,27 +73,141 @@
                 align-items: center;
             }
 
+            #connect {
+                cursor: pointer;
+            }
+
             #chat {
                 flex: 1;
-                width: 500px;
+                width: 100%;
                 border: 2px solid rgb(76, 76, 76);
                 border-radius: 10px;
+                overflow: hidden;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+            }
+
+            #connectionBox {
+                justify-content: space-between;
+                align-items: center;
+                display: none;
+                position: sticky;
+                top: 0;
+                padding: 2px;
+                background-color: rgb(76, 76, 76);
+            }
+
+            #connectionInfo {
+                float: left;
+            }
+
+            #disconnect {
+                float: right;
+                background-color: rgb(76, 76, 76);
+                border: none;
+                color: white;
+                border-left: 2px solid rgb(91, 91, 91);
+            }
+
+            #disconnect:hover {
+                color: rgb(255, 80, 80);
+                cursor: pointer;
+            }
+
+            #chatMessages {
+                flex-grow: 1;
                 overflow-y: auto;
                 padding: 4px;
-                font-family: monospace;
-                font-size: 0.9em;
+                color: white;
+            }
+
+            #chatLine {
+                justify-content: space-between;
+                align-items: center;
+                display: none;
+                padding: 4px;
+                background-color: rgb(76, 76, 76);
+            }
+
+            #message {
+                float: left;
+                width: 90%;
+            }
+
+            #message:focus {
+                outline: none;
+                box-shadow: none;
+            }
+
+            #send {
+                float: right;
+                background-color: rgb(76, 76, 76);
+                border: none;
+                color: white;
+                border-left: 2px solid rgb(91, 91, 91);
+            }
+
+            #send:hover {
+                color: rgb(255, 80, 80);
+                cursor: pointer;
+            }
+
+            .switch {
+                position: relative;
+                display: inline-block;
+                width: 34px;
+                height: 20px;
+            }
+
+            .switch input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }
+
+            .slider {
+                position: absolute;
+                cursor: pointer;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: #ccc;
+                transition: 0.2s;
+                border-radius: 20px;
+            }
+
+            .slider:before {
+                position: absolute;
+                content: "";
+                height: 14px;
+                width: 14px;
+                left: 3px;
+                bottom: 3px;
+                background-color: white;
+                transition: 0.2s;
+                border-radius: 50%;
+            }
+
+            input:checked + .slider {
+                background-color: #2196f3;
+            }
+
+            input:checked + .slider:before {
+                transform: translateX(14px);
+            }
+
+            #fontSwitch {
+                color: white;
+                font-family: dan-ball;
             }
         </style>
-      <script type="module" crossorigin src="/assets/index-Do2I3ZTT.js"></script>
+      <script type="module" crossorigin src="/assets/index-dPMj4A_a.js"></script>
     </head>
 
-    <body>
+    <body id="body">
         <div class="left-panel">
-            <div id="disable_electron_warnings">
-                <script type="text/javascript">
-                    process.env["ELECTRON_DISABLE_SECURITY_WARNINGS"] = "true";
-                </script>
-            </div>
             <canvas id="cv"></canvas>
             <script src="/game.js"></script>
             <script type="text/javascript">
@@ -108,10 +242,16 @@
             </div>
             <div id="fullScreenButton">
                 <input type="submit" value="Full Screen" onclick="fullScreen();" />
+                <label class="switch">
+                    <input type="checkbox" id="fontToggle" checked />
+                    <span class="slider round"></span>
+                </label>
+
+                <span id="fontSwitch">Dan-ball font</span>
             </div>
         </div>
 
-        <div class="right-panel">
+        <div id="right-panel">
             <div id="APConnection">
                 <p>Archipelago connection</p>
                 <table>
@@ -134,7 +274,62 @@
                 </table>
                 <button id="connect">Connect</button>
             </div>
-            <div id="chat"></div>
+            <div id="chat">
+                <div id="connectionBox">
+                    <span id="connectionInfo"></span>
+                    <button id="disconnect">Disconnect</button>
+                </div>
+                <div id="chatMessages"></div>
+                <div id="chatLine">
+                    <input type="text" id="message" placeholder="Send a message" />
+                    <button id="send">Send</button>
+                </div>
+            </div>
         </div>
+        <script>
+            const fontToggle = document.getElementById("fontToggle");
+            fontToggle.addEventListener("change", applyFontToggle);
+
+            function applyFontToggle() {
+                const boxes = [document.getElementById("right-panel"), document.getElementById("chat"), document.getElementById("chatMessages"), document.getElementById("message")];
+                const textInputs = [document.getElementById("host"), document.getElementById("port"), document.getElementById("slotName"), document.getElementById("password")];
+                const buttons = [document.getElementById("connect"), document.getElementById("disconnect"), document.getElementById("send")];
+                const font = "dan-ball, monospace";
+                const body = document.getElementById("body");
+
+                if (fontToggle.checked) {
+                    boxes.forEach((box) => {
+                        box.style.fontFamily = font;
+                    });
+                    buttons.forEach((btn, i) => {
+                        btn.style.fontFamily = font;
+                        btn.style.fontSize = i === 0 ? "1.2em" : "0.9em"; // connect, disconnect/send
+                    });
+                    textInputs.forEach((input) => {
+                        input.style.fontFamily = font;
+                        input.style.fontSize = "1.2em";
+                    });
+                    body.style.letterSpacing = "0.5px";
+                    body.classList.add("font-danball");
+                } else {
+                    boxes.forEach((box) => {
+                        box.style.fontFamily = "monospace";
+                        box.style.fontSize = "0.9em";
+                    });
+                    buttons.forEach((btn, i) => {
+                        btn.style.fontFamily = "";
+                        btn.style.fontSize = i === 0 ? "1.0em" : "0.8em"; // connect, disconnect/send
+                    });
+                    textInputs.forEach((input) => {
+                        input.style.fontSize = "";
+                        input.style.fontFamily = "";
+                    });
+                    body.style.letterSpacing = "";
+                    body.classList.remove("font-danball");
+                }
+            }
+
+            applyFontToggle();
+        </script>
     </body>
 </html>
