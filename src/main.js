@@ -670,7 +670,7 @@ class APIntegration {
     }
 
     async _doTickWork() {
-        if (this._connected) {
+        if (this._connected && this.client && this.client.authenticated) {
             // scan beaten/booked changes
             for (let i = 0; i < Stage_Status.length; i++) {
                 if ((this.prevStage[i] & Beaten) === 0 && (Stage_Status[i] & Beaten) !== 0) {
