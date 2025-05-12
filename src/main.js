@@ -44,6 +44,7 @@ class APIntegration {
 
         this._pendingConnect = false;
         this._connected = false;
+        this._disconnected = false;
         this.receivedItems = [];
         this.pendingItems = [];
         this.prevStage = [...Stage_Status];
@@ -62,7 +63,6 @@ class APIntegration {
         this.deathLinkSource = "";
         this.deathLinkTime = ""; // Currently unused
         this.deathLinkCause = "";
-        this.clickedDisconnect = false;
         this.newGame = false;
         this.pendingTraps = [];
         this.deathMouseItem = {};
@@ -95,7 +95,7 @@ class APIntegration {
         listenForEnter(this.slotName);
         listenForEnter(this.password);
 
-        this.disconnect.addEventListener("click", () => this._onDisconnectClick());
+        this.disconnect.addEventListener("click", () => this.client?.socket.disconnect());
         this.send.addEventListener("click", () => this._onSendClick());
         this.message.addEventListener("keydown", (event) => {
             if (event.key === "Enter") {
@@ -110,7 +110,7 @@ class APIntegration {
 
     async _onConnectClick() {
         this.connectionInfo.textContent = "Connected at: " + this.host.value + ":" + this.port.value + " - " + this.slotName.value;
-        if (!this.clickedDisconnect) {
+        if (!this._disconnected) {
             this.storageKey = [this.host.value, this.port.value, "Stick Ranger", this.slotName.value].join(":");
 
             const saved = await getState(this.storageKey);
@@ -124,23 +124,22 @@ class APIntegration {
             }
         }
 
-        this.clickedDisconnect = false;
+        this._disconnected = false;
         this._pendingConnect = true;
         this.apDiv.style.display = "none";
         this.connectionBox.style.display = "flex";
         this.log("Waiting for the game to enter the map...", "info");
     }
 
-    async _onDisconnectClick() {
-        this.clickedDisconnect = true;
-        await this.saveState();
-        this._pendingConnect = false;
+    async _onDisconnect() {
         this._connected = false;
+        this._disconnected = true;
+        this._pendingConnect = false;
+        await this.saveState();
         this.apDiv.style.display = "flex";
         this.connectionBox.style.display = "none";
         this.chatLine.style.display = "none";
         this.log("Disconnected from multiworld server.", "info");
-        this.client?.socket.disconnect();
     }
 
     _onSendClick() {
@@ -373,8 +372,8 @@ class APIntegration {
             this.deathLinkCause = cause;
         });
 
-        this.client.socket.on("disconnected", () => {
-            console.warn("Disconnected from Archipelago");
+        this.client.socket.on("disconnected", async () => {
+            this._onDisconnect();
         });
 
         this.client.socket.on("bounced", (packet) => {
@@ -461,6 +460,8 @@ class APIntegration {
     }
 
     async sendLocation(id) {
+        if (this._disconnected || !this.client.authenticated) return;
+
         this.client.check(id);
         await this.saveState();
     }
@@ -662,9 +663,11 @@ class APIntegration {
     }
 
     _tick() {
-        this._doTickWork().catch((err) => {
-            console.error("Tick error:", err);
-        });
+        if (!this._disconnected) {
+            this._doTickWork().catch((err) => {
+                console.error("Tick error:", err);
+            });
+        }
 
         requestAnimationFrame(this._tick);
     }
