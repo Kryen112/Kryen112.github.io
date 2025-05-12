@@ -375,7 +375,16 @@ class APIntegration {
 
         this.client.socket.on("disconnected", () => {
             console.warn("Disconnected from Archipelago");
-            // this._handleDisconnectCleanup(); // clean up game state/UI etc.
+        });
+
+        this.client.socket.on("bounced", (packet) => {
+            console.warn("Bounced");
+            console.log(packet);
+        });
+
+        this.client.socket.on("invalidPacket", (packet) => {
+            console.warn("Invalid packet");
+            console.log(packet);
         });
 
         this.client.socket.on("connectionRefused", (packet) => {
