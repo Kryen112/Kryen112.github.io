@@ -373,6 +373,11 @@ class APIntegration {
             this.deathLinkCause = cause;
         });
 
+        this.client.socket.on("disconnected", () => {
+            console.warn("Disconnected from Archipelago");
+            // this._handleDisconnectCleanup(); // clean up game state/UI etc.
+        });
+
         this.client.socket.on("connectionRefused", (packet) => {
             packet.errors.forEach((error) => {
                 this.log(error + "; please verify your connection settings.", "error");
