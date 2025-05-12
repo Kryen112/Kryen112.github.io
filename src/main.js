@@ -44,6 +44,7 @@ class APIntegration {
 
         this._pendingConnect = false;
         this._connected = false;
+        this._disconnected = false;
         this.receivedItems = [];
         this.pendingItems = [];
         this.prevStage = [...Stage_Status];
@@ -62,8 +63,10 @@ class APIntegration {
         this.deathLinkSource = "";
         this.deathLinkTime = ""; // Currently unused
         this.deathLinkCause = "";
-        this.clickedDisconnect = false;
         this.newGame = false;
+        this.pendingTraps = [];
+        this.deathMouseItem = {};
+        this.connectMouseItem = {};
 
         this.host = document.getElementById("host");
         this.port = document.getElementById("port");
@@ -73,11 +76,13 @@ class APIntegration {
         this.connectionBox = document.getElementById("connectionBox");
         this.connectionInfo = document.getElementById("connectionInfo");
         this.disconnect = document.getElementById("disconnect");
-        this.chat = document.getElementById("chat");
+        this.chatLine = document.getElementById("chatLine");
+        this.message = document.getElementById("message");
+        this.send = document.getElementById("send");
+        this.chatMessages = document.getElementById("chatMessages");
         this.apDiv = document.getElementById("APConnection");
 
         this.connect.addEventListener("click", () => this._onConnectClick());
-        this.disconnect.addEventListener("click", () => this._onDisconnectClick());
         const listenForEnter = (input) => {
             input.addEventListener("keydown", (event) => {
                 if (event.key === "Enter") {
@@ -85,13 +90,19 @@ class APIntegration {
                 }
             });
         };
-
         listenForEnter(this.host);
         listenForEnter(this.port);
         listenForEnter(this.slotName);
         listenForEnter(this.password);
 
-        document.addEventListener("keydown", this._handleGlobalEnter);
+        this.disconnect.addEventListener("click", () => this.client?.socket.disconnect());
+        this.send.addEventListener("click", () => this._onSendClick());
+        this.message.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                this._onSendClick();
+            }
+        });
+
         window.addEventListener("beforeunload", () => this._onUnload());
         this._tick = this._tick.bind(this);
         requestAnimationFrame(this._tick);
@@ -99,7 +110,7 @@ class APIntegration {
 
     async _onConnectClick() {
         this.connectionInfo.textContent = "Connected at: " + this.host.value + ":" + this.port.value + " - " + this.slotName.value;
-        if (!this.clickedDisconnect) {
+        if (!this._disconnected) {
             this.storageKey = [this.host.value, this.port.value, "Stick Ranger", this.slotName.value].join(":");
 
             const saved = await getState(this.storageKey);
@@ -107,36 +118,54 @@ class APIntegration {
                 this.receivedItems = saved.receivedItems;
                 this.bookHints = saved.bookHints ?? {};
                 this.randomizedBookCosts = saved.randomizedBookCosts ?? {};
+                this.deathMouseItem = saved.deathMouseItem ?? {};
+                this.connectMouseItem = saved.connectMouseItem ?? {};
                 GameLoad(saved.save.replace(/\r\n|\r|\n/g, ""));
             }
         }
 
-        this.clickedDisconnect = false;
+        this._disconnected = false;
         this._pendingConnect = true;
         this.apDiv.style.display = "none";
         this.connectionBox.style.display = "flex";
         this.log("Waiting for the game to enter the map...", "info");
     }
 
-    async _onDisconnectClick() {
-        this.clickedDisconnect = true;
-        await this.saveState();
-        this._pendingConnect = false;
+    async _onDisconnect() {
         this._connected = false;
+        this._disconnected = true;
+        this._pendingConnect = false;
+        await this.saveState();
         this.apDiv.style.display = "flex";
         this.connectionBox.style.display = "none";
+        this.chatLine.style.display = "none";
         this.log("Disconnected from multiworld server.", "info");
-        this.client?.socket.disconnect();
+    }
+
+    _onSendClick() {
+        const text = this.message.value.trim();
+        if (text.length === 0) {
+            return;
+        }
+
+        this.client.messages.say(text);
+        if (text[0] === "/") {
+            this.log("Cannot issue command " + text.slice(1).split(" ")[0] + ". Client commands are not yet supported.");
+        }
+        this.message.value = "";
     }
 
     log(msg, type = "info") {
         const container = document.createElement("div");
-        container.textContent = msg;
+        const span = document.createElement("span");
+        span.textContent = msg;
         if (type === "error") {
-            container.style.color = "red";
+            span.style.color = "red";
         }
-        this.chat.append(container);
-        this.chat.scrollTop = this.chat.scrollHeight;
+        container.appendChild(span);
+        container.style.lineHeight = "16px";
+        this.chatMessages.append(container);
+        this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
     }
 
     async saveState() {
@@ -148,6 +177,8 @@ class APIntegration {
             save: GameSave("0"),
             bookHints: this.bookHints ?? {},
             randomizedBookCosts: this.randomizedBookCosts ?? {},
+            deathMouseItem: this.deathMouseItem ?? {},
+            connectMouseItem: this.connectMouseItem ?? {},
         });
     }
 
@@ -234,7 +265,7 @@ class APIntegration {
         this.storageKey = [host, port, game, slot].join(":");
 
         this.client.socket.on("receivedItems", async (packet) => {
-            const serverItems = packet.items.map(i => i.item);
+            const serverItems = packet.items.map((i) => i.item);
             const isReconnect = packet.index === 0 && packet.items.length > 1 && this.receivedItems.length > 0;
 
             for (const id of serverItems) {
@@ -317,14 +348,20 @@ class APIntegration {
                     }
                     container.appendChild(span);
                 });
+            } else if (printJSONPacket.type === "CommandResult") {
+                const pre = document.createElement("pre");
+                pre.textContent = printJSONPacket.data[0].text;
+                pre.style.margin = 0;
+                container.appendChild(pre);
             } else {
                 const span = document.createElement("span");
                 span.textContent = printJSONPacket.data[0].text;
                 container.appendChild(span);
             }
 
-            this.chat.appendChild(container);
-            this.chat.scrollTop = this.chat.scrollHeight;
+            container.style.lineHeight = "16px";
+            this.chatMessages.appendChild(container);
+            this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
         });
 
         this.client.deathLink.on("deathReceived", (source, time, cause) => {
@@ -333,6 +370,20 @@ class APIntegration {
             this.deathLinkSource = source;
             this.deathLinkTime = time;
             this.deathLinkCause = cause;
+        });
+
+        this.client.socket.on("disconnected", async () => {
+            this._onDisconnect();
+        });
+
+        this.client.socket.on("bounced", (packet) => {
+            console.warn("Bounced");
+            console.log(packet);
+        });
+
+        this.client.socket.on("invalidPacket", (packet) => {
+            console.warn("Invalid packet");
+            console.log(packet);
         });
 
         this.client.socket.on("connectionRefused", (packet) => {
@@ -378,10 +429,21 @@ class APIntegration {
 
             if (Item_Inv[this.MOUSE_SLOT]) {
                 // Guard against having an item in hand on connect, if inventory was full on disconnect
-                this.pendingItems.push(Item_Inv[this.MOUSE_SLOT]);
+                this.connectMouseItem = {
+                    itemId: Item_Inv[this.MOUSE_SLOT],
+                    compo1: Comp1_Inv[this.MOUSE_SLOT],
+                    compo2: Comp2_Inv[this.MOUSE_SLOT],
+                };
+
                 Item_Inv[this.MOUSE_SLOT] = 0;
+                Comp1_Inv[this.MOUSE_SLOT] = 0;
+                Comp2_Inv[this.MOUSE_SLOT] = 0;
+                antiCheatSet();
+                await this.saveState();
+                this.log("Storing mouse item (" + Item_Catalogue[this.connectMouseItem.itemId][0] + ") to be recovered when in-game again.", "info");
             }
 
+            this.chatLine.style.display = "flex";
             antiCheatSet();
         } catch (error) {
             if (Array.isArray(error) && error[0]?.target instanceof WebSocket) {
@@ -393,10 +455,13 @@ class APIntegration {
             Sequence_Step = 0;
             this.apDiv.style.display = "flex";
             this.connectionBox.style.display = "none";
+            this.chatLine.style.display = "none";
         }
     }
 
     async sendLocation(id) {
+        if (this._disconnected || !this.client.authenticated) return;
+
         this.client.check(id);
         await this.saveState();
     }
@@ -424,26 +489,34 @@ class APIntegration {
         await this.saveState();
     }
 
+    isInPlayableSequenceStep() {
+        return [12, 52, 53, 54, 55].includes(Sequence_Step);
+    }
+
     async _applyTrap(id) {
-        this.receivedItems.push(id);
-        switch (id) {
-            case 13000: // Unequip items
-                this.unequipItems();
-                break;
-            case 13001: // -50% gold
-                this.loseHalfGold();
-                break;
-            case 13002: // Kill a Ranger
-                this.killRanger();
-                break;
-            case 13003: // Freeze Rangers
-                this.freezeRangers();
-                break;
-            case 13004: // Spawn enemies
-                this.spawnEnemies();
-                break;
-            default:
-                break;
+        if (this.isInPlayableSequenceStep()) {
+            this.receivedItems.push(id);
+            switch (id) {
+                case 13000: // Unequip items
+                    this.unequipItems();
+                    break;
+                case 13001: // -50% gold
+                    this.loseHalfGold();
+                    break;
+                case 13002: // Kill a Ranger
+                    this.killRanger();
+                    break;
+                case 13003: // Freeze Rangers
+                    this.freezeRangers();
+                    break;
+                case 13004: // Spawn enemies
+                    this.spawnEnemies();
+                    break;
+                default:
+                    break;
+            }
+        } else {
+            this.pendingTraps.push(id);
         }
 
         await this.saveState();
@@ -503,7 +576,7 @@ class APIntegration {
 
         const unequipCount = Math.min(emptySlots.length, equippedRangers.length);
         for (let i = 0; i < unequipCount; i++) {
-            const selectedRanger = equippedRangers.shift()
+            const selectedRanger = equippedRangers.shift();
             moveItemWithCompos(selectedRanger, emptySlots[i]);
             MP_Bar[selectedRanger] = 0;
             Players.PL_gladr_resid_count[selectedRanger] = 0;
@@ -512,7 +585,10 @@ class APIntegration {
     }
 
     loseHalfGold() {
-        Team_Gold -= Math.floor(Team_Gold / 2);
+        const lostGold = Math.floor(Team_Gold / 2);
+        Team_Gold -= lostGold;
+        this.log("You lost $" + lostGold + "!", "error");
+        Indicators.INadd(Players.PL_joint[Selected_Player][0].x, Players.PL_joint[Selected_Player][0].y, 0, "-$" + lostGold, 0xff3f3f);
         antiCheatSet();
     }
 
@@ -537,41 +613,20 @@ class APIntegration {
     }
 
     spawnEnemies() {
-        // IDs with 0 gold drop or boss attack: 40, 115, 163, 244, 333, 334, 335, 336, 337
-        for (let i = 0; i < 322; i++) {
-            const en_xpos = floor(randomRange(12, (Win_Width >> 3) - 4));
-            const en_ypos = fiftyfifty(
-                Terrain.TR_low_surface[en_xpos],
-                Terrain.TR_high_surface[en_xpos]
-            );
-            console.log(i);
-            
-            console.log(EN_Info[i]);
-            
-            // Enemies.ENadd(en_xpos, en_ypos, 500);            
-        }
+        // IDs to exclude (Invisible boss attacks)
+        const excludedIds = new Set([40, 115, 163, 244, 333, 334, 335, 336, 337]);
 
-        for (let i = 0; i < 2; i++) {
-            const en_xpos = floor(randomRange(12, (Win_Width >> 3) - 4));
-            const en_ypos = fiftyfifty(
-                Terrain.TR_low_surface[en_xpos],
-                Terrain.TR_high_surface[en_xpos]
-            );
-            Enemies.ENadd(en_xpos, en_ypos, 338);            
-            
+        const spawnAmount = this.randomRangeInt(3, 10);
+        for (let i = 0; i < spawnAmount; i++) {
+            let randomType;
+            do {
+                randomType = this.randomRangeInt(1, 338);
+            } while (excludedIds.has(randomType));
+            const en_xpos = Math.floor(Math.random() * ((Win_Width >> 3) - 4 - 12 + 1)) + 12;
+            const en_ypos = fiftyfifty(Terrain.TR_low_surface[en_xpos], Terrain.TR_high_surface[en_xpos]);
+
+            Enemies.ENadd(en_xpos, en_ypos, randomType);
         }
-        // const spawnAmount = floor(this.randomRangeInt(1, 11));
-        // for (let i = 0; i < spawnAmount; i++) {
-        //     const randomType = floor(this.randomRangeInt(1, 501));
-        //     console.log(randomType);
-            
-        //     const en_xpos = floor(randomRange(12, (Win_Width >> 3) - 4));
-        //     const en_ypos = fiftyfifty(
-        //         Terrain.TR_low_surface[en_xpos],
-        //         Terrain.TR_high_surface[en_xpos]
-        //     );
-        //     Enemies.ENadd(en_xpos, en_ypos, randomType);
-        // }
     }
 
     _firstEmptyInvSlot() {
@@ -608,15 +663,17 @@ class APIntegration {
     }
 
     _tick() {
-        this._doTickWork().catch((err) => {
-            console.error("Tick error:", err);
-        });
+        if (!this._disconnected) {
+            this._doTickWork().catch((err) => {
+                console.error("Tick error:", err);
+            });
+        }
 
         requestAnimationFrame(this._tick);
     }
 
     async _doTickWork() {
-        if (this._connected) {
+        if (this._connected && this.client && this.client.authenticated) {
             // scan beaten/booked changes
             for (let i = 0; i < Stage_Status.length; i++) {
                 if ((this.prevStage[i] & Beaten) === 0 && (Stage_Status[i] & Beaten) !== 0) {
@@ -630,6 +687,12 @@ class APIntegration {
 
             // flush inventory
             await this._flushPending();
+
+            if (this.isInPlayableSequenceStep() && this.pendingTraps.length !== 0) {
+                while (this.pendingTraps.length > 0) {
+                    this._applyTrap(this.pendingTraps.shift());
+                }
+            }
 
             // report win
             if (!this.winReported && (Stage_Status[this.STAGE_TO_WIN] & Beaten) === Beaten) {
@@ -653,6 +716,55 @@ class APIntegration {
                     this.deathLinkSent = false;
                     this.deathLinkReceived = false;
                     this.deathLinkPending = false;
+                }
+            }
+
+            // On Game Over, place any item inside the Mouse Slot into a queue to go back into the inventory, and clear the trap queue
+            if (Sequence_Step === 30) {
+                if (Item_Inv[this.MOUSE_SLOT]) {
+                    this.deathMouseItem = {
+                        itemId: Item_Inv[this.MOUSE_SLOT],
+                        compo1: Comp1_Inv[this.MOUSE_SLOT],
+                        compo2: Comp2_Inv[this.MOUSE_SLOT],
+                    };
+
+                    Item_Inv[this.MOUSE_SLOT] = 0;
+                    Comp1_Inv[this.MOUSE_SLOT] = 0;
+                    Comp2_Inv[this.MOUSE_SLOT] = 0;
+                    antiCheatSet();
+                    await this.saveState();
+                    this.log("Storing mouse item (" + Item_Catalogue[this.deathMouseItem.itemId][0] + ") to be recovered when in-game again.", "info");
+                }
+
+                // Reset pending traps, to not trap the player upon connect again
+                this.pendingTraps = [];
+            }
+
+            // Replace mouse item on death into inventory once it's all available
+            if (this.isInPlayableSequenceStep() && this.deathMouseItem?.itemId > 0) {
+                const firstEmptyInvSlot = this._firstEmptyInvSlot();
+                if (firstEmptyInvSlot !== -1) {
+                    Item_Inv[firstEmptyInvSlot] = this.deathMouseItem.itemId;
+                    Comp1_Inv[firstEmptyInvSlot] = this.deathMouseItem.compo1;
+                    Comp2_Inv[firstEmptyInvSlot] = this.deathMouseItem.compo2;
+                    this.deathMouseItem = {};
+                    antiCheatSet();
+                    await this.saveState();
+                    this.log("Mouse item (" + Item_Catalogue[Item_Inv[firstEmptyInvSlot]][0] + ") recovered into inventory.", "info");
+                }
+            }
+
+            // Replace mouse item on connect into inventory once it's all available
+            if (this.isInPlayableSequenceStep() && this.connectMouseItem?.itemId > 0) {
+                const firstEmptyInvSlot = this._firstEmptyInvSlot();
+                if (firstEmptyInvSlot !== -1) {
+                    Item_Inv[firstEmptyInvSlot] = this.connectMouseItem.itemId;
+                    Comp1_Inv[firstEmptyInvSlot] = this.connectMouseItem.compo1;
+                    Comp2_Inv[firstEmptyInvSlot] = this.connectMouseItem.compo2;
+                    this.connectMouseItem = {};
+                    antiCheatSet();
+                    await this.saveState();
+                    this.log("Mouse item (" + Item_Catalogue[Item_Inv[firstEmptyInvSlot]][0] + ") recovered into inventory.", "info");
                 }
             }
 

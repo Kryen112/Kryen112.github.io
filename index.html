@@ -7,7 +7,7 @@
                 font-family: dan-ball;
                 src: url("src/dan-ball.otf") format("opentype");
                 unicode-range: U+0020-0027, U+002A-007D, U+00A5;
-                size-adjust: 65%;
+                size-adjust: 60%;
             }
 
             @font-face {
@@ -31,6 +31,12 @@
                 background-color: #0f0f0f;
                 overflow: hidden;
                 display: flex;
+            }
+
+            body.font-danball pre {
+                font-family: "dan-ball", monospace;
+                font-size: 0.9em;
+                letter-spacing: 0.5px;
             }
 
             html,
@@ -76,8 +82,10 @@
                 width: 100%;
                 border: 2px solid rgb(76, 76, 76);
                 border-radius: 10px;
-                overflow-y: auto;
+                overflow: hidden;
                 box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
             }
 
             #connectionBox {
@@ -103,6 +111,44 @@
             }
 
             #disconnect:hover {
+                color: rgb(255, 80, 80);
+                cursor: pointer;
+            }
+
+            #chatMessages {
+                flex-grow: 1;
+                overflow-y: auto;
+                padding: 4px;
+                color: white;
+            }
+
+            #chatLine {
+                justify-content: space-between;
+                align-items: center;
+                display: none;
+                padding: 4px;
+                background-color: rgb(76, 76, 76);
+            }
+
+            #message {
+                float: left;
+                width: 90%;
+            }
+
+            #message:focus {
+                outline: none;
+                box-shadow: none;
+            }
+
+            #send {
+                float: right;
+                background-color: rgb(76, 76, 76);
+                border: none;
+                color: white;
+                border-left: 2px solid rgb(91, 91, 91);
+            }
+
+            #send:hover {
                 color: rgb(255, 80, 80);
                 cursor: pointer;
             }
@@ -159,7 +205,7 @@
         </style>
     </head>
 
-    <body>
+    <body id="body">
         <div class="left-panel">
             <canvas id="cv"></canvas>
             <script src="/game.js"></script>
@@ -197,7 +243,7 @@
             <div id="fullScreenButton">
                 <input type="submit" value="Full Screen" onclick="fullScreen();" />
                 <label class="switch">
-                    <input type="checkbox" id="fontToggle" />
+                    <input type="checkbox" id="fontToggle" checked />
                     <span class="slider round"></span>
                 </label>
 
@@ -233,6 +279,11 @@
                     <span id="connectionInfo"></span>
                     <button id="disconnect">Disconnect</button>
                 </div>
+                <div id="chatMessages"></div>
+                <div id="chatLine">
+                    <input type="text" id="message" placeholder="Send a message" />
+                    <button id="send">Send</button>
+                </div>
             </div>
         </div>
         <script>
@@ -240,10 +291,11 @@
             fontToggle.addEventListener("change", applyFontToggle);
 
             function applyFontToggle() {
-                const boxes = [document.getElementById("right-panel"), document.getElementById("chat")];
+                const boxes = [document.getElementById("right-panel"), document.getElementById("chat"), document.getElementById("chatMessages"), document.getElementById("message")];
                 const textInputs = [document.getElementById("host"), document.getElementById("port"), document.getElementById("slotName"), document.getElementById("password")];
-                const buttons = [document.getElementById("connect"), document.getElementById("disconnect")];
+                const buttons = [document.getElementById("connect"), document.getElementById("disconnect"), document.getElementById("send")];
                 const font = "dan-ball, monospace";
+                const body = document.getElementById("body");
 
                 if (fontToggle.checked) {
                     boxes.forEach((box) => {
@@ -251,25 +303,29 @@
                     });
                     buttons.forEach((btn, i) => {
                         btn.style.fontFamily = font;
-                        btn.style.fontSize = i === 0 ? "1.2em" : "1em"; // connect = 1.2em, disconnect = 1em
+                        btn.style.fontSize = i === 0 ? "1.2em" : "0.9em"; // connect, disconnect/send
                     });
                     textInputs.forEach((input) => {
                         input.style.fontFamily = font;
                         input.style.fontSize = "1.2em";
                     });
+                    body.style.letterSpacing = "0.5px";
+                    body.classList.add("font-danball");
                 } else {
                     boxes.forEach((box) => {
                         box.style.fontFamily = "monospace";
                         box.style.fontSize = "0.9em";
                     });
-                    buttons.forEach((btn) => {
-                        btn.style.fontSize = "";
+                    buttons.forEach((btn, i) => {
                         btn.style.fontFamily = "";
+                        btn.style.fontSize = i === 0 ? "1.0em" : "0.8em"; // connect, disconnect/send
                     });
                     textInputs.forEach((input) => {
                         input.style.fontSize = "";
                         input.style.fontFamily = "";
                     });
+                    body.style.letterSpacing = "";
+                    body.classList.remove("font-danball");
                 }
             }
 
