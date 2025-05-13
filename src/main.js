@@ -35,6 +35,7 @@ class APIntegration {
     constructor() {
         this.STAGE_COMPLETE_OFFSET = 10000;
         this.BOOK_OFFSET = 10100;
+        this.ENEMY_OFFSET = 10200;
         this.LOC_OFFSET = 11000;
         this.ITEM_OFFSET = 12000;
         this.TRAPS_OFFSET = 13000;
@@ -67,6 +68,7 @@ class APIntegration {
         this.pendingTraps = [];
         this.deathMouseItem = {};
         this.connectMouseItem = {};
+        this.enemyIdsSent = [];
 
         this.host = document.getElementById("host");
         this.port = document.getElementById("port");
@@ -120,6 +122,7 @@ class APIntegration {
                 this.randomizedBookCosts = saved.randomizedBookCosts ?? {};
                 this.deathMouseItem = saved.deathMouseItem ?? {};
                 this.connectMouseItem = saved.connectMouseItem ?? {};
+                this.enemyIdsSent = saved.enemyIdsSent ?? [];
                 GameLoad(saved.save.replace(/\r\n|\r|\n/g, ""));
             }
         }
@@ -179,6 +182,7 @@ class APIntegration {
             randomizedBookCosts: this.randomizedBookCosts ?? {},
             deathMouseItem: this.deathMouseItem ?? {},
             connectMouseItem: this.connectMouseItem ?? {},
+            enemyIdsSent: this.enemyIdsSent ?? [],
         });
     }
 
@@ -410,6 +414,10 @@ class APIntegration {
 
             this._connected = true;
 
+            // console.log(this.slotData.shuffle_levelups);
+            window.ArchipelagoMod.shuffleEnemies = this.slotData.shuffle_enemies ?? 0;
+            window.ArchipelagoMod.pendingAPItemDrops = [];
+            window.ArchipelagoMod.enemyIdsSent = this.enemyIdsSent;
             window.ArchipelagoMod.goldMultiplier = this.slotData.gold_multiplier ?? 1;
             window.ArchipelagoMod.xpMultiplier = this.slotData.xp_multiplier ?? 1;
             window.ArchipelagoMod.dropMultiplier = this.slotData.drop_multiplier ?? 1;
@@ -614,7 +622,7 @@ class APIntegration {
 
     spawnEnemies() {
         // IDs to exclude (Invisible boss attacks)
-        const excludedIds = new Set([40, 115, 163, 244, 333, 334, 335, 336, 337]);
+        const excludedIds = new Set([40, 115, 163, 244, 333, 334, 335, 336, 337, 339]);
 
         const spawnAmount = this.randomRangeInt(3, 10);
         for (let i = 0; i < spawnAmount; i++) {
@@ -650,16 +658,20 @@ class APIntegration {
     }
 
     async scoutBooksOnShopOpen() {
-        for (let i = 0; i < Stage_Status.length; i++) {
-            if (this.excludedBookStages.includes(i)) {
-                continue;
-            }
+        // TODO check if works in both states
+        if (this.slotData.shuffle_books === 1) {
+            // Book shuffle
+            for (let i = 0; i < Stage_Status.length; i++) {
+                if (this.excludedBookStages.includes(i)) {
+                    continue;
+                }
 
-            if (Stage_Status[i] === 3 && !this.bookHints[i]) {
-                this.client.scout([this.BOOK_OFFSET + i], 2);
+                if (Stage_Status[i] === 3 && !this.bookHints[i]) {
+                    this.client.scout([this.BOOK_OFFSET + i], 2);
+                }
             }
+            await this.saveState();
         }
-        await this.saveState();
     }
 
     _tick() {
@@ -678,9 +690,12 @@ class APIntegration {
             for (let i = 0; i < Stage_Status.length; i++) {
                 if ((this.prevStage[i] & Beaten) === 0 && (Stage_Status[i] & Beaten) !== 0) {
                     await this.sendLocation(i + this.STAGE_COMPLETE_OFFSET);
-                }
-                if ((this.prevStage[i] & Booked) === 0 && (Stage_Status[i] & Booked) !== 0) {
-                    await this.sendLocation(i + 10100);
+                } // TODO check if works in both states
+                if (this.slotData.shuffle_books === 1) {
+                    // Book shuffle
+                    if ((this.prevStage[i] & Booked) === 0 && (Stage_Status[i] & Booked) !== 0) {
+                        await this.sendLocation(i + this.BOOK_OFFSET);
+                    }
                 }
             }
             this.prevStage = [...Stage_Status];
@@ -768,7 +783,7 @@ class APIntegration {
                 }
             }
 
-            if (Sequence_Step === 54 && !this.isScouting && this.sendShopHints) {
+            if (Sequence_Step === 54 && !this.isScouting && this.sendShopHints && this.slotData.shuffle_books === 1) {
                 this.isScouting = true;
                 this.scoutBooksOnShopOpen();
             }
@@ -780,6 +795,15 @@ class APIntegration {
             if (this.newGame) {
                 this.newGame = false;
                 this.receivedItems = [];
+            }
+
+            while (window.ArchipelagoMod.pendingAPItemDrops.length > 0) {
+                const enemyId = window.ArchipelagoMod.pendingAPItemDrops.shift();
+                if (!this.enemyIdsSent.includes(enemyId)) {
+                    this.enemyIdsSent.push(enemyId);
+                    window.ArchipelagoMod.enemyIdsSent.push(enemyId);
+                    await this.sendLocation(enemyId + this.ENEMY_OFFSET);
+                }
             }
         }
 

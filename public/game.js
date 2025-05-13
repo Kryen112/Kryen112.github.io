@@ -305,7 +305,7 @@ var Shop_Items = [                          // item ID #'s for each shop       o
         [277,285,377,279,287,379,281,308,381,283,310,0] //  ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,   ,    // Level 1-5 Jewels
     ]
 ];
-var Item_Catalogue = Array(558); // array of item arrays original name: u
+var Item_Catalogue = Array(559); // array of item arrays original name: u
 //   items    [   ] = [0         ,1,2,3 ,4 ,5             ,6         ,7 ,8   ,9,10 ,11  ,12,13 ,14 ,15 ,16 ,7,18,19        ,0,21,22,23,24,25 ,26 ,27 ,28,29,30 ,1,2,33 ,4,35 ,36 ,7,8,39 ,40 ,41 ,2,43,44        ,5,46,47 ,48,49 ,50,51,52 ,53,54,55 ,6,7];
 Item_Catalogue[0]   = [""        ,0,0,0 ,0 ,Class_Stickman,0         ,0 ,0   ,0,0  ,0   ,0 ,0  ,0  ,0  ,0  ,0,0 ,0         ,1,0 ,0 ,0 ,0 ,0  ,0  ,0  ,0 ,0 ,0  ,0,0,0  ,0,0  ,0  ,0];//  ,   ,   , ,  ,          , ,  ,   ,  ,   ,  ,  ,   ,  ,  ,   , ,
 Item_Catalogue[59]  = ["NG"      ,0,0,13,12,Class_Compo   ,0xFF888888,0 ,0   ,0,0  ,0   ,0 ,0  ,0  ,0  ,0  ,0,0 ,0         ,1,0 ,0 ,0 ,0 ,0  ,0  ,0  ,0 ,0 ,0  ,0,0,0  ,0,0  ,0  ,0];//  ,   ,   , ,  ,          , ,  ,   ,  ,   ,  ,  ,   ,  ,  ,   , ,
@@ -905,6 +905,7 @@ Item_Catalogue[561] = ["Anger Crown"   ,0,400,19,63,Class_Compo,0xFFDDDDDD,Crown
 Item_Catalogue[562] = ["Anger Crown"   ,0,0  ,0 ,0 ,0          ,0         ,1          ,1  ,1,1              ,9999,1,0,0,0,0,0,18,0xFFFFFF99,2,64,512,64,512,0,0,10,20,0 ,100,1,0,0,3,0,0,0];
 Item_Catalogue[563] = ["Anger Crown"   ,0,0  ,0 ,0 ,0          ,0         ,1          ,1  ,0,1              ,999 ,1,0,0,0,0,0,21,0xFFFFFF99,2,8 ,8  ,16,16 ,0,0,10,3 ,-9,100,1,0,0,3,0,0,0];
 
+Item_Catalogue[564] = ["AP Item"       ,0,0  ,20,0,Class_Pickup,0xFFFFFFFF,50         ,0  ,0,"Hey, whatsup?","Fancy seeing you here"];
 
 var Save_Code1 = 0;        // original name: fe
 var Saving_Text_Timer = 0; // original name: ge
@@ -973,7 +974,7 @@ function saveGame(save_string_var){ // original name: ue()
 // takes the item array and the element number and returns the value of that element in that array
 function getVal(item,element){ // original name: w()
     // if the element you are trying to access is beyond the range of the array
-    if (item > 563) {
+    if (item > 564) {
         console.log(item, element);
     }
 
@@ -8552,6 +8553,34 @@ function enemyDeath(enemy,en_ID,xp_is_given){ // original name: Jg()
         Drops.DPadd(enemy.EN_joint[en_ID][direction].x,enemy.EN_joint[en_ID][direction].y,1,floor(gold_value*gold_value_mult/100),0); // gold drop
     if (500*Math.random() < onigiri_rate_mult) // 20% chance of dropping onigiri
         Drops.DPadd(enemy.EN_joint[en_ID][direction].x,enemy.EN_joint[en_ID][direction].y,2,0,0); // onigiri drop
+
+    const NON_BOSS_CHANCE = 0.05;
+    const BOSS_CHANCE     = 0.25;
+    const enemyID = enemy.EN_array_ID[en_ID];
+    const bossIDS = new Set([4, 8, 13, 18, 22, 26, 30, 34, 38, 39, 44, 48, 52, 56, 60, 64, 68, 73, 78, 84, 89, 93, 97, 101, 105, 109, 113, 114, 119, 123, 127, 129, 133, 137, 141, 145, 149, 153, 157, 161, 162, 167, 171, 175, 179, 183, 188, 193, 198, 202, 206, 210, 211, 212, 213, 214, 218, 222, 226, 230, 234, 238, 242, 243, 248, 252, 256, 259, 263, 267, 269, 273, 277, 281, 285, 289, 293, 297, 301, 305, 309, 313, 318, 323, 327, 331, 332, 338]);
+    const isBoss   = bossIDS.has(enemyID);
+
+    let chanceToDropApItem = 0;
+    switch (window.ArchipelagoMod.shuffleEnemies) {
+        case 1: // Non-boss enemies
+            if (!isBoss) chanceToDropApItem = NON_BOSS_CHANCE;
+            break;
+        case 2: // Boss enemies
+            if (isBoss) chanceToDropApItem = BOSS_CHANCE;
+            break;
+        case 3: // All enemies
+            chanceToDropApItem = isBoss ? BOSS_CHANCE : NON_BOSS_CHANCE;
+            break;
+        case 0:
+        default:
+            break;
+    }
+
+    if (chanceToDropApItem > 0 && Math.random() < chanceToDropApItem) {
+        const { x, y } = enemy.EN_joint[en_ID][direction];
+        Drops.DPadd(x, y, 564, enemyID, 0); //TODO remember enemy and do not let it drop again
+    }
+
     return 0;
 }
 
@@ -12263,6 +12292,11 @@ SR_Drop.prototype.DPmain = function(){ // aa.move
                 LP_Current[target_player] = clamp(LP_Current[target_player]+floor(LP_Max[target_player]/5),0,LP_Max[target_player]); // increase LP
                 antiCheatSet();
                 Indicators.INadd(this.DP_position[d].x,this.DP_position[d].y,0,floor(LP_Max[target_player]/5),0x00FF00);             // output LP increase
+            } else if (this.DP_item_ID[d]==564) { // Archipelago item pickup
+                const enemyID = this.DP_val1[d];
+                if (!window.ArchipelagoMod.enemyIdsSent.includes(enemyID)) {
+                    window.ArchipelagoMod.pendingAPItemDrops.push(enemyID); // Push enemy id into pendingDrops
+                }
             } else {
                 for (var i=Inv_First; i<Inv_Last; i++){ // search for next open slot
                     if (Item_Inv[i]==0){ // if there is space, add item to inventory
