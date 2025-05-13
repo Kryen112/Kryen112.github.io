@@ -96,6 +96,8 @@ var Terrain_Textures = Array(13);           // terrain textures                o
 var Player_Img = new SR_Image;              // stickman weapons and shadow     original name: Qa
 var Drop_Img = new SR_Image;                // icons for items when dropped    original name: Ra
 var Item_Img = new SR_Image;                // icons for items in inventory    original name: Ua
+var AP_Img = new SR_Image;                  // AP Icon
+var AP_Img_Grey = new SR_Image;                  // AP Icon
 var Enemy_Head_Img = new SR_Image;          // enemy head images               original name: Va
 var Sign_Img = new SR_Image;                // blank sign icon                 original name: Wa
 var Projectiles_Img = new SR_Image;         // images for all projectiles      original name: Za
@@ -2049,6 +2051,8 @@ function gameStartup(usr_id,lang,cookie,mode,e,g,k,r,m,n,F,H,M){ // original nam
         Player_Img.IGset("pl.gif");
         Drop_Img.IGset("icon.gif");
         Item_Img.IGset("item.gif");
+        AP_Img.IGset("AP.gif");
+        AP_Img_Grey.IGset("APgrey.gif");
         Enemy_Head_Img.IGset("en.gif");
         Sign_Img.IGset("next.gif");
         Projectiles_Img.IGset("mag.gif");
@@ -2075,6 +2079,8 @@ function gameStartup(usr_id,lang,cookie,mode,e,g,k,r,m,n,F,H,M){ // original nam
         imgToArray(Player_Img);
         imgToArray(Drop_Img);
         imgToArray(Item_Img);
+        imgToArray(AP_Img);
+        imgToArray(AP_Img_Grey);
         imgToArray(Enemy_Head_Img);
         imgToArray(Sign_Img);
         imgToArray(Projectiles_Img);
@@ -3188,7 +3194,7 @@ function townScreens(){ // original name: wf()
                 b = 0;
                 for (var e=0; e<nxt_stge_en; e++,b++){
                     Enemies.ENdrawIcon(Book_Indexer[book_stage]+e,g+164+12+32*b,book_top+44-1,0);
-                    e += EN_Info[Book_Indexer[book_stage]+e][En_2nd_Att]; // skip over drawaing enemy arrays that are just secondary attacks
+                    e += EN_Info[Book_Indexer[book_stage]+e][En_2nd_Att]; // skip over drawing enemy arrays that are just secondary attacks
                 }
                 book_enemy = Book_Indexer[book_stage]+book_column;
                 b = 0;
@@ -3958,6 +3964,39 @@ function drawStage(is_paused){ // original name: Tf()
             En_Count_From_Max--;
         filledRect(196,10,120,12,0x303030); // HP bar max
         filledRect(196,10,floor(120*Target_HP_Current/Target_HP_Max),12,0x600000); // HP bar current
+        const bossIDS = new Set([4, 8, 13, 18, 22, 26, 30, 34, 38, 39, 44, 48, 52, 56, 60, 64, 68, 73, 78, 84, 89, 93, 97, 101, 105, 109, 113, 114, 119, 123, 127, 129, 133, 137, 141, 145, 149, 153, 157, 161, 162, 167, 171, 175, 179, 183, 188, 193, 198, 202, 206, 210, 211, 212, 213, 214, 218, 222, 226, 230, 234, 238, 242, 243, 248, 252, 256, 259, 263, 267, 269, 273, 277, 281, 285, 289, 293, 297, 301, 305, 309, 313, 318, 323, 327, 331, 332, 338]);
+        const isBoss = bossIDS.has(Target_Array_ID);
+
+        switch (window.ArchipelagoMod.shuffleEnemies) {
+            case 1: // Non-boss enemies
+                if (!isBoss) {
+                    if (window.ArchipelagoMod.enemyIdsSent.includes(Target_Array_ID)) {
+                        dispItem(AP_Img, 305, 5, 24, 24, 0,0,24,24,0xFFFFFF);
+                    } else {
+                        dispItem(AP_Img_Grey, 305, 5, 24, 24, 0,0,24,24,0xFFFFFF);
+                    }
+                }
+                break;
+            case 2: // Boss enemies
+                if (isBoss) {
+                    if (window.ArchipelagoMod.enemyIdsSent.includes(Target_Array_ID)) {
+                        dispItem(AP_Img, 305, 5, 24, 24, 0,0,24,24,0xFFFFFF);
+                    } else {
+                        dispItem(AP_Img_Grey, 305, 5, 24, 24, 0,0,24,24,0xFFFFFF);
+                    }
+                }
+                break;
+            case 3: // All enemies
+                if (window.ArchipelagoMod.enemyIdsSent.includes(Target_Array_ID)) {
+                    dispItem(AP_Img, 305, 5, 24, 24, 0,0,24,24,0xFFFFFF);
+                } else {
+                    dispItem(AP_Img_Grey, 305, 5, 24, 24, 0,0,24,24,0xFFFFFF);
+                }
+                break;
+            case 0:
+            default:
+                break;
+        }
         if ((Stage_Status[Current_Stage]&Booked) > 0){
             centeredText(Small_Text,Win_Hcenter,16,""+Target_HP_Current+"/"+Target_HP_Max,0xFFFFFF,0x000000);
             Enemies.ENdrawIcon(Target_Array_ID,206,33,1);
@@ -8554,31 +8593,33 @@ function enemyDeath(enemy,en_ID,xp_is_given){ // original name: Jg()
     if (500*Math.random() < onigiri_rate_mult) // 20% chance of dropping onigiri
         Drops.DPadd(enemy.EN_joint[en_ID][direction].x,enemy.EN_joint[en_ID][direction].y,2,0,0); // onigiri drop
 
-    const NON_BOSS_CHANCE = 0.05;
-    const BOSS_CHANCE     = 0.25;
     const enemyID = enemy.EN_array_ID[en_ID];
-    const bossIDS = new Set([4, 8, 13, 18, 22, 26, 30, 34, 38, 39, 44, 48, 52, 56, 60, 64, 68, 73, 78, 84, 89, 93, 97, 101, 105, 109, 113, 114, 119, 123, 127, 129, 133, 137, 141, 145, 149, 153, 157, 161, 162, 167, 171, 175, 179, 183, 188, 193, 198, 202, 206, 210, 211, 212, 213, 214, 218, 222, 226, 230, 234, 238, 242, 243, 248, 252, 256, 259, 263, 267, 269, 273, 277, 281, 285, 289, 293, 297, 301, 305, 309, 313, 318, 323, 327, 331, 332, 338]);
-    const isBoss   = bossIDS.has(enemyID);
+    if (!window.ArchipelagoMod.enemyIdsSent.includes(enemyID)) {
+        const NON_BOSS_CHANCE = 0.05;
+        const BOSS_CHANCE = 0.25;
+        const bossIDS = new Set([4, 8, 13, 18, 22, 26, 30, 34, 38, 39, 44, 48, 52, 56, 60, 64, 68, 73, 78, 84, 89, 93, 97, 101, 105, 109, 113, 114, 119, 123, 127, 129, 133, 137, 141, 145, 149, 153, 157, 161, 162, 167, 171, 175, 179, 183, 188, 193, 198, 202, 206, 210, 211, 212, 213, 214, 218, 222, 226, 230, 234, 238, 242, 243, 248, 252, 256, 259, 263, 267, 269, 273, 277, 281, 285, 289, 293, 297, 301, 305, 309, 313, 318, 323, 327, 331, 332, 338]);
+        const isBoss = bossIDS.has(enemyID);
 
-    let chanceToDropApItem = 0;
-    switch (window.ArchipelagoMod.shuffleEnemies) {
-        case 1: // Non-boss enemies
-            if (!isBoss) chanceToDropApItem = NON_BOSS_CHANCE;
-            break;
-        case 2: // Boss enemies
-            if (isBoss) chanceToDropApItem = BOSS_CHANCE;
-            break;
-        case 3: // All enemies
-            chanceToDropApItem = isBoss ? BOSS_CHANCE : NON_BOSS_CHANCE;
-            break;
-        case 0:
-        default:
-            break;
-    }
+        let chanceToDropApItem = 0;
+        switch (window.ArchipelagoMod.shuffleEnemies) {
+            case 1: // Non-boss enemies
+                if (!isBoss) chanceToDropApItem = NON_BOSS_CHANCE;
+                break;
+            case 2: // Boss enemies
+                if (isBoss) chanceToDropApItem = BOSS_CHANCE;
+                break;
+            case 3: // All enemies
+                chanceToDropApItem = isBoss ? BOSS_CHANCE : NON_BOSS_CHANCE;
+                break;
+            case 0:
+            default:
+                break;
+        }
 
-    if (chanceToDropApItem > 0 && Math.random() < chanceToDropApItem) {
-        const { x, y } = enemy.EN_joint[en_ID][direction];
-        Drops.DPadd(x, y, 564, enemyID, 0); //TODO remember enemy and do not let it drop again
+        if (chanceToDropApItem > 0 && Math.random() < chanceToDropApItem) {
+            const { x, y } = enemy.EN_joint[en_ID][direction];
+            Drops.DPadd(x, y, 564, enemyID, 0); //TODO remember enemy and do not let it drop again
+        }
     }
 
     return 0;
