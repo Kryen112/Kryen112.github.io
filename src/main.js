@@ -68,7 +68,6 @@ class APIntegration {
         this.pendingTraps = [];
         this.deathMouseItem = {};
         this.connectMouseItem = {};
-        this.enemyIdsSent = [];
 
         this.host = document.getElementById("host");
         this.port = document.getElementById("port");
@@ -122,7 +121,7 @@ class APIntegration {
                 this.randomizedBookCosts = saved.randomizedBookCosts ?? {};
                 this.deathMouseItem = saved.deathMouseItem ?? {};
                 this.connectMouseItem = saved.connectMouseItem ?? {};
-                this.enemyIdsSent = saved.enemyIdsSent ?? [];
+                window.ArchipelagoMod.enemyIdsSent = new Set(saved.enemyIdsSent ?? []);
                 GameLoad(saved.save.replace(/\r\n|\r|\n/g, ""));
             }
         }
@@ -182,7 +181,7 @@ class APIntegration {
             randomizedBookCosts: this.randomizedBookCosts ?? {},
             deathMouseItem: this.deathMouseItem ?? {},
             connectMouseItem: this.connectMouseItem ?? {},
-            enemyIdsSent: this.enemyIdsSent ?? [],
+            enemyIdsSent: Array.from(window.ArchipelagoMod.enemyIdsSent) ?? [],
         });
     }
 
@@ -417,7 +416,6 @@ class APIntegration {
             // console.log(this.slotData.shuffle_levelups);
             window.ArchipelagoMod.shuffleEnemies = this.slotData.shuffle_enemies ?? 0;
             window.ArchipelagoMod.pendingAPItemDrops = [];
-            window.ArchipelagoMod.enemyIdsSent = this.enemyIdsSent;
             window.ArchipelagoMod.goldMultiplier = this.slotData.gold_multiplier ?? 1;
             window.ArchipelagoMod.xpMultiplier = this.slotData.xp_multiplier ?? 1;
             window.ArchipelagoMod.dropMultiplier = this.slotData.drop_multiplier ?? 1;
@@ -799,9 +797,8 @@ class APIntegration {
 
             while (window.ArchipelagoMod.pendingAPItemDrops.length > 0) {
                 const enemyId = window.ArchipelagoMod.pendingAPItemDrops.shift();
-                if (!this.enemyIdsSent.includes(enemyId)) {
-                    this.enemyIdsSent.push(enemyId);
-                    window.ArchipelagoMod.enemyIdsSent.push(enemyId);
+                if (!window.ArchipelagoMod.enemyIdsSent.has(enemyId)) {
+                    window.ArchipelagoMod.enemyIdsSent.add(enemyId);
                     await this.sendLocation(enemyId + this.ENEMY_OFFSET);
                 }
             }
