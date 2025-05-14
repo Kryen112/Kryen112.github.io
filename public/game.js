@@ -96,8 +96,10 @@ var Terrain_Textures = Array(13);           // terrain textures                o
 var Player_Img = new SR_Image;              // stickman weapons and shadow     original name: Qa
 var Drop_Img = new SR_Image;                // icons for items when dropped    original name: Ra
 var Item_Img = new SR_Image;                // icons for items in inventory    original name: Ua
-var AP_Img = new SR_Image;                  // AP Icon
-var AP_Img_Grey = new SR_Image;                  // AP Icon
+var AP_Img = new SR_Image;                  // AP IMG
+var AP_Img_Grey = new SR_Image;             // AP IMG Grey
+var AP_Icon = new SR_Image;                 // AP Icon
+var AP_Icon_Grey = new SR_Image;            // AP Icon Grey
 var Enemy_Head_Img = new SR_Image;          // enemy head images               original name: Va
 var Sign_Img = new SR_Image;                // blank sign icon                 original name: Wa
 var Projectiles_Img = new SR_Image;         // images for all projectiles      original name: Za
@@ -2052,7 +2054,9 @@ function gameStartup(usr_id,lang,cookie,mode,e,g,k,r,m,n,F,H,M){ // original nam
         Drop_Img.IGset("icon.gif");
         Item_Img.IGset("item.gif");
         AP_Img.IGset("AP.gif");
-        AP_Img_Grey.IGset("APgrey.gif");
+        AP_Img_Grey.IGset("AP_grey.gif");
+        AP_Icon.IGset("AP_icon.gif");
+        AP_Icon_Grey.IGset("AP_icon_grey.gif");
         Enemy_Head_Img.IGset("en.gif");
         Sign_Img.IGset("next.gif");
         Projectiles_Img.IGset("mag.gif");
@@ -2081,6 +2085,8 @@ function gameStartup(usr_id,lang,cookie,mode,e,g,k,r,m,n,F,H,M){ // original nam
         imgToArray(Item_Img);
         imgToArray(AP_Img);
         imgToArray(AP_Img_Grey);
+        imgToArray(AP_Icon);
+        imgToArray(AP_Icon_Grey);
         imgToArray(Enemy_Head_Img);
         imgToArray(Sign_Img);
         imgToArray(Projectiles_Img);
@@ -3195,6 +3201,14 @@ function townScreens(){ // original name: wf()
                 for (var e=0; e<nxt_stge_en; e++,b++){
                     Enemies.ENdrawIcon(Book_Indexer[book_stage]+e,g+164+12+32*b,book_top+44-1,0);
                     e += EN_Info[Book_Indexer[book_stage]+e][En_2nd_Att]; // skip over drawing enemy arrays that are just secondary attacks
+                    const x = g+167+32*b;
+                    const y = 67;
+                    const enemyID = Book_Indexer[book_stage]+e;
+                    if (window.ArchipelagoMod.enemyIdsSent.includes(enemyID)) {
+                        dispItem(AP_Icon     , x, y, 18, 18, 0,0,18,18,0xFFFFFF);
+                    } else {
+                        dispItem(AP_Icon_Grey, x, y, 18, 18, 0,0,18,18,0xFFFFFF);
+                    }
                 }
                 book_enemy = Book_Indexer[book_stage]+book_column;
                 b = 0;
