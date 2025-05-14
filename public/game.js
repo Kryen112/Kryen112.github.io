@@ -3980,31 +3980,33 @@ function drawStage(is_paused){ // original name: Tf()
         filledRect(196,10,floor(120*Target_HP_Current/Target_HP_Max),12,0x600000); // HP bar current
         const bossIDS = new Set([4, 8, 13, 18, 22, 26, 30, 34, 38, 39, 44, 48, 52, 56, 60, 64, 68, 73, 78, 84, 89, 93, 97, 101, 105, 109, 113, 114, 119, 123, 127, 129, 133, 137, 141, 145, 149, 153, 157, 161, 162, 167, 171, 175, 179, 183, 188, 193, 198, 202, 206, 210, 211, 212, 213, 214, 218, 222, 226, 230, 234, 238, 242, 243, 248, 252, 256, 259, 263, 267, 269, 273, 277, 281, 285, 289, 293, 297, 301, 305, 309, 313, 318, 323, 327, 331, 332, 338]);
         const isBoss = bossIDS.has(Target_Array_ID);
+        const x = 320;
+        const y = 4;
 
         switch (window.ArchipelagoMod.shuffleEnemies) {
             case 1: // Non-boss enemies
                 if (!isBoss) {
                     if (window.ArchipelagoMod.enemyIdsSent.includes(Target_Array_ID)) {
-                        dispItem(AP_Img, 305, 5, 24, 24, 0,0,24,24,0xFFFFFF);
+                        dispItem(AP_Img,      x, y, 24, 24, 0,0,24,24,0xFFFFFF);
                     } else {
-                        dispItem(AP_Img_Grey, 305, 5, 24, 24, 0,0,24,24,0xFFFFFF);
+                        dispItem(AP_Img_Grey, x, y, 24, 24, 0,0,24,24,0xFFFFFF);
                     }
                 }
                 break;
             case 2: // Boss enemies
                 if (isBoss) {
                     if (window.ArchipelagoMod.enemyIdsSent.includes(Target_Array_ID)) {
-                        dispItem(AP_Img, 305, 5, 24, 24, 0,0,24,24,0xFFFFFF);
+                        dispItem(AP_Img,      x, y, 24, 24, 0,0,24,24,0xFFFFFF);
                     } else {
-                        dispItem(AP_Img_Grey, 305, 5, 24, 24, 0,0,24,24,0xFFFFFF);
+                        dispItem(AP_Img_Grey, x, y, 24, 24, 0,0,24,24,0xFFFFFF);
                     }
                 }
                 break;
             case 3: // All enemies
                 if (window.ArchipelagoMod.enemyIdsSent.includes(Target_Array_ID)) {
-                    dispItem(AP_Img, 305, 5, 24, 24, 0,0,24,24,0xFFFFFF);
+                    dispItem(AP_Img,      x, y, 24, 24, 0,0,24,24,0xFFFFFF);
                 } else {
-                    dispItem(AP_Img_Grey, 305, 5, 24, 24, 0,0,24,24,0xFFFFFF);
+                    dispItem(AP_Img_Grey, x, y, 24, 24, 0,0,24,24,0xFFFFFF);
                 }
                 break;
             case 0:
