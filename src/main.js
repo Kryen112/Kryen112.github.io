@@ -413,9 +413,10 @@ class APIntegration {
 
             this._connected = true;
 
-            // console.log(this.slotData.shuffle_levelups);
             window.ArchipelagoMod.shuffleEnemies = this.slotData.shuffle_enemies ?? 0;
+            window.ArchipelagoMod.shuffleLevelups = this.slotData.shuffle_levelups ?? 0;
             window.ArchipelagoMod.pendingAPItemDrops = [];
+            window.ArchipelagoMod.pendingLevelups = [];
             window.ArchipelagoMod.goldMultiplier = this.slotData.gold_multiplier ?? 1;
             window.ArchipelagoMod.xpMultiplier = this.slotData.xp_multiplier ?? 1;
             window.ArchipelagoMod.dropMultiplier = this.slotData.drop_multiplier ?? 1;
