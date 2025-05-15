@@ -146,6 +146,7 @@ var Ind_Limit = 1000;                       // animated indicator limit ******(W
 var Drop_Limit = 100;                       // drop count limit         ******(WARNING: THIS WILL CAUSE MAJOR LAG)******
 var Anger_Crown_Lightning = 0;              // Anger Crown lightning           original name: Lb
 var LV = [1,1];                             // LV[PvE,PvP] (level)             original name: Mb
+var LVSend = window.ArchipelagoMod.levelIdSent ?? 1; // LV to send for AP
 var FP = [1,1];                             // FP[PvE,PvP] (Fighting Power)    original name: Nb
 var Rank = [0,0];                           // Rank[PvE,PvP]                   original name: $b
 var SP = [0,0,0,0,0,0,0,0];                 // uninvested skill points         original name: ac
@@ -8552,7 +8553,9 @@ function enemyDeath(enemy,en_ID,xp_is_given){ // original name: Jg()
                 xp_for_next_LV = xp_for_prev_LV+1000*i;
             }
             
-            if (xp_for_next_LV<=Team_EXP){
+            if (xp_for_next_LV<=Team_EXP) {
+                LVSend++;
+                window.ArchipelagoMod.pendingLevelups.push(LVSend);
                 // Push levelup here and do some magic inside main to send the item. Then write some code to level up upon receiving a check
             }
         }
