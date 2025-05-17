@@ -183,9 +183,13 @@ class APIntegration {
             randomizedBookCosts: this.randomizedBookCosts ?? {},
             deathMouseItem: this.deathMouseItem ?? {},
             connectMouseItem: this.connectMouseItem ?? {},
-            enemyIdsSent: Array.from(window.ArchipelagoMod.enemyIdsSent) ?? [],
-            levelIdSent: window.ArchipelagoMod.levelIdSent,
+            enemyIdsSent: Array.isArray(window.ArchipelagoMod.enemyIdsSent) ? Array.from(window.ArchipelagoMod.enemyIdsSent) ?? [] : [],
+            levelIdSent: isNumber(window.ArchipelagoMod.levelIdSent) ? window.ArchipelagoMod.levelIdSent ?? 1 : 1,
         });
+    }
+
+    isNumber(value) {
+        return typeof value === 'number';
     }
 
     _onUnload() {
