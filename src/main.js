@@ -405,6 +405,7 @@ class APIntegration {
             if (saved) {
                 this.receivedItems = saved.receivedItems;
                 Stage_Status = this.restoreStagesBeaten(saved.stages);
+                this.prevStage = [...Stage_Status];
             } else {
                 await this.saveState();
             }
@@ -707,8 +708,6 @@ class APIntegration {
                 }
             }
             this.prevStage = [...Stage_Status];
-            console.log("prevStage: ", this.prevStage);
-            console.log("Stage_Status: ", Stage_Status);
 
             // flush inventory
             await this._flushPending();
