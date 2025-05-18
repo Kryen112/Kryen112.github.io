@@ -172,6 +172,7 @@ class APIntegration {
 
     async saveState() {
         if (!this.storageKey) return;
+        console.log("Saving game");
         Save_Code3 = genSaveCode(0);
         await setState(this.storageKey, {
             receivedItems: this.receivedItems,
@@ -504,6 +505,7 @@ class APIntegration {
     }
 
     async _applyTrap(id) {
+        console.log("Applying trap: " + id);
         if (this.isInPlayableSequenceStep()) {
             this.receivedItems.push(id);
             switch (id) {
@@ -651,6 +653,7 @@ class APIntegration {
         let slot;
         while (this.pendingItems.length && (slot = this._firstEmptyInvSlot()) >= 0) {
             const id = this.pendingItems.shift();
+            console.log("Receiving " + this.pendingItems.length + " items: ", id);
             this.receivedItems.push(id);
             const idx = id - this.ITEM_OFFSET;
             Item_Inv[slot] = idx;
@@ -660,6 +663,7 @@ class APIntegration {
     }
 
     async scoutBooksOnShopOpen() {
+        console.log("Scouting books");
         // TODO check if works in both states
         if (this.slotData.shuffle_books === 1) {
             // Book shuffle
@@ -691,16 +695,20 @@ class APIntegration {
             // scan beaten/booked changes
             for (let i = 0; i < Stage_Status.length; i++) {
                 if ((this.prevStage[i] & Beaten) === 0 && (Stage_Status[i] & Beaten) !== 0) {
+                    console.log("Sending stage " + i + " as beaten");
                     await this.sendLocation(i + this.STAGE_COMPLETE_OFFSET);
                 } // TODO check if works in both states
                 if (this.slotData.shuffle_books === 1) {
                     // Book shuffle
                     if ((this.prevStage[i] & Booked) === 0 && (Stage_Status[i] & Booked) !== 0) {
+                        console.log("Sending stage " + i + " as booked");
                         await this.sendLocation(i + this.BOOK_OFFSET);
                     }
                 }
             }
             this.prevStage = [...Stage_Status];
+            console.log("prevStage: ", this.prevStage);
+            console.log("Stage_Status: ", Stage_Status);
 
             // flush inventory
             await this._flushPending();
@@ -801,6 +809,7 @@ class APIntegration {
 
             while (window.ArchipelagoMod.pendingAPItemDrops.length > 0) {
                 const enemyId = window.ArchipelagoMod.pendingAPItemDrops.shift();
+                console.log("Sending enemy drop with id: ", enemyId);
                 if (!window.ArchipelagoMod.enemyIdsSent.has(enemyId)) {
                     window.ArchipelagoMod.enemyIdsSent.add(enemyId);
                     await this.sendLocation(enemyId + this.ENEMY_OFFSET);
