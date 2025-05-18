@@ -146,7 +146,6 @@ var Ind_Limit = 1000;                       // animated indicator limit ******(W
 var Drop_Limit = 100;                       // drop count limit         ******(WARNING: THIS WILL CAUSE MAJOR LAG)******
 var Anger_Crown_Lightning = 0;              // Anger Crown lightning           original name: Lb
 var LV = [1,1];                             // LV[PvE,PvP] (level)             original name: Mb
-var LVSend = window.ArchipelagoMod.levelIdSent ?? 1; // LV to send for AP
 var FP = [1,1];                             // FP[PvE,PvP] (Fighting Power)    original name: Nb
 var Rank = [0,0];                           // Rank[PvE,PvP]                   original name: $b
 var SP = [0,0,0,0,0,0,0,0];                 // uninvested skill points         original name: ac
@@ -8545,46 +8544,30 @@ function enemyDeath(enemy,en_ID,xp_is_given){ // original name: Jg()
     xp_for_prev_LV = 4753000;
     xp_for_next_LV = 9999999;
 
-    if (window.ArchipelagoMod.shuffleLevelups > 0) {
-        if (window.ArchipelagoMod.levelupsReceived.length < 98) {
-            xp_for_prev_LV = 0;
-            for (let i = 0; i < window.ArchipelagoMod.levelupsReceived.length; i++) {
-                xp_for_prev_LV += 1000*i;
-                xp_for_next_LV = xp_for_prev_LV+1000*i;
-            }
-            
-            if (xp_for_next_LV<=Team_EXP) {
-                LVSend++;
-                window.ArchipelagoMod.pendingLevelups.push(LVSend);
-                // Push levelup here and do some magic inside main to send the item. Then write some code to level up upon receiving a check
-            }
-        }
-    } else {
-        if (LV[0]<98){
-            xp_for_prev_LV = 0;
-            for (var l=1; l<LV[0]; l++)
-                xp_for_prev_LV += 1000*l;
-            xp_for_next_LV = xp_for_prev_LV+1000*l;
-        }
-        if (xp_for_next_LV<=Team_EXP && LV[0]<99){
-            LV[0]++;
-            for (var s=0; s<Stickmen_Slots; s++)
-                SP[s] += 2;
+    if (LV[0]<98){
+        xp_for_prev_LV = 0;
+        for (var l=1; l<LV[0]; l++)
+            xp_for_prev_LV += 1000*l;
+        xp_for_next_LV = xp_for_prev_LV+1000*l;
+    }
+    if (xp_for_next_LV<=Team_EXP && LV[0]<99){
+        LV[0]++;
+        for (var s=0; s<Stickmen_Slots; s++)
+            SP[s] += 2;
 
-            // anger crown effect
-            anger_crown = false;
-            for (var i=Stickmen_Slots; i<Inv_Last; i++){
-                if (getVal(Item_Inv[i],Eff_ID)==Crown_Anger || getVal(Comp1_Inv[i],Eff_ID)==Crown_Anger || getVal(Comp2_Inv[i],Eff_ID)==Crown_Anger)
-                    anger_crown = true;
-            }
-            if (anger_crown==true){
-                Anger_Crown_Lightning = 480;
-                for (var s=0; s<Stickmen_Slots; s++){
-                    Players.PLprojectileAttack(562,Players.PL_joint[s][0].x,Players.PL_joint[s][0].y,0);
-                    if (LP_Current[s]!=LP_Max[s]){
-                        Indicators.INadd(Players.PL_joint[s][0].x,Players.PL_joint[s][0].y,0,LP_Max[s]-LP_Current[s],0x00FF00); // output LP restore
-                        LP_Current[s] = LP_Max[s]; // restore LP
-                    }
+        // anger crown effect
+        anger_crown = false;
+        for (var i=Stickmen_Slots; i<Inv_Last; i++){
+            if (getVal(Item_Inv[i],Eff_ID)==Crown_Anger || getVal(Comp1_Inv[i],Eff_ID)==Crown_Anger || getVal(Comp2_Inv[i],Eff_ID)==Crown_Anger)
+                anger_crown = true;
+        }
+        if (anger_crown==true){
+            Anger_Crown_Lightning = 480;
+            for (var s=0; s<Stickmen_Slots; s++){
+                Players.PLprojectileAttack(562,Players.PL_joint[s][0].x,Players.PL_joint[s][0].y,0);
+                if (LP_Current[s]!=LP_Max[s]){
+                    Indicators.INadd(Players.PL_joint[s][0].x,Players.PL_joint[s][0].y,0,LP_Max[s]-LP_Current[s],0x00FF00); // output LP restore
+                    LP_Current[s] = LP_Max[s]; // restore LP
                 }
             }
         }

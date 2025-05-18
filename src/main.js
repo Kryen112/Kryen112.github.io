@@ -36,7 +36,6 @@ class APIntegration {
         this.STAGE_COMPLETE_OFFSET = 10000;
         this.BOOK_OFFSET = 10100;
         this.ENEMY_OFFSET = 10200;
-        this.LEVEL_OFFSET = 10600;
         this.LOC_OFFSET = 11000;
         this.ITEM_OFFSET = 12000;
         this.TRAPS_OFFSET = 13000;
@@ -123,7 +122,6 @@ class APIntegration {
                 this.deathMouseItem = saved.deathMouseItem ?? {};
                 this.connectMouseItem = saved.connectMouseItem ?? {};
                 window.ArchipelagoMod.enemyIdsSent = new Set(saved.enemyIdsSent ?? []);
-                window.ArchipelagoMod.levelIdSent = saved.levelIdSent;
                 GameLoad(saved.save.replace(/\r\n|\r|\n/g, ""));
             }
         }
@@ -184,7 +182,6 @@ class APIntegration {
             deathMouseItem: this.deathMouseItem ?? {},
             connectMouseItem: this.connectMouseItem ?? {},
             enemyIdsSent: Array.isArray(window.ArchipelagoMod.enemyIdsSent) ? Array.from(window.ArchipelagoMod.enemyIdsSent) ?? [] : [],
-            levelIdSent: isNumber(window.ArchipelagoMod.levelIdSent) ? window.ArchipelagoMod.levelIdSent ?? 1 : 1,
         });
     }
 
@@ -421,9 +418,7 @@ class APIntegration {
             this._connected = true;
 
             window.ArchipelagoMod.shuffleEnemies = this.slotData.shuffle_enemies ?? 0;
-            window.ArchipelagoMod.shuffleLevelups = this.slotData.shuffle_levelups ?? 0;
             window.ArchipelagoMod.pendingAPItemDrops = [];
-            window.ArchipelagoMod.pendingLevelups = [];
             window.ArchipelagoMod.goldMultiplier = this.slotData.gold_multiplier ?? 1;
             window.ArchipelagoMod.xpMultiplier = this.slotData.xp_multiplier ?? 1;
             window.ArchipelagoMod.dropMultiplier = this.slotData.drop_multiplier ?? 1;
@@ -809,12 +804,6 @@ class APIntegration {
                     window.ArchipelagoMod.enemyIdsSent.add(enemyId);
                     await this.sendLocation(enemyId + this.ENEMY_OFFSET);
                 }
-            }
-
-            while (window.ArchipelagoMod.pendingLevelups.length > 0) {
-                const levelId = window.ArchipelagoMod.pendingAPItemDrops.shift();
-                window.ArchipelagoMod.levelIdSent = levelId;
-                await this.sendLocation(levelId + this.LEVEL_OFFSET - 2);
             }
         }
 
