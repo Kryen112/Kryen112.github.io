@@ -181,7 +181,7 @@ class APIntegration {
             randomizedBookCosts: this.randomizedBookCosts ?? {},
             deathMouseItem: this.deathMouseItem ?? {},
             connectMouseItem: this.connectMouseItem ?? {},
-            enemyIdsSent: Array.isArray(window.ArchipelagoMod.enemyIdsSent) ? Array.from(window.ArchipelagoMod.enemyIdsSent) ?? [] : [],
+            enemyIdsSent: window.ArchipelagoMod.enemyIdsSent instanceof Set ? Array.from(window.ArchipelagoMod.enemyIdsSent) ?? [] : [],
         });
     }
 
