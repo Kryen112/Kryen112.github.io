@@ -319,7 +319,7 @@ class APIntegration {
         this.client.socket.on("printJSON", (printJSONPacket) => {
             const container = document.createElement("div");
             if (printJSONPacket.item) {
-                const connectedPlayerId = printJSONPacket.item.player;
+                const connectedPlayerId = this.slotData.player_id;
                 printJSONPacket.data.forEach((el) => {
                     const span = document.createElement("span");
                     if (el.type === "player_id") {
