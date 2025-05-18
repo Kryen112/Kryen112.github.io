@@ -8619,8 +8619,8 @@ function enemyDeath(enemy,en_ID,xp_is_given){ // original name: Jg()
 
     const enemyID = enemy.EN_array_ID[en_ID];
     if (!window.ArchipelagoMod.enemyIdsSent.has(enemyID)) {
-        const NON_BOSS_CHANCE = 0.05;
-        const BOSS_CHANCE = 0.25;
+        const NON_BOSS_CHANCE = 0.15;
+        const BOSS_CHANCE = 0.50;
         const bossIDS = new Set([4, 8, 13, 18, 22, 26, 30, 34, 38, 39, 44, 48, 52, 56, 60, 64, 68, 73, 78, 84, 89, 93, 97, 101, 105, 109, 113, 114, 119, 123, 127, 129, 133, 137, 141, 145, 149, 153, 157, 161, 162, 167, 171, 175, 179, 183, 188, 193, 198, 202, 206, 210, 211, 212, 213, 214, 218, 222, 226, 230, 234, 238, 242, 243, 248, 252, 256, 259, 263, 267, 269, 273, 277, 281, 285, 289, 293, 297, 301, 305, 309, 313, 318, 323, 327, 331, 332, 338]);
         const isBoss = bossIDS.has(enemyID);
 
