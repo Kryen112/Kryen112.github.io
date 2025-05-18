@@ -419,6 +419,7 @@ class APIntegration {
 
             window.ArchipelagoMod.shuffleEnemies = this.slotData.shuffle_enemies ?? 0;
             window.ArchipelagoMod.pendingAPItemDrops = [];
+            window.ArchipelagoMod.enemyIdsSent = window.ArchipelagoMod.enemyIdsSent ?? new Set([]);
             window.ArchipelagoMod.goldMultiplier = this.slotData.gold_multiplier ?? 1;
             window.ArchipelagoMod.xpMultiplier = this.slotData.xp_multiplier ?? 1;
             window.ArchipelagoMod.dropMultiplier = this.slotData.drop_multiplier ?? 1;
