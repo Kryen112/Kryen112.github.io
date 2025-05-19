@@ -13725,11 +13725,27 @@ function moveJoint(current_pos,next_pos,gravity,resistance){ // original name: W
 }
 
 window.fullScreen = fullScreen;
-function fullScreen(){
-    if (document.webkitFullscreenEnabled){
-        if (document.webkitFullscreenElement)
-             document.webkitExitFullscreen();
-        else cv.webkitRequestFullScreen();
+function fullScreen() {
+    const doc     = window.document;
+    const elem    = cv; 
+    const request = elem.requestFullscreen
+                  || elem.webkitRequestFullScreen
+                  || elem.mozRequestFullScreen
+                  || elem.msRequestFullscreen;
+    const exit    = doc.exitFullscreen
+                  || doc.webkitExitFullscreen
+                  || doc.mozCancelFullScreen
+                  || doc.msExitFullscreen;
+
+    if (
+        !doc.fullscreenElement
+        && !doc.webkitFullscreenElement
+        && !doc.mozFullScreenElement
+        && !doc.msFullscreenElement
+    ) {
+        request.call(elem);
+    } else {
+        exit.call(doc);
     }
 }
 
