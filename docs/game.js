@@ -13773,94 +13773,88 @@ function isMouseHoveredCenter(x_pos,y_pos,width,height){ // original name: Df()
     var top = y_pos-(height>>1);
     return isMouseHovered(left,top,width,height);
 }
-/*
-function getMousePos(event){ // original name: ai()
-    var rect = cv.getBoundingClientRect();
-    Mouse_Xpos2 = floor(event.clientX-rect.left);
-    Mouse_Ypos2 = floor(event.clientY-rect.top);
-}
-//*/
-//*
-function getMousePos(event){ // original name: ai()
-    var rect = cv.getBoundingClientRect();
-    var width = rect.right - rect.left;
-    var height = rect.bottom - rect.top;
-    var scale = minOf(width/512, height/384);
-    var half_scale = floor(height/2 - 384*scale/2);
-    Mouse_Xpos2 = floor((event.clientX - rect.left - floor(width/2 - 512*scale/2))/scale);
-    Mouse_Ypos2 = floor((event.clientY - rect.top - half_scale)/scale);
-}
-//*/
 
+// ——————————————————————————
+// Map a pointer event into your 512×384 game space
+// ——————————————————————————
+function getMousePos(event){ // original name: ai()
+    var rect   = cv.getBoundingClientRect();
+    var width  = rect.right - rect.left;
+    var height = rect.bottom - rect.top;
+    var scale  = Math.min(width / 512, height / 384);
+    var xOffset = Math.floor((width  - 512 * scale) / 2);
+    var yOffset = Math.floor((height - 384 * scale) / 2);
+
+    Mouse_Xpos2 = Math.floor((event.clientX - rect.left - xOffset) / scale);
+    Mouse_Ypos2 = Math.floor((event.clientY - rect.top  - yOffset) / scale);
+}
+
+// ——————————————————————————
+// Desktop mouse handlers
+// ——————————————————————————
 document.onmousemove = getMousePos;
+
 document.onmousedown = function(event){ // original name: vh.onmousedown
     getMousePos(event);
     Mouse_In_Window = false;
-    if (!(Mouse_Xpos2<0 || Win_Width<=Mouse_Xpos2 || Mouse_Ypos2<0 || Win_Height<=Mouse_Ypos2)){
+    if (!(Mouse_Xpos2 < 0 || Win_Width <= Mouse_Xpos2 ||
+          Mouse_Ypos2 < 0 || Win_Height <= Mouse_Ypos2)){
         Mouse_In_Window = true;
-        if (event.button==0)
-            Left_Click_Is_Down = true;
-        if (event.button==2)
-            Right_Click_Is_Down = true;
-        //if (Mouse_In_Window)
+        if (event.button === 0) Left_Click_Is_Down  = true;
+        if (event.button === 2) Right_Click_Is_Down = true;
         return false;
     }
 };
 
 document.onmouseup = function(event){ // original name: vh.onmouseup
     getMousePos(event);
-    if (event.button==0)
-        Left_Click_Is_Down = false;
-    if (event.button==2)
-        Right_Click_Is_Down = false;
+    if (event.button === 0) Left_Click_Is_Down  = false;
+    if (event.button === 2) Right_Click_Is_Down = false;
 };
 
 document.oncontextmenu = function(){ // original name: vh.oncontextmenu
-    if (Mouse_In_Window)
-        return false;
+    if (Mouse_In_Window) return false;
 };
 
-function maybeMouseOffset(event){ // original name: ci()
-    var b = 0;
-    var c = 0;
-    for (var d=cv; d!=null; d=d.offsetParent){
-        b += d.offsetLeft;
-        c += d.offsetTop;
-    }
-    event = event.touches;
-    Mouse_Xpos2 = floor(event[0].pageX-b);
-    Mouse_Ypos2 = floor(event[0].pageY-c);
+// ——————————————————————————
+// Unified touch handlers
+// ——————————————————————————
+function handleTouchPos(clientX, clientY){ // original name: ci()
+    var fakeEvent = { clientX: clientX, clientY: clientY };
+    getMousePos(fakeEvent);
 }
 
 document.ontouchstart = function(event){ // original name: vh.ontouchstart
-    maybeMouseOffset(event);
-    Mouse_In_Window = Right_Click_Is_Down = Left_Click_Is_Down = false;
-    if (!(Mouse_Xpos2<0 || Win_Width<=Mouse_Xpos2 || Mouse_Ypos2<0 || Win_Height<=Mouse_Ypos2)){
-        Left_Click_Is_Down = Mouse_In_Window = true;
-        if (event.touches.length>1)
+    var touch = event.touches[0];
+    handleTouchPos(touch.clientX, touch.clientY);
+
+    Mouse_In_Window = false;
+    if (!(Mouse_Xpos2 < 0 || Win_Width <= Mouse_Xpos2 ||
+          Mouse_Ypos2 < 0 || Win_Height <= Mouse_Ypos2)){
+        Mouse_In_Window     = true;
+        Left_Click_Is_Down  = true;
+        if (event.touches.length > 1)
             Right_Click_Is_Down = true;
         return false;
     }
 };
 
 document.ontouchmove = function(event){ // original name: vh.ontouchmove
-    maybeMouseOffset(event);
-    if (Mouse_In_Window)
-        return false;
+    var touch = event.touches[0];
+    handleTouchPos(touch.clientX, touch.clientY);
+    if (Mouse_In_Window) return false;
 };
 
-document.ontouchend = function(event){ // original name: vh.ontouchend
-    if (event.touches.length<1)
-        Left_Click_Is_Down = false;
+document.ontouchend = function(){ // original name: vh.ontouchend
+    Left_Click_Is_Down  = false;
     Right_Click_Is_Down = false;
-    if (Mouse_In_Window)
-        return false;
+    if (Mouse_In_Window) return false;
 };
 
 document.ontouchcancel = function(){ // vh.ontouchcancel
     Right_Click_Is_Down = false;
-    Left_Click_Is_Down = false;
-    Mouse_In_Window = false;
+    Left_Click_Is_Down  = false;
+    Mouse_In_Window     = false;
 };
 
 var Is_Key_Pressed1 = Array(256); // original name: Ze
