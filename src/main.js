@@ -11,8 +11,7 @@ class APIntegration {
         this.INV_START = 16;
         this.MOUSE_SLOT = 40;
         this.STAGE_TO_WIN = 88; // Hell Castle ID
-        this.STORAGE_KEY = "stickranger:save";
-
+        
         this._connected = false;
         this._disconnected = false;
         this.receivedItems = [];
@@ -77,9 +76,14 @@ class APIntegration {
         requestAnimationFrame(this._tick);
     }
 
-    async loadAPData() {
+    getStorageKey() {
+        return `StickRangerSaveData:${this.client.players.self.team}:${this.client.players.self.slot}`
+
+    }
+
+    loadAPData() {
         console.log("Loading data...");
-        const data = await this.client.storage.fetch("stickranger:save", {});
+        const data = this.client.storage.store[this.getStorageKey()];
 
         if (data) {
             console.log("Found data: ");
@@ -98,7 +102,7 @@ class APIntegration {
     }
 
     async saveAPData() {
-        // console.log("Saving game...");
+        console.log("Saving game...")
         if (this._connected) {
             Save_Code3 = genSaveCode(0);
             const payload = {
@@ -112,10 +116,10 @@ class APIntegration {
                 enemyIdsSent: Array.from(window.ArchipelagoMod.enemyIdsSent ?? []),
             };
 
-            // console.log("Saving payload: ");
-            // console.log(payload);
+            console.log("Saving payload: ");
+            console.log(payload);
 
-            await this.client.storage.prepare("stickranger:save", {}).replace(payload).commit();
+            await this.client.storage.prepare(this.getStorageKey(), {}).update(payload).commit(false);
         } else {
             console.log("Not connected yet");
         }
@@ -127,7 +131,6 @@ class APIntegration {
         this.apDiv.style.display = "none";
         this.connectionBox.style.display = "flex";
         await this._connect();
-        // this.log("Waiting for the game to enter the map...", "info");
     }
 
     async _onDisconnect() {
