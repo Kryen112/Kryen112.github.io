@@ -1,36 +1,5 @@
 import { Client, itemsHandlingFlags } from "archipelago.js";
 
-// --- IndexedDB helpers ---
-function openDB() {
-    return new Promise((res, rej) => {
-        const req = indexedDB.open("StickRangerAP", 1);
-        req.onupgradeneeded = () => req.result.createObjectStore("savegames");
-        req.onsuccess = () => res(req.result);
-        req.onerror = () => rej(req.error);
-    });
-}
-
-async function getState(key) {
-    const db = await openDB();
-    return new Promise((res, rej) => {
-        const tx = db.transaction("savegames", "readonly");
-        const req = tx.objectStore("savegames").get(key);
-        req.onsuccess = () => res(req.result);
-        req.onerror = () => rej(req.error);
-    });
-}
-
-async function setState(key, val) {
-    const db = await openDB();
-    return new Promise((res, rej) => {
-        const tx = db.transaction("savegames", "readwrite");
-        tx.objectStore("savegames").put(val, key);
-        tx.oncomplete = () => res();
-        tx.onerror = () => rej(tx.error);
-    });
-}
-// ---------------------------
-
 class APIntegration {
     constructor() {
         this.STAGE_COMPLETE_OFFSET = 10000;
@@ -42,16 +11,16 @@ class APIntegration {
         this.INV_START = 16;
         this.MOUSE_SLOT = 40;
         this.STAGE_TO_WIN = 88; // Hell Castle ID
+        this.STORAGE_KEY = "stickranger:save";
 
-        this._pendingConnect = false;
         this._connected = false;
         this._disconnected = false;
         this.receivedItems = [];
         this.pendingItems = [];
+        this._serverItemsQueue = [];
         this.prevStage = [...Stage_Status];
         this.winReported = false;
         this.lastSequence = -1;
-        this.storageKey = "";
         this.sendShopHints = false;
         this.isScouting = false;
         this.excludedBookStages = [0, 20, 47, 70, 77]; // Town, Village, Resort, Forget Tree, Island
@@ -64,7 +33,6 @@ class APIntegration {
         this.deathLinkSource = "";
         this.deathLinkTime = ""; // Currently unused
         this.deathLinkCause = "";
-        this.newGame = false;
         this.pendingTraps = [];
         this.deathMouseItem = {};
         this.connectMouseItem = {};
@@ -109,35 +77,63 @@ class APIntegration {
         requestAnimationFrame(this._tick);
     }
 
+    async loadAPData() {
+        console.log("Loading data...");
+        const data = await this.client.storage.fetch("stickranger:save", {});
+
+        if (data) {
+            console.log("Found data: ");
+            console.log(data);
+            this.receivedItems = data.receivedItems ?? [];
+            this.prevStage = data.stages ?? [...Stage_Status];
+            this.bookHints = data.bookHints ?? {};
+            this.randomizedBookCosts = data.randomizedBookCosts ?? {};
+            this.deathMouseItem = data.deathMouseItem ?? {};
+            this.connectMouseItem = data.connectMouseItem ?? {};
+            window.ArchipelagoMod.enemyIdsSent = new Set(data.enemyIdsSent ?? []);
+            GameLoad(data.save.replace(/\r\n|\r|\n/g, ""));
+        } else {
+            console.log("No data found");
+        }
+    }
+
+    async saveAPData() {
+        // console.log("Saving game...");
+        if (this._connected) {
+            Save_Code3 = genSaveCode(0);
+            const payload = {
+                receivedItems: this.receivedItems,
+                stages: Stage_Status,
+                save: GameSave("0"),
+                bookHints: this.bookHints,
+                randomizedBookCosts: this.randomizedBookCosts,
+                deathMouseItem: this.deathMouseItem,
+                connectMouseItem: this.connectMouseItem,
+                enemyIdsSent: Array.from(window.ArchipelagoMod.enemyIdsSent ?? []),
+            };
+
+            // console.log("Saving payload: ");
+            // console.log(payload);
+
+            await this.client.storage.prepare("stickranger:save", {}).replace(payload).commit();
+        } else {
+            console.log("Not connected yet");
+        }
+    }
+
     async _onConnectClick() {
         this.connectionInfo.textContent = "Connected at: " + this.host.value + ":" + this.port.value + " - " + this.slotName.value;
-        if (!this._disconnected) {
-            this.storageKey = [this.host.value, this.port.value, "Stick Ranger", this.slotName.value].join(":");
-
-            const saved = await getState(this.storageKey);
-            if (saved) {
-                this.receivedItems = saved.receivedItems;
-                this.bookHints = saved.bookHints ?? {};
-                this.randomizedBookCosts = saved.randomizedBookCosts ?? {};
-                this.deathMouseItem = saved.deathMouseItem ?? {};
-                this.connectMouseItem = saved.connectMouseItem ?? {};
-                window.ArchipelagoMod.enemyIdsSent = new Set(saved.enemyIdsSent ?? []);
-                GameLoad(saved.save.replace(/\r\n|\r|\n/g, ""));
-            }
-        }
-
         this._disconnected = false;
-        this._pendingConnect = true;
         this.apDiv.style.display = "none";
         this.connectionBox.style.display = "flex";
-        this.log("Waiting for the game to enter the map...", "info");
+        await this._connect();
+        // this.log("Waiting for the game to enter the map...", "info");
     }
 
     async _onDisconnect() {
         this._connected = false;
         this._disconnected = true;
-        this._pendingConnect = false;
-        await this.saveState();
+        await this.saveAPData();
         this.apDiv.style.display = "flex";
         this.connectionBox.style.display = "none";
         this.chatLine.style.display = "none";
@@ -170,24 +166,8 @@ class APIntegration {
         this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
     }
 
-    async saveState() {
-        if (!this.storageKey) return;
-        console.log("Saving game");
-        Save_Code3 = genSaveCode(0);
-        await setState(this.storageKey, {
-            receivedItems: this.receivedItems,
-            stages: Stage_Status,
-            save: GameSave("0"),
-            bookHints: this.bookHints ?? {},
-            randomizedBookCosts: this.randomizedBookCosts ?? {},
-            deathMouseItem: this.deathMouseItem ?? {},
-            connectMouseItem: this.connectMouseItem ?? {},
-            enemyIdsSent: window.ArchipelagoMod.enemyIdsSent instanceof Set ? Array.from(window.ArchipelagoMod.enemyIdsSent) ?? [] : [],
-        });
-    }
-
     isNumber(value) {
-        return typeof value === 'number';
+        return typeof value === "number";
     }
 
     _onUnload() {
@@ -270,38 +250,9 @@ class APIntegration {
         const password = this.password.value;
         const url = `${host}:${port}`;
 
-        this.storageKey = [host, port, game, slot].join(":");
-
         this.client.socket.on("receivedItems", async (packet) => {
             const serverItems = packet.items.map((i) => i.item);
-            const isReconnect = packet.index === 0 && packet.items.length > 1 && this.receivedItems.length > 0;
-
-            for (const id of serverItems) {
-                await this._applyItem(id, false);
-            }
-
-            if (isReconnect) {
-                const newItems = [...serverItems];
-                for (const id of this.receivedItems) {
-                    const index = newItems.indexOf(id);
-                    if (index !== -1) newItems.splice(index, 1);
-                }
-                for (const id of newItems) {
-                    if (id >= this.TRAPS_OFFSET || packet.items[0].flags === 4) {
-                        await this._applyTrap(id);
-                    } else {
-                        await this._applyItem(id, true);
-                    }
-                }
-            } else {
-                for (const id of serverItems) {
-                    if (id >= this.TRAPS_OFFSET || packet.items[0].flags === 4) {
-                        await this._applyTrap(id);
-                    } else {
-                        await this._applyItem(id, true);
-                    }
-                }
-            }
+            this._serverItemsQueue.push({ index: packet.index, items: serverItems });
         });
 
         this.client.socket.on("locationInfo", (locationInfoPacket) => {
@@ -401,15 +352,7 @@ class APIntegration {
         });
 
         try {
-            const saved = await getState(this.storageKey);
-            if (saved) {
-                this.receivedItems = saved.receivedItems;
-                Stage_Status = this.restoreStagesBeaten(saved.stages);
-                this.prevStage = [...Stage_Status];
-            } else {
-                await this.saveState();
-            }
-
+            window.ArchipelagoMod.pendingAPItemDrops = [];
             this.slotData = await this.client.login(url, slot, game, {
                 password,
                 itemsHandlingFlags: itemsHandlingFlags.all,
@@ -417,10 +360,10 @@ class APIntegration {
                 slotData: true,
             });
 
+            await this.loadAPData();
             this._connected = true;
 
             window.ArchipelagoMod.shuffleEnemies = this.slotData.shuffle_enemies ?? 0;
-            window.ArchipelagoMod.pendingAPItemDrops = [];
             window.ArchipelagoMod.enemyIdsSent = window.ArchipelagoMod.enemyIdsSent ?? new Set([]);
             window.ArchipelagoMod.goldMultiplier = this.slotData.gold_multiplier ?? 1;
             window.ArchipelagoMod.xpMultiplier = this.slotData.xp_multiplier ?? 1;
@@ -451,7 +394,7 @@ class APIntegration {
                 Comp1_Inv[this.MOUSE_SLOT] = 0;
                 Comp2_Inv[this.MOUSE_SLOT] = 0;
                 antiCheatSet();
-                await this.saveState();
+                await this.saveAPData();
                 this.log("Storing mouse item (" + Item_Catalogue[this.connectMouseItem.itemId][0] + ") to be recovered when in-game again.", "info");
             }
 
@@ -475,13 +418,16 @@ class APIntegration {
         if (this._disconnected || !this.client.authenticated) return;
 
         this.client.check(id);
-        await this.saveState();
+        await this.saveAPData();
     }
 
     async _applyItem(id, firstTime) {
         // location unlock
         if (id >= this.LOC_OFFSET && id < this.LOC_OFFSET + 999) {
             Stage_Status[id - this.LOC_OFFSET] |= Unlocked;
+            if (firstTime) {
+                this.receivedItems.push(id);
+            }
             antiCheatSet();
         }
 
@@ -498,7 +444,7 @@ class APIntegration {
             }
         }
 
-        await this.saveState();
+        await this.saveAPData();
     }
 
     isInPlayableSequenceStep() {
@@ -532,7 +478,7 @@ class APIntegration {
             this.pendingTraps.push(id);
         }
 
-        await this.saveState();
+        await this.saveAPData();
         antiCheatSet();
     }
 
@@ -659,7 +605,7 @@ class APIntegration {
             const idx = id - this.ITEM_OFFSET;
             Item_Inv[slot] = idx;
             antiCheatSet();
-            await this.saveState();
+            await this.saveAPData();
         }
     }
 
@@ -677,7 +623,7 @@ class APIntegration {
                     this.client.scout([this.BOOK_OFFSET + i], 2);
                 }
             }
-            await this.saveState();
+            await this.saveAPData();
         }
     }
 
@@ -693,6 +639,48 @@ class APIntegration {
 
     async _doTickWork() {
         if (this._connected && this.client && this.client.authenticated) {
+            if (Sequence_Step === 6 && this.lastSequence === 4) {
+                console.log("New game detected");
+                this.receivedItems = [];
+            }
+
+            if (Sequence_Step >= 6) {
+                while (this._serverItemsQueue.length) {
+                    const { index, items } = this._serverItemsQueue.shift();
+                    const isReconnect = index === 0 && this.receivedItems.length > 0;
+
+                    for (const id of items) {
+                        // TODO Because of this we do _applyItem twice every time (also saving twice)
+                        await this._applyItem(id, false);
+                    }
+
+                    if (isReconnect) {
+                        const newItems = [...items];
+                        console.log(this.receivedItems);
+
+                        for (const id of this.receivedItems) {
+                            const index = newItems.indexOf(id);
+                            if (index !== -1) newItems.splice(index, 1);
+                        }
+                        for (const id of newItems) {
+                            if (id >= this.TRAPS_OFFSET) {
+                                await this._applyTrap(id);
+                            } else {
+                                await this._applyItem(id, true);
+                            }
+                        }
+                    } else {
+                        for (const id of items) {
+                            if (id >= this.TRAPS_OFFSET) {
+                                await this._applyTrap(id);
+                            } else {
+                                await this._applyItem(id, true);
+                            }
+                        }
+                    }
+                }
+            }
+
             // scan beaten/booked changes
             for (let i = 0; i < Stage_Status.length; i++) {
                 if ((this.prevStage[i] & Beaten) === 0 && (Stage_Status[i] & Beaten) !== 0) {
@@ -756,7 +744,7 @@ class APIntegration {
                     Comp1_Inv[this.MOUSE_SLOT] = 0;
                     Comp2_Inv[this.MOUSE_SLOT] = 0;
                     antiCheatSet();
-                    await this.saveState();
+                    await this.saveAPData();
                     this.log("Storing mouse item (" + Item_Catalogue[this.deathMouseItem.itemId][0] + ") to be recovered when in-game again.", "info");
                 }
 
@@ -773,7 +761,7 @@ class APIntegration {
                     Comp2_Inv[firstEmptyInvSlot] = this.deathMouseItem.compo2;
                     this.deathMouseItem = {};
                     antiCheatSet();
-                    await this.saveState();
+                    await this.saveAPData();
                     this.log("Mouse item (" + Item_Catalogue[Item_Inv[firstEmptyInvSlot]][0] + ") recovered into inventory.", "info");
                 }
             }
@@ -787,7 +775,7 @@ class APIntegration {
                     Comp2_Inv[firstEmptyInvSlot] = this.connectMouseItem.compo2;
                     this.connectMouseItem = {};
                     antiCheatSet();
-                    await this.saveState();
+                    await this.saveAPData();
                     this.log("Mouse item (" + Item_Catalogue[Item_Inv[firstEmptyInvSlot]][0] + ") recovered into inventory.", "info");
                 }
             }
@@ -801,11 +789,6 @@ class APIntegration {
                 this.isScouting = false;
             }
 
-            if (this.newGame) {
-                this.newGame = false;
-                this.receivedItems = [];
-            }
-
             while (window.ArchipelagoMod.pendingAPItemDrops.length > 0) {
                 const enemyId = window.ArchipelagoMod.pendingAPItemDrops.shift();
                 console.log("Sending enemy drop with id: ", enemyId);
@@ -814,17 +797,6 @@ class APIntegration {
                     await this.sendLocation(enemyId + this.ENEMY_OFFSET);
                 }
             }
-        }
-
-        // on "new game", give everything
-        if (Sequence_Step === 6 && this.lastSequence === 4) {
-            this.newGame = true;
-        }
-
-        // connect once game is properly loaded
-        if (Sequence_Step >= 6 && this._pendingConnect && !this._connected) {
-            this._pendingConnect = false;
-            this._connect();
         }
 
         this.lastSequence = Sequence_Step;
