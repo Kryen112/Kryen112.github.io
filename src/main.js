@@ -446,7 +446,7 @@ class APIntegration {
             }
         }
 
-        await this.saveAPData();
+        await this.saveAPData(); //TODO maybe only save if firsttime? it seems to save a lot of times on reconnect
     }
 
     isInPlayableSequenceStep() {
@@ -684,7 +684,7 @@ class APIntegration {
             // scan beaten/booked changes
             for (let i = 0; i < Stage_Status.length; i++) {
                 if ((this.prevStage[i] & Beaten) === 0 && (Stage_Status[i] & Beaten) !== 0) {
-                    console.log("Sending stage " + i + " as beaten");
+                    console.log("Sending stage " + i + " as beaten"); // TODO do not send town stages
                     await this.sendLocation(i + this.STAGE_COMPLETE_OFFSET);
                 } // TODO check if works in both states
                 if (this.slotData.shuffle_books === 1) {

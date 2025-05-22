@@ -3213,7 +3213,7 @@ function townScreens(){ // original name: wf()
                         enemyID--;
                     }
 
-                    if (window.ArchipelagoMod.enemyIdsSent.has(enemyID)) {
+                    if (window.ArchipelagoMod.enemyIdsSent.has(enemyID)) { //TODO an if if enemy rando is on, and only show images when it is (common, boss, both)
                         dispItem(AP_Icon     , x, y, 18, 18, 0,0,18,18,0xFFFFFF);
                     } else {
                         dispItem(AP_Icon_Grey, x, y, 18, 18, 0,0,18,18,0xFFFFFF);
