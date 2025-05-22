@@ -2237,7 +2237,7 @@ function menuAndMap(){ // original name: uf()
                     Comp1_Inv_Proxy[s] = Comp1_Inv[Stickmen_Slots+s];
                     Comp2_Inv_Proxy[s] = Comp2_Inv[Stickmen_Slots+s];
 
-                    // resest team and equipped items
+                    // reset team and equipped items
                     Ranger_Class[s] = 0;
                     Item_Inv[Stickmen_Slots+s] = 0;
                     Comp1_Inv[Stickmen_Slots+s] = 0;
