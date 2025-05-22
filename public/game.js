@@ -2280,7 +2280,7 @@ function menuAndMap(){ // original name: uf()
             if (isMouseHoveredCenter(160+64*s,140,24,24)){
                 if (Clicked)
                     Selected_Player = Displayed_Object = s;
-                filledRectCentered(160+64*s,140,24,24,0x800000); // fill color when chosing stickman slot
+                filledRectCentered(160+64*s,140,24,24,0x800000); // fill color when choosing stickman slot
             }
             outlineRectCentered(160+64*s,140,25,25,0xFFFFFF);
             dispItemCentered(Player_Img,160+64*s,140,24,24,24*Ranger_Class[s],0,24,24,0xFFFFFFFF);

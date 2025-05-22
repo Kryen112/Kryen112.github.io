@@ -11,7 +11,7 @@ class APIntegration {
         this.INV_START = 16;
         this.MOUSE_SLOT = 40;
         this.STAGE_TO_WIN = 88; // Hell Castle ID
-        
+
         this._connected = false;
         this._disconnected = false;
         this.receivedItems = [];
@@ -77,8 +77,7 @@ class APIntegration {
     }
 
     getStorageKey() {
-        return `StickRangerSaveData:${this.client.players.self.team}:${this.client.players.self.slot}`
-
+        return `StickRangerSaveData:${this.client.players.self.team}:${this.client.players.self.slot}`;
     }
 
     loadAPData() {
@@ -86,8 +85,7 @@ class APIntegration {
         const data = this.client.storage.store[this.getStorageKey()];
 
         if (data) {
-            console.log("Found data: ");
-            console.log(data);
+            console.log("Found data: ", data);
             this.receivedItems = data.receivedItems ?? [];
             this.prevStage = data.stages ?? [...Stage_Status];
             this.bookHints = data.bookHints ?? {};
@@ -102,7 +100,8 @@ class APIntegration {
     }
 
     async saveAPData() {
-        console.log("Saving game...")
+        console.log("Saving game...");
+
         if (this._connected) {
             Save_Code3 = genSaveCode(0);
             const payload = {
@@ -353,7 +352,7 @@ class APIntegration {
                 this.log(error + "; please verify your connection settings.", "error");
             });
         });
-
+        
         try {
             window.ArchipelagoMod.pendingAPItemDrops = [];
             this.slotData = await this.client.login(url, slot, game, {
@@ -659,8 +658,6 @@ class APIntegration {
 
                     if (isReconnect) {
                         const newItems = [...items];
-                        console.log(this.receivedItems);
-
                         for (const id of this.receivedItems) {
                             const index = newItems.indexOf(id);
                             if (index !== -1) newItems.splice(index, 1);
