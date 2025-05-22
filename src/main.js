@@ -80,9 +80,10 @@ class APIntegration {
         return `StickRangerSaveData:${this.client.players.self.team}:${this.client.players.self.slot}`;
     }
 
-    loadAPData() {
+    async loadAPData() {
         console.log("Loading data...");
-        const data = this.client.storage.store[this.getStorageKey()];
+
+        const data = await this.client.storage.fetch(this.getStorageKey(), {});
 
         if (data) {
             console.log("Found data: ", data);
