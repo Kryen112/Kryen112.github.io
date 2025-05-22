@@ -8,6 +8,8 @@ class APIntegration {
         this.LOC_OFFSET = 11000;
         this.ITEM_OFFSET = 12000;
         this.TRAPS_OFFSET = 13000;
+        this.CLASS_OFFSET = 14000;
+        this.RANGER_CLASSES = { 14000: "Boxer", 14001: "Gladiator", 14002: "Sniper", 14003: "Magician", 14004: "Priest", 14005: "Gunner", 14006: "Whipper", 14007: "Angel" };
         this.INV_START = 16;
         this.MOUSE_SLOT = 40;
         this.STAGE_TO_WIN = 88; // Hell Castle ID
@@ -94,6 +96,7 @@ class APIntegration {
             this.deathMouseItem = data.deathMouseItem ?? {};
             this.connectMouseItem = data.connectMouseItem ?? {};
             window.ArchipelagoMod.enemyIdsSent = new Set(data.enemyIdsSent ?? []);
+            window.ArchipelagoMod.pendingClassSwapItems = data.pendingClassSwapItems ?? [];
             GameLoad(data.save.replace(/\r\n|\r|\n/g, ""));
         } else {
             console.log("No data found");
@@ -114,6 +117,7 @@ class APIntegration {
                 deathMouseItem: this.deathMouseItem,
                 connectMouseItem: this.connectMouseItem,
                 enemyIdsSent: Array.from(window.ArchipelagoMod.enemyIdsSent ?? []),
+                pendingClassSwapItems: window.ArchipelagoMod.pendingClassSwapItems ?? [],
             };
 
             console.log("Saving payload: ");
@@ -255,6 +259,19 @@ class APIntegration {
 
         this.client.socket.on("receivedItems", async (packet) => {
             const serverItems = packet.items.map((i) => i.item);
+
+            // class unlocks
+            const receivedItemsSet = new Set(this.receivedItems);
+            serverItems.forEach((item) => {
+                const name = this.RANGER_CLASSES[item];
+                if (name) {
+                    if (!receivedItemsSet.has(item)) {
+                        this.receivedItems.push(item);
+                    }
+                    antiCheatSet();
+                }
+            });
+
             this._serverItemsQueue.push({ index: packet.index, items: serverItems });
         });
 
@@ -355,17 +372,26 @@ class APIntegration {
         });
         
         try {
+            window.ArchipelagoMod.pendingSave = false;
             window.ArchipelagoMod.pendingAPItemDrops = [];
+            window.ArchipelagoMod.pendingClassSwapItems = [];
             this.slotData = await this.client.login(url, slot, game, {
                 password,
                 itemsHandlingFlags: itemsHandlingFlags.all,
                 tags: ["AP"],
                 slotData: true,
             });
+            console.log("Slot data: ", this.slotData);
 
             await this.loadAPData();
             this._connected = true;
 
+            window.ArchipelagoMod.rangerClassesRandomized = this.slotData.ranger_class_randomizer ?? 0;
+            if (window.ArchipelagoMod.rangerClassesRandomized == 1) {
+                Stage_Status[70] |= Unlocked;
+                antiCheatSet();
+            }
+            window.ArchipelagoMod.rangerClassesUnlocked = this.getUnlockedClasses();
             window.ArchipelagoMod.shuffleEnemies = this.slotData.shuffle_enemies ?? 0;
             window.ArchipelagoMod.enemyIdsSent = window.ArchipelagoMod.enemyIdsSent ?? new Set([]);
             window.ArchipelagoMod.goldMultiplier = this.slotData.gold_multiplier ?? 1;
@@ -417,6 +443,18 @@ class APIntegration {
         }
     }
 
+    getUnlockedClasses() {
+        const unlocked = [];
+        unlocked.push(this.slotData.ranger_class_selected);
+        for (const id of this.receivedItems) {
+            const name = this.RANGER_CLASSES[id];
+            if (name) {
+                unlocked.push(name);
+            }
+        }
+        return unlocked;
+    }
+
     async sendLocation(id) {
         if (this._disconnected || !this.client.authenticated) return;
 
@@ -425,6 +463,15 @@ class APIntegration {
     }
 
     async _applyItem(id, firstTime) {
+        // class unlocks
+        const name = this.RANGER_CLASSES[id];
+        if (name) {
+            window.ArchipelagoMod.rangerClassesUnlocked.push(name);
+            if (firstTime) {
+                this.receivedItems.push(id);
+            }
+        }
+
         // location unlock
         if (id >= this.LOC_OFFSET && id < this.LOC_OFFSET + 999) {
             Stage_Status[id - this.LOC_OFFSET] |= Unlocked;
@@ -778,6 +825,21 @@ class APIntegration {
                     antiCheatSet();
                     await this.saveAPData();
                     this.log("Mouse item (" + Item_Catalogue[Item_Inv[firstEmptyInvSlot]][0] + ") recovered into inventory.", "info");
+                }
+            }
+
+            // Replace class-swap items into inventory once it's all available
+            if (this.isInPlayableSequenceStep() && window.ArchipelagoMod.pendingClassSwapItems.length > 0) {
+                const firstEmptyInvSlot = this._firstEmptyInvSlot();
+                if (firstEmptyInvSlot !== -1) {
+                    const { itemId, compo1, compo2 } = window.ArchipelagoMod.pendingClassSwapItems.shift();
+                    if ([3, 4, 5, 6, 58, 76, 188, 289].includes(itemId) && compo1 == 0 && compo2 == 0) return;
+                    Item_Inv[firstEmptyInvSlot] = itemId;
+                    Comp1_Inv[firstEmptyInvSlot] = compo1;
+                    Comp2_Inv[firstEmptyInvSlot] = compo2;
+                    antiCheatSet();
+                    await this.saveAPData();
+                    this.log("Equipped item (" + Item_Catalogue[Item_Inv[firstEmptyInvSlot]][0] + ") recovered into inventory after class swap.", "info");
                 }
             }
 
