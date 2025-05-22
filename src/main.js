@@ -798,6 +798,11 @@ class APIntegration {
                     await this.sendLocation(enemyId + this.ENEMY_OFFSET);
                 }
             }
+
+            if (window.ArchipelagoMod.pendingSave) {
+                window.ArchipelagoMod.pendingSave = false;
+                await this.saveAPData();
+            }
         }
 
         this.lastSequence = Sequence_Step;
