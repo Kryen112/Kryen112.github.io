@@ -664,7 +664,7 @@ class APIntegration {
                             if (index !== -1) newItems.splice(index, 1);
                         }
                         for (const id of newItems) {
-                            if (id >= this.TRAPS_OFFSET) {
+                            if (id >= this.TRAPS_OFFSET && id < this.TRAPS_OFFSET + 10) {
                                 await this._applyTrap(id);
                             } else {
                                 await this._applyItem(id, true);
@@ -672,7 +672,7 @@ class APIntegration {
                         }
                     } else {
                         for (const id of items) {
-                            if (id >= this.TRAPS_OFFSET) {
+                            if (id >= this.TRAPS_OFFSET && id < this.TRAPS_OFFSET + 10) {
                                 await this._applyTrap(id);
                             } else {
                                 await this._applyItem(id, true);
