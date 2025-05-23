@@ -37,6 +37,7 @@ class APIntegration {
         this.pendingTraps = [];
         this.deathMouseItem = {};
         this.connectMouseItem = {};
+        this.unlockForgetTree = false;
 
         this.host = document.getElementById("host");
         this.port = document.getElementById("port");
@@ -370,7 +371,7 @@ class APIntegration {
                 this.log(error + "; please verify your connection settings.", "error");
             });
         });
-        
+
         try {
             window.ArchipelagoMod.pendingSave = false;
             window.ArchipelagoMod.pendingAPItemDrops = [];
@@ -386,10 +387,8 @@ class APIntegration {
             await this.loadAPData();
             this._connected = true;
 
-            window.ArchipelagoMod.rangerClassesRandomized = this.slotData.ranger_class_randomizer ?? 0;
-            if (window.ArchipelagoMod.rangerClassesRandomized == 1) {
-                Stage_Status[70] |= Unlocked;
-                antiCheatSet();
+            if (this.slotData.ranger_class_randomizer == 1) {
+                window.ArchipelagoMod.unlockForgetTree = true;
             }
             window.ArchipelagoMod.rangerClassesUnlocked = this.getUnlockedClasses();
             window.ArchipelagoMod.shuffleEnemies = this.slotData.shuffle_enemies ?? 0;
@@ -692,6 +691,15 @@ class APIntegration {
             if (Sequence_Step === 6 && this.lastSequence === 4) {
                 console.log("New game detected");
                 this.receivedItems = [];
+                if (this.slotData.ranger_class_randomizer == 1) {
+                    this.unlockForgetTree = true;
+                }
+            }
+
+            if (this.unlockForgetTree) {
+                this.unlockForgetTree = false;
+                Stage_Status[70] |= Unlocked;
+                antiCheatSet();
             }
 
             if (Sequence_Step >= 6) {
