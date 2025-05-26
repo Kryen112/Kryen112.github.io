@@ -52,6 +52,7 @@ class APIntegration {
         this.send = document.getElementById("send");
         this.chatMessages = document.getElementById("chatMessages");
         this.apDiv = document.getElementById("APConnection");
+        this.leftPanel = document.getElementById("left-panel");
 
         this.connect.addEventListener("click", () => this._onConnectClick());
         const listenForEnter = (input) => {
@@ -66,7 +67,40 @@ class APIntegration {
         listenForEnter(this.slotName);
         listenForEnter(this.password);
 
-        this.disconnect.addEventListener("click", () => this.client?.socket.disconnect());
+        let disconnectConfirmTimeout = null;
+        let awaitingDisconnectConfirm = false;
+
+        const resetDisconnectButton = () => {
+            this.disconnect.textContent = "Disconnect";
+            this.disconnect.style.color = "";
+            awaitingDisconnectConfirm = false;
+            if (disconnectConfirmTimeout) {
+                clearTimeout(disconnectConfirmTimeout);
+                disconnectConfirmTimeout = null;
+            }
+        };
+
+        this.disconnect.addEventListener("click", (event) => {
+            if (!awaitingDisconnectConfirm) {
+                this.disconnect.textContent = "Are you sure?";
+                this.disconnect.style.color = "red";
+                awaitingDisconnectConfirm = true;
+
+                disconnectConfirmTimeout = setTimeout(resetDisconnectButton, 10000);
+            } else {
+                this.client?.socket.disconnect();
+                resetDisconnectButton();
+            }
+
+            event.stopPropagation();
+        });
+
+        document.addEventListener("click", (event) => {
+            if (awaitingDisconnectConfirm && !this.disconnect.contains(event.target)) {
+                resetDisconnectButton();
+            }
+        });
+
         this.send.addEventListener("click", () => this._onSendClick());
         this.message.addEventListener("keydown", (event) => {
             if (event.key === "Enter") {
@@ -132,6 +166,7 @@ class APIntegration {
     }
 
     async _onConnectClick() {
+        this.leftPanel.style.display = "block";
         this.connectionInfo.textContent = "Connected at: " + this.host.value + ":" + this.port.value + " - " + this.slotName.value;
         this._disconnected = false;
         this.apDiv.style.display = "none";
@@ -140,6 +175,7 @@ class APIntegration {
     }
 
     async _onDisconnect() {
+        this.leftPanel.style.display = "none";
         this._connected = false;
         this._disconnected = true;
         await this.saveAPData();
@@ -147,6 +183,7 @@ class APIntegration {
         this.connectionBox.style.display = "none";
         this.chatLine.style.display = "none";
         this.log("Disconnected from multiworld server.", "info");
+        Sequence_Step = 0;
     }
 
     _onSendClick() {

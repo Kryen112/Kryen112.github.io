@@ -12833,7 +12833,7 @@ SR_map.prototype.MAPmain = function(){ // uh.prototype.b
     /**************************************************************************/
     if (Mouse_Xpos<20 && Mouse_Ypos<Inv_Top)                                               // hover near or past the left edge to scoll map
         this.MAP_tile_horizontal_spacer = clamp(this.MAP_tile_horizontal_spacer+4,-720,0); // scroll map left
-    else if (Mouse_Xpos>Win_Width-20 && Mouse_Ypos<Inv_Top)                                         // hover near or past the right edge to scoll map
+    else if (Mouse_Xpos>Win_Width-20 && Mouse_Xpos<Win_Width+20 && Mouse_Ypos<Inv_Top)     // hover near or past the right edge to scoll map
         this.MAP_tile_horizontal_spacer = clamp(this.MAP_tile_horizontal_spacer-4,-720,0); // scroll map right
     /**************************************************************************/
 
