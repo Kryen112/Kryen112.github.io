@@ -65,7 +65,7 @@ const bossIDS = new Set([4, 8, 13, 18, 22, 26, 30, 34, 38, 39, 44, 48, 52, 56, 6
 const bossAttackIDS = new Set([40, 115, 163, 244, 333, 334, 335, 336, 337, 339]);
 
 var Debug_Mode = 0;                         // display debug mode on/off       original name: ca
-var Curr_Sequence = ["0: Title Screen: launch game","1: Title Screen: spawn stickmen","2: Title Screen: enable buttons","3: Title Screen: class select","4: Title Screen: load new game","5: Title Screen: load saved game","6: Title Screen: world map","","","","10: Enemy Screen: load screen","11: Enemy Screen: fade in","12: Enemy Screen: play","13: Enemy Screen: fade out","","","","","","","20: Enemy Screen: pause","","","","","","","","","","30: Enemy Screen: game over","","","","","","","","","","40: Enemy Screen: game clear","","","","","","","","","","50: Town Screen: load screen","51: Town Screen: fade in","52: Town Screen: play","53: Town Screen: open shop","54: Town Screen: open book","55: Town Screen: open forget","","","","59: Town Screen: fade out","60: VS Mode Screen: ","61: VS Mode Screen: ","62: VS Mode Screen: ","63: VS Mode Screen: ","64: VS Mode Screen: ","","","","","","70: VS Mode Screen: ","71: VS Mode Screen: ","72: VS Mode Screen: ","73: VS Mode Screen: "]; // current game mode                (new variable)
+var Curr_Sequence = ["0: Title Screen: launch game","1: Title Screen: spawn stickmen","2: Title Screen: enable buttons","3: Title Screen: class select","4: Title Screen: load new game","5: Title Screen: load saved game","6: Title Screen: world map","","","","10: Enemy Screen: load screen","11: Enemy Screen: fade in","12: Enemy Screen: play","13: Enemy Screen: fade out","","","","","","","20: Enemy Screen: pause","","","","","","","","","","30: Enemy Screen: game over","","","","","","","","","","40: Enemy Screen: game clear","","","","","","","","","","50: Town Screen: load screen","51: Town Screen: fade in","52: Town Screen: play","53: Town Screen: open shop","54: Town Screen: open book","55: Town Screen: open forget","56: Town Screen: open class selection","","","59: Town Screen: fade out","60: VS Mode Screen: ","61: VS Mode Screen: ","62: VS Mode Screen: ","63: VS Mode Screen: ","64: VS Mode Screen: ","","","","","","70: VS Mode Screen: ","71: VS Mode Screen: ","72: VS Mode Screen: ","73: VS Mode Screen: "]; // current game mode                (new variable)
 var Win_Width = 512;                        // width of game window            original name: ea
 var Win_Height = 384;                       // height of game window           original name: fa
 var Inv_Height = 0;                         // height of inventory UI           (new variable)
@@ -2237,7 +2237,7 @@ function menuAndMap(){ // original name: uf()
                     Comp1_Inv_Proxy[s] = Comp1_Inv[Stickmen_Slots+s];
                     Comp2_Inv_Proxy[s] = Comp2_Inv[Stickmen_Slots+s];
 
-                    // resest team and equipped items
+                    // reset team and equipped items
                     Ranger_Class[s] = 0;
                     Item_Inv[Stickmen_Slots+s] = 0;
                     Comp1_Inv[Stickmen_Slots+s] = 0;
@@ -2280,7 +2280,7 @@ function menuAndMap(){ // original name: uf()
             if (isMouseHoveredCenter(160+64*s,140,24,24)){
                 if (Clicked)
                     Selected_Player = Displayed_Object = s;
-                filledRectCentered(160+64*s,140,24,24,0x800000); // fill color when chosing stickman slot
+                filledRectCentered(160+64*s,140,24,24,0x800000); // fill color when choosing stickman slot
             }
             outlineRectCentered(160+64*s,140,25,25,0xFFFFFF);
             dispItemCentered(Player_Img,160+64*s,140,24,24,24*Ranger_Class[s],0,24,24,0xFFFFFFFF);
@@ -2290,21 +2290,23 @@ function menuAndMap(){ // original name: uf()
         antiCheatCheck();
 
         for (var i=0; i<8; i++){ // number of classes
-            Large_Text.TX_spacing = -1;
-            centeredText(Large_Text,46+60*i,220,Class_Name_List[i+1],0xCC9449,0x640000);
-            Large_Text.TX_spacing = 0;
+            if (window.ArchipelagoMod.rangerClassesUnlocked.includes(Class_Name_List[i+1])) {
+                Large_Text.TX_spacing = -1;
+                centeredText(Large_Text,46+60*i,220,Class_Name_List[i+1],0xCC9449,0x640000);
+                Large_Text.TX_spacing = 0;
 
-            if (isMouseHoveredCenter(46+60*i,240,24,24)){
-                if (Clicked){
-                    Ranger_Class[Displayed_Object] = i+1;
-                    Item_Inv[Stickmen_Slots+Displayed_Object] = [3,4,5,6,58,76,188,289][i];
-                    Comp1_Inv[Stickmen_Slots+Displayed_Object] = 0;
-                    Comp2_Inv[Stickmen_Slots+Displayed_Object] = 0;
+                if (isMouseHoveredCenter(46+60*i,240,24,24)){
+                    if (Clicked){
+                        Ranger_Class[Displayed_Object] = i+1;
+                        Item_Inv[Stickmen_Slots+Displayed_Object] = [3,4,5,6,58,76,188,289][i];
+                        Comp1_Inv[Stickmen_Slots+Displayed_Object] = 0;
+                        Comp2_Inv[Stickmen_Slots+Displayed_Object] = 0;
+                    }
+                    filledRectCentered(46+60*i,240,24,24,0x800000); // fill color when hovering over class choices
                 }
-                filledRectCentered(46+60*i,240,24,24,0x800000); // fill color when hovering over class choices
+                outlineRectCentered(46+60*i,240,25,25,0xFFFFFF);
+                dispItemCentered(Player_Img,46+60*i,240,24,24,24*(i+1),0,24,24,0xFFFFFFFF);
             }
-            outlineRectCentered(46+60*i,240,25,25,0xFFFFFF);
-            dispItemCentered(Player_Img,46+60*i,240,24,24,24*(i+1),0,24,24,0xFFFFFFFF);
         }
 
         if (Ranger_Class[0]!=0 && Ranger_Class[1]!=0 && Ranger_Class[2]!=0 && Ranger_Class[3]!=0){
@@ -2799,13 +2801,26 @@ function townScreens(){ // original name: wf()
                 Sequence_Step = 6;
             Large_Text.TXoutputB(Win_Width-4-70-6,8,"World Map",0xFF0000,0x000000); // World Map button (red highlight while in town type stages)
         } else if (Current_Stage==70){
-            if (isMouseHoveredCenter(Win_Hcenter,128,40,24)){
+            if (isMouseHoveredCenter(Win_Hcenter,100,120,24)){
+                centeredText(Large_Text,Win_Hcenter,100,"Class selection",0xFF0000,0x101814);
+                if (Clicked){
+                    for (var s=0; s<Stickmen_Slots; s++){
+                        // assign current team+equipped items to placeholder
+                        Ranger_Class_Proxy[s] = Ranger_Class[s];
+                        Item_Inv_Proxy[s] = Item_Inv[Stickmen_Slots+s];
+                        Comp1_Inv_Proxy[s] = Comp1_Inv[Stickmen_Slots+s];
+                        Comp2_Inv_Proxy[s] = Comp2_Inv[Stickmen_Slots+s];
+                    }
+                    Sequence_Step = 56;
+                    Menu_Column = Menu_Row = Menu_Entry = 0;
+                }
+            } else if (isMouseHoveredCenter(Win_Hcenter,128,52,24)){
                 centeredText(Large_Text,Win_Hcenter,128,"Forget",0xFF0000,0x101814);
                 if (Clicked){
                     Sequence_Step = 55;
                     Menu_Column = Menu_Row = Menu_Entry = 0;
                 }
-            } else if (isMouseHoveredCenter(Win_Hcenter,160,40,24)){
+            } else if (isMouseHoveredCenter(Win_Hcenter,160,28,24)){
                 inn_cost = 0;
                 for (var s=0; s<Stickmen_Slots; s++)
                     inn_cost += LP_Max[s]-LP_Current[s];
@@ -2824,7 +2839,7 @@ function townScreens(){ // original name: wf()
                     Team_Gold -= inn_cost;
                     antiCheatSet();
                 }
-            } else if (isMouseHoveredCenter(Win_Hcenter,184,48,24)){
+            } else if (isMouseHoveredCenter(Win_Hcenter,184,34,24)){
                 centeredText(Large_Text,Win_Hcenter,184,"Book",0xFF0000,0x101814);
                 if (Clicked){
                     Sequence_Step = 54;
@@ -3213,7 +3228,7 @@ function townScreens(){ // original name: wf()
                         enemyID--;
                     }
 
-                    if (window.ArchipelagoMod.enemyIdsSent.has(enemyID)) {
+                    if (window.ArchipelagoMod.enemyIdsSent.has(enemyID)) { //TODO an if if enemy rando is on, and only show images when it is (common, boss, both)
                         dispItem(AP_Icon     , x, y, 18, 18, 0,0,18,18,0xFFFFFF);
                     } else {
                         dispItem(AP_Icon_Grey, x, y, 18, 18, 0,0,18,18,0xFFFFFF);
@@ -3365,7 +3380,10 @@ function townScreens(){ // original name: wf()
             filledRect(forget_left+56,forget_top+144-2,48,17,0x990000);
         }
         Large_Text.TXoutputB(forget_left+64,forget_top+144+1,"Exit",0xFFFFFF,0x000000);
-        forget_cost = 1000*(LP_SP[Menu_Column]+STR_SP[Menu_Column]+DEX_SP[Menu_Column]+MAG_SP[Menu_Column]);
+        forget_cost = 1;
+        if (!window.ArchipelagoMod.rangerClassesRandomized) {
+            forget_cost = 1000*(LP_SP[Menu_Column]+STR_SP[Menu_Column]+DEX_SP[Menu_Column]+MAG_SP[Menu_Column]);
+        }
         if (isMouseHoveredCenter(forget_left+240,forget_top+80,120,32) && forget_cost>0){
             if (Team_Gold>=forget_cost && Clicked){
                 antiCheatCheck();
@@ -3382,6 +3400,85 @@ function townScreens(){ // original name: wf()
         centeredText(Large_Text,forget_left+240,forget_top+72,"Forget",0xFFFFFF,0x000000);
         centeredText(Large_Text,forget_left+240,forget_top+88,"$"+forget_cost+" Buy",0xFFFFFF,0x000000);
         drawUI(1);
+    } else if (Sequence_Step==56) {                                                   // Sequence: class re-select screen
+        Players.PLmain();
+        Terrain.TRdrawTerrain();
+        Players.PLrenderPlayer();
+
+        largeMessage(Large_Text,Win_Hcenter,50,"Player's Class Selection",204,148,73,0xFF,100,0,0,0xFF,16,24);
+        centeredText(Large_Text,260,70,"You will not lose any (equipped) Items, Gold or EXP progress",0xFFFFFF,0x222222);
+
+        for (var s=0; s<Stickmen_Slots; s++){ // clicking on stickman slots when choosing class
+            if (isMouseHoveredCenter(160+64*s,140,24,24)){
+                if (Clicked)
+                    Selected_Player = Displayed_Object = s;
+                filledRectCentered(160+64*s,140,24,24,0x800000); // fill color when choosing stickman slot
+            }
+            outlineRectCentered(160+64*s,140,25,25,0xFFFFFF);
+            dispItemCentered(Player_Img,160+64*s,140,24,24,24*Ranger_Class[s],0,24,24,0xFFFFFFFF);
+        }
+        outlineRectCentered(160+64*Displayed_Object,140,25,25,0xFF0000); // box around stickman slot
+
+        for (var i=0; i<8; i++){ // number of classes
+            if (window.ArchipelagoMod.rangerClassesUnlocked.includes(Class_Name_List[i+1])) {
+                Large_Text.TX_spacing = -1;
+                centeredText(Large_Text,46+60*i,270,Class_Name_List[i+1],0xCC9449,0x640000);
+                Large_Text.TX_spacing = 0;
+
+                if (isMouseHoveredCenter(46+60*i,290,24,24)){
+                    if (Clicked){
+                        Ranger_Class[Displayed_Object] = i+1;
+                        Item_Inv[Stickmen_Slots+Displayed_Object] = [3,4,5,6,58,76,188,289][i];
+                        Comp1_Inv[Stickmen_Slots+Displayed_Object] = 0;
+                        Comp2_Inv[Stickmen_Slots+Displayed_Object] = 0;
+                    }
+                    filledRectCentered(46+60*i,290,24,24,0x800000); // fill color when hovering over class choices
+                }
+                outlineRectCentered(46+60*i,290,25,25,0xFFFFFF);
+                dispItemCentered(Player_Img,46+60*i,290,24,24,24*(i+1),0,24,24,0xFFFFFFFF);
+            }
+        }
+
+        if (Ranger_Class[0]!=0 && Ranger_Class[1]!=0 && Ranger_Class[2]!=0 && Ranger_Class[3]!=0){
+            centeredText(Large_Text,464,350,"Start",0xFFFFFF,0x996633);
+            if (isMouseHoveredCenter(464,350,128,24)){
+                if (Clicked) {
+                    for (var s=0; s<Stickmen_Slots; s++){
+                        // assign placeholder back to rangers that kept their class
+                        if (Ranger_Class_Proxy[s] == Ranger_Class[s]) {
+                            Item_Inv[Stickmen_Slots+s] = Item_Inv_Proxy[s];
+                            Comp1_Inv[Stickmen_Slots+s] = Comp1_Inv_Proxy[s];
+                            Comp2_Inv[Stickmen_Slots+s] = Comp2_Inv_Proxy[s];
+                        } else {
+                            window.ArchipelagoMod.pendingClassSwapItems.push({
+                                itemId: Item_Inv_Proxy[s],
+                                compo1: Comp1_Inv_Proxy[s],
+                                compo2: Comp2_Inv_Proxy[s],
+                            });
+                        }
+                    }
+                    window.ArchipelagoMod.pendingSave = true;
+                    Sequence_Step = 52;
+                }
+                drawLine(416,358,512,358,0xAA0000);
+            }
+        }
+
+        centeredText(Large_Text,48,350,"Cancel",0xFFFFFF,0x996633);
+        if (isMouseHoveredCenter(48,350,128,24)){
+            if (Clicked){
+                for (var s=0; s<Stickmen_Slots; s++){ // restore previous team
+                    Ranger_Class[s] = Ranger_Class_Proxy[s];
+                    Item_Inv[Stickmen_Slots+s] = Item_Inv_Proxy[s];
+                    Comp1_Inv[Stickmen_Slots+s] = Comp1_Inv_Proxy[s];
+                    Comp2_Inv[Stickmen_Slots+s] = Comp2_Inv[s];
+                }
+                Sequence_Step = 52;
+            }
+            drawLine(0,358,96,358,0xAA0000);
+        }
+        antiCheatSet();
+        menuCredits();
     } else if (Sequence_Step==59){                                                    // Sequence: fade out town screen
         drawStage(0);
         drawUI(0);
@@ -3736,6 +3833,7 @@ function drawStage(is_paused){ // original name: Tf()
     if (Current_Stage==70 && Current_Screen==1){
         dispItem(Forget_Tree_Img,0,-288,512,512,0,0,64,64,0xFFFFFFFF);
         if (Sequence_Step==52){
+            centeredText(Large_Text,Win_Hcenter,100,"Class selection",0xFFFFFF,0x101814);
             centeredText(Large_Text,Win_Hcenter,128,"Forget",0xFFFFFF,0x101814);
             centeredText(Large_Text,Win_Hcenter,160,"Inn",0xFFFFFF,0x101814); // white text at forget tree
             centeredText(Large_Text,Win_Hcenter,184,"Book",0xFFFFFF,0x101814);
