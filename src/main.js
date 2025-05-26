@@ -99,6 +99,7 @@ class APIntegration {
             window.ArchipelagoMod.enemyIdsSent = new Set(data.enemyIdsSent ?? []);
             window.ArchipelagoMod.pendingClassSwapItems = data.pendingClassSwapItems ?? [];
             GameLoad(data.save.replace(/\r\n|\r|\n/g, ""));
+            this.restoreStagesBeaten(data.stages);
         } else {
             console.log("No data found");
         }
