@@ -61,8 +61,13 @@
 
 // Load Archipelago modifications
 window.ArchipelagoMod = window.ArchipelagoMod || {};
-const bossIDS = new Set([4, 8, 13, 18, 22, 26, 30, 34, 38, 39, 44, 48, 52, 56, 60, 64, 68, 73, 78, 84, 89, 93, 97, 101, 105, 109, 113, 114, 119, 123, 127, 129, 133, 137, 141, 145, 149, 153, 157, 161, 162, 167, 171, 175, 179, 183, 188, 193, 198, 202, 206, 210, 211, 212, 213, 214, 218, 222, 226, 230, 234, 238, 242, 243, 248, 252, 256, 259, 263, 267, 269, 273, 277, 281, 285, 289, 293, 297, 301, 305, 309, 313, 318, 323, 327, 331, 332, 338]);
-const bossAttackIDS = new Set([40, 115, 163, 244, 333, 334, 335, 336, 337, 339]);
+const COMMON_CHANCE = 0.15;
+const UNCOMMON_CHANCE = 0.50;
+const UNCOMMON_IDS = new Set([7, 12, 17, 20, 21, 41, 45, 49, 50, 82, 86, 88, 92, 108, 112, 122, 148, 156, 165, 166, 170, 196, 205, 209, 217, 219, 220, 221, 225, 232, 237, 251, 255, 271, 272, 275, 276, 279, 284, 292, 296, 312, 317, 321, 322, 325, 326, 329, 330]);
+const RARE_CHANCE = 1.00;
+const RARE_IDS = new Set([69, 74, 79, 176, 184, 189, 194, 211, 212, 213, 214, 264, 267, 269, 314, 319, 332, 338]);
+const BOSS_IDS = new Set([4, 8, 13, 18, 22, 26, 30, 34, 38, 39, 44, 48, 52, 56, 60, 64, 68, 73, 78, 84, 89, 93, 97, 101, 105, 109, 113, 114, 119, 123, 127, 129, 133, 137, 141, 145, 149, 153, 157, 161, 162, 167, 171, 175, 179, 183, 188, 193, 198, 202, 206, 210, 211, 212, 213, 214, 218, 222, 226, 230, 234, 238, 242, 243, 248, 252, 256, 259, 263, 267, 269, 273, 277, 281, 285, 289, 293, 297, 301, 305, 309, 313, 318, 323, 327, 331, 332, 338]);
+const BOSS_ATTACK_IDS = new Set([40, 115, 163, 244, 333, 334, 335, 336, 337, 339]);
 
 var Debug_Mode = 0;                         // display debug mode on/off       original name: ca
 var Curr_Sequence = ["0: Title Screen: launch game","1: Title Screen: spawn stickmen","2: Title Screen: enable buttons","3: Title Screen: class select","4: Title Screen: load new game","5: Title Screen: load saved game","6: Title Screen: world map","","","","10: Enemy Screen: load screen","11: Enemy Screen: fade in","12: Enemy Screen: play","13: Enemy Screen: fade out","","","","","","","20: Enemy Screen: pause","","","","","","","","","","30: Enemy Screen: game over","","","","","","","","","","40: Enemy Screen: game clear","","","","","","","","","","50: Town Screen: load screen","51: Town Screen: fade in","52: Town Screen: play","53: Town Screen: open shop","54: Town Screen: open book","55: Town Screen: open forget","56: Town Screen: open class selection","","","59: Town Screen: fade out","60: VS Mode Screen: ","61: VS Mode Screen: ","62: VS Mode Screen: ","63: VS Mode Screen: ","64: VS Mode Screen: ","","","","","","70: VS Mode Screen: ","71: VS Mode Screen: ","72: VS Mode Screen: ","73: VS Mode Screen: "]; // current game mode                (new variable)
@@ -2290,7 +2295,7 @@ function menuAndMap(){ // original name: uf()
         antiCheatCheck();
 
         for (var i=0; i<8; i++){ // number of classes
-            if (window.ArchipelagoMod.rangerClassesUnlocked.includes(Class_Name_List[i+1])) {
+            if (window.ArchipelagoMod.rangerClassesUnlocked.includes(Class_Name_List[i+1]) || window.ArchipelagoMod.rangerClassRandomizer === 0) {
                 Large_Text.TX_spacing = -1;
                 centeredText(Large_Text,46+60*i,220,Class_Name_List[i+1],0xCC9449,0x640000);
                 Large_Text.TX_spacing = 0;
@@ -3224,7 +3229,7 @@ function townScreens(){ // original name: wf()
                     
                     if (enemyID == 337) { // Hell Castle Boss
                         enemyID = 332;
-                    } else if (bossAttackIDS.has(enemyID)) {
+                    } else if (BOSS_ATTACK_IDS.has(enemyID)) {
                         enemyID--;
                     }
 
@@ -3420,7 +3425,7 @@ function townScreens(){ // original name: wf()
         outlineRectCentered(160+64*Displayed_Object,140,25,25,0xFF0000); // box around stickman slot
 
         for (var i=0; i<8; i++){ // number of classes
-            if (window.ArchipelagoMod.rangerClassesUnlocked.includes(Class_Name_List[i+1])) {
+            if (window.ArchipelagoMod.rangerClassesUnlocked.includes(Class_Name_List[i+1]) || window.ArchipelagoMod.rangerClassRandomizer === 0) {
                 Large_Text.TX_spacing = -1;
                 centeredText(Large_Text,46+60*i,270,Class_Name_List[i+1],0xCC9449,0x640000);
                 Large_Text.TX_spacing = 0;
@@ -4085,7 +4090,7 @@ function drawStage(is_paused){ // original name: Tf()
             En_Count_From_Max--;
         filledRect(196,10,120,12,0x303030); // HP bar max
         filledRect(196,10,floor(120*Target_HP_Current/Target_HP_Max),12,0x600000); // HP bar current
-        const isBoss = bossIDS.has(Target_Array_ID);
+        const isBoss = BOSS_IDS.has(Target_Array_ID);
         const x = 320;
         const y = 4;
 
@@ -8717,33 +8722,43 @@ function enemyDeath(enemy,en_ID,xp_is_given){ // original name: Jg()
 
     const enemyID = enemy.EN_array_ID[en_ID];
     if (!window.ArchipelagoMod.enemyIdsSent.has(enemyID)) {
-        const NON_BOSS_CHANCE = 0.15;
-        const BOSS_CHANCE = 0.50;
-        const bossIDS = new Set([4, 8, 13, 18, 22, 26, 30, 34, 38, 39, 44, 48, 52, 56, 60, 64, 68, 73, 78, 84, 89, 93, 97, 101, 105, 109, 113, 114, 119, 123, 127, 129, 133, 137, 141, 145, 149, 153, 157, 161, 162, 167, 171, 175, 179, 183, 188, 193, 198, 202, 206, 210, 211, 212, 213, 214, 218, 222, 226, 230, 234, 238, 242, 243, 248, 252, 256, 259, 263, 267, 269, 273, 277, 281, 285, 289, 293, 297, 301, 305, 309, 313, 318, 323, 327, 331, 332, 338]);
-        const isBoss = bossIDS.has(enemyID);
-
-        let chanceToDropApItem = 0;
-        switch (window.ArchipelagoMod.shuffleEnemies) {
-            case 1: // Non-boss enemies
-                if (!isBoss) chanceToDropApItem = NON_BOSS_CHANCE;
-                break;
-            case 2: // Boss enemies
-                if (isBoss) chanceToDropApItem = BOSS_CHANCE;
-                break;
-            case 3: // All enemies
-                chanceToDropApItem = isBoss ? BOSS_CHANCE : NON_BOSS_CHANCE;
-                break;
-            case 0:
-            default:
-                break;
-        }
+        const chanceToDropApItem = getDropChance(enemyID, window.ArchipelagoMod.shuffleEnemies);
 
         if (chanceToDropApItem > 0 && Math.random() < chanceToDropApItem) {
             const { x, y } = enemy.EN_joint[en_ID][direction];
-            Drops.DPadd(x, y, 564, enemyID, 0); //TODO remember enemy and do not let it drop again
+            Drops.DPadd(x, y, 564, enemyID, 0);
         }
     }
 
+    return 0;
+}
+
+function getDropChance(enemyID, shuffleMode) {
+    const isUncommon = UNCOMMON_IDS.has(enemyID);
+    const isRare = RARE_IDS.has(enemyID);
+    const isBoss = BOSS_IDS.has(enemyID);
+
+    switch (shuffleMode) {
+        case 1: // Non-boss enemies
+            if (!isBoss) {
+                if (isRare) return RARE_CHANCE;
+                if (isUncommon) return UNCOMMON_CHANCE;
+                return COMMON_CHANCE;
+            }
+            break;
+        case 2: // Boss enemies
+            if (isBoss) {
+                if (isRare) return RARE_CHANCE;
+                if (isUncommon) return UNCOMMON_CHANCE;
+            }
+            break;
+        case 3: // All enemies
+            if (isRare) return RARE_CHANCE;
+            if (isUncommon || isBoss) return UNCOMMON_CHANCE;
+            return COMMON_CHANCE;
+        default:
+            break;
+    }
     return 0;
 }
 
@@ -12833,7 +12848,7 @@ SR_map.prototype.MAPmain = function(){ // uh.prototype.b
     /**************************************************************************/
     if (Mouse_Xpos<20 && Mouse_Ypos<Inv_Top)                                               // hover near or past the left edge to scoll map
         this.MAP_tile_horizontal_spacer = clamp(this.MAP_tile_horizontal_spacer+4,-720,0); // scroll map left
-    else if (Mouse_Xpos>Win_Width-20 && Mouse_Ypos<Inv_Top)                                         // hover near or past the right edge to scoll map
+    else if (Mouse_Xpos>Win_Width-20 && Mouse_Xpos<Win_Width+20 && Mouse_Ypos<Inv_Top)     // hover near or past the right edge to scoll map
         this.MAP_tile_horizontal_spacer = clamp(this.MAP_tile_horizontal_spacer-4,-720,0); // scroll map right
     /**************************************************************************/
 
