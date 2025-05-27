@@ -428,6 +428,7 @@ class APIntegration {
             if (this.slotData.ranger_class_randomizer == 1) {
                 window.ArchipelagoMod.unlockForgetTree = true;
             }
+            window.ArchipelagoMod.rangerClassRandomizer = this.slotData.ranger_class_randomizer ?? 0;
             window.ArchipelagoMod.rangerClassesUnlocked = this.getUnlockedClasses();
             window.ArchipelagoMod.shuffleEnemies = this.slotData.shuffle_enemies ?? 0;
             window.ArchipelagoMod.enemyIdsSent = window.ArchipelagoMod.enemyIdsSent ?? new Set([]);

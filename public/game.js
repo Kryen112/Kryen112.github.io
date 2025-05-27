@@ -2295,7 +2295,7 @@ function menuAndMap(){ // original name: uf()
         antiCheatCheck();
 
         for (var i=0; i<8; i++){ // number of classes
-            if (window.ArchipelagoMod.rangerClassesUnlocked.includes(Class_Name_List[i+1])) {
+            if (window.ArchipelagoMod.rangerClassesUnlocked.includes(Class_Name_List[i+1]) || window.ArchipelagoMod.rangerClassRandomizer === 0) {
                 Large_Text.TX_spacing = -1;
                 centeredText(Large_Text,46+60*i,220,Class_Name_List[i+1],0xCC9449,0x640000);
                 Large_Text.TX_spacing = 0;
@@ -3425,7 +3425,7 @@ function townScreens(){ // original name: wf()
         outlineRectCentered(160+64*Displayed_Object,140,25,25,0xFF0000); // box around stickman slot
 
         for (var i=0; i<8; i++){ // number of classes
-            if (window.ArchipelagoMod.rangerClassesUnlocked.includes(Class_Name_List[i+1])) {
+            if (window.ArchipelagoMod.rangerClassesUnlocked.includes(Class_Name_List[i+1]) || window.ArchipelagoMod.rangerClassRandomizer === 0) {
                 Large_Text.TX_spacing = -1;
                 centeredText(Large_Text,46+60*i,270,Class_Name_List[i+1],0xCC9449,0x640000);
                 Large_Text.TX_spacing = 0;
