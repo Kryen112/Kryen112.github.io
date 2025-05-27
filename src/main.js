@@ -12,7 +12,7 @@ class APIntegration {
         this.RANGER_CLASSES = { 14000: "Boxer", 14001: "Gladiator", 14002: "Sniper", 14003: "Magician", 14004: "Priest", 14005: "Gunner", 14006: "Whipper", 14007: "Angel" };
         this.INV_START = 16;
         this.MOUSE_SLOT = 40;
-        this.STAGE_TO_WIN = 88; // Hell Castle ID
+        this.stagesToWin = [88];
 
         this._connected = false;
         this._disconnected = false;
@@ -428,6 +428,7 @@ class APIntegration {
             if (this.slotData.ranger_class_randomizer == 1) {
                 window.ArchipelagoMod.unlockForgetTree = true;
             }
+            this.setStagesToWinFromGoal();
             window.ArchipelagoMod.rangerClassRandomizer = this.slotData.ranger_class_randomizer ?? 0;
             window.ArchipelagoMod.rangerClassesUnlocked = this.getUnlockedClasses();
             window.ArchipelagoMod.shuffleEnemies = this.slotData.shuffle_enemies ?? 0;
@@ -491,6 +492,25 @@ class APIntegration {
             }
         }
         return unlocked;
+    }
+
+    /**
+     * Sets the stages required to win based on the selected goal.
+     * Should be called whenever slotdata is updated (e.g., after connecting, or when slotdata changes).
+     */
+    setStagesToWinFromGoal() {
+        // Mapping for goal options, as per server logic
+        const goalStageMap = {
+            0: [88],           // Hell Castle
+            1: [89],           // Volcano
+            2: [55],           // Mountaintop
+            3: [88, 89],       // Hell Castle + Volcano
+            4: [88, 55],       // Hell Castle + Mountaintop
+            5: [89, 55],       // Volcano + Mountaintop
+            6: [88, 89, 55],   // All
+        };
+        const goal = this.slotData.goal ?? 0; // fallback to 0 if undefined
+        this.stagesToWin = goalStageMap[goal] || [88];
     }
 
     async sendLocation(id) {
@@ -802,7 +822,10 @@ class APIntegration {
             }
 
             // report win
-            if (!this.winReported && (Stage_Status[this.STAGE_TO_WIN] & Beaten) === Beaten) {
+            if (
+                !this.winReported &&
+                this.stagesToWin.every(stageId => (Stage_Status[stageId] & Beaten) === Beaten)
+            ) {
                 this.winReported = true;
                 this.client?.goal();
             }
