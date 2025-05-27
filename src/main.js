@@ -178,12 +178,16 @@ class APIntegration {
         this.leftPanel.style.display = "none";
         this._connected = false;
         this._disconnected = true;
-        await this.saveAPData();
         this.apDiv.style.display = "flex";
         this.connectionBox.style.display = "none";
         this.chatLine.style.display = "none";
         this.log("Disconnected from multiworld server.", "info");
         Sequence_Step = 0;
+        for (var s=0; s<Stage_Count; s++)
+            Stage_Status[s] = 0;
+        Stage_Status[0] = Beaten|Unlocked;
+        Stage_Status[1] = Unlocked;
+        antiCheatSet();
     }
 
     _onSendClick() {
