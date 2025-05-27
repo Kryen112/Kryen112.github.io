@@ -8641,6 +8641,13 @@ function enemyDeath(enemy,en_ID,xp_is_given){ // original name: Jg()
     if (xp_is_given==1)
         return xp_earned;
 
+    // Prevent EXP from being too much to level up twice
+    const max_EXP_to_have = ((((LV[0]+1)*(LV[0]+2))/2)*1000) - 1;
+    const max_EXP_to_earn = max_EXP_to_have - Team_EXP;
+    if (Team_EXP+xp_earned > max_EXP_to_have) {
+        xp_earned = max_EXP_to_earn;
+    }
+
     // leveling up
     antiCheatCheck();
     Team_EXP = clamp(Team_EXP+xp_earned,0,9999999);
