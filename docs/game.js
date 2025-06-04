@@ -3226,7 +3226,7 @@ function townScreens(){ // original name: wf()
                     const x = g+167+32*b;
                     const y = 67;
                     let enemyID = Book_Indexer[book_stage]+e;
-                    
+
                     if (enemyID == 337) { // Hell Castle Boss
                         enemyID = 332;
                     } else if (BOSS_ATTACK_IDS.has(enemyID)) {
@@ -3476,7 +3476,7 @@ function townScreens(){ // original name: wf()
                     Ranger_Class[s] = Ranger_Class_Proxy[s];
                     Item_Inv[Stickmen_Slots+s] = Item_Inv_Proxy[s];
                     Comp1_Inv[Stickmen_Slots+s] = Comp1_Inv_Proxy[s];
-                    Comp2_Inv[Stickmen_Slots+s] = Comp2_Inv[s];
+                    Comp2_Inv[Stickmen_Slots+s] = Comp2_Inv_Proxy[s];
                 }
                 Sequence_Step = 52;
             }
@@ -13847,7 +13847,7 @@ function moveJoint(current_pos,next_pos,gravity,resistance){ // original name: W
 window.fullScreen = fullScreen;
 function fullScreen() {
     const doc     = window.document;
-    const elem    = cv; 
+    const elem    = cv;
     const request = elem.requestFullscreen
                   || elem.webkitRequestFullScreen
                   || elem.mozRequestFullScreen
