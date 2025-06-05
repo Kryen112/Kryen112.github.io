@@ -3026,9 +3026,11 @@ function townScreens(){ // original name: wf()
         if (isMouseHovered(shop_left+176-56,shop_top+120-10,108,20)){
             if (shop_item!=0 && Team_Gold>=buy_price && Clicked){
                 antiCheatCheck();
-                second_slot = 0;
-                if (town_stage==0 || town_stage==2 && item_cell==0)
-                    second_slot = Null_Slot;
+                second_slot = (window.ArchipelagoMod.removeNullCompo === 1)
+                    ? 0
+                    : (town_stage === 0 || town_stage === 2 && item_cell === 0)
+                        ? Null_Slot
+                        : 0;
                 Drops.DPadd(40,200,shop_item,0,second_slot);
                 Team_Gold -= buy_price;
                 antiCheatSet();
@@ -12855,10 +12857,9 @@ function in_logic(stage) {
 
     let beaten = {grassland: 0, sea: 0, desert: 0, ice: 0, hell: 0};
     for (const id in Stage_Status) {
-        const stageId = Number(id);
-        if (TOWN_STAGE_IDS.has(stageId) || BOSS_STAGE_IDS.has(stageId) || GOAL_STAGE_IDS.has(stageId)) continue;
+        if (TOWN_STAGE_IDS.has(id) || BOSS_STAGE_IDS.has(id) || GOAL_STAGE_IDS.has(id)) continue;
         if (Stage_Status[id] > 1) {
-            const region = getRegion(stageId);
+            const region = getRegion(id);
             if (region) beaten[region]++;
         }
     }
