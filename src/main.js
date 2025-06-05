@@ -435,6 +435,12 @@ class APIntegration {
             this.setStagesToWinFromGoal();
             window.ArchipelagoMod.rangerClassRandomizer = this.slotData.ranger_class_randomizer ?? 0;
             window.ArchipelagoMod.rangerClassesUnlocked = this.getUnlockedClasses();
+            window.ArchipelagoMod.classesForCastle = this.slotData.classes_req_for_castle ?? 2;
+            window.ArchipelagoMod.classesForSubmarineShrine = this.slotData.classes_req_for_submarine_shrine ?? 3;
+            window.ArchipelagoMod.classesForPyramid = this.slotData.classes_req_for_pyramid ?? 4;
+            window.ArchipelagoMod.classesForIceCastle = this.slotData.classes_req_for_ice_castle ?? 5;
+            window.ArchipelagoMod.classesForHellCastle = this.slotData.classes_req_for_hell_castle ?? 6;
+            window.ArchipelagoMod.shuffleBooks = this.slotData.shuffle_books ?? 0;
             window.ArchipelagoMod.shuffleEnemies = this.slotData.shuffle_enemies ?? 0;
             window.ArchipelagoMod.enemyIdsSent = window.ArchipelagoMod.enemyIdsSent ?? new Set([]);
             window.ArchipelagoMod.goldMultiplier = this.slotData.gold_multiplier ?? 1;

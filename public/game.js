@@ -68,6 +68,9 @@ const RARE_CHANCE = 1.00;
 const RARE_IDS = new Set([69, 74, 79, 176, 184, 189, 194, 211, 212, 213, 214, 264, 267, 269, 314, 319, 332, 338]);
 const BOSS_IDS = new Set([4, 8, 13, 18, 22, 26, 30, 34, 38, 39, 44, 48, 52, 56, 60, 64, 68, 73, 78, 84, 89, 93, 97, 101, 105, 109, 113, 114, 119, 123, 127, 129, 133, 137, 141, 145, 149, 153, 157, 161, 162, 167, 171, 175, 179, 183, 188, 193, 198, 202, 206, 210, 211, 212, 213, 214, 218, 222, 226, 230, 234, 238, 242, 243, 248, 252, 256, 259, 263, 267, 269, 273, 277, 281, 285, 289, 293, 297, 301, 305, 309, 313, 318, 323, 327, 331, 332, 338]);
 const BOSS_ATTACK_IDS = new Set([40, 115, 163, 244, 333, 334, 335, 336, 337, 339]);
+const TOWN_STAGE_IDS = new Set([0, 20, 47, 70, 77]);
+const BOSS_STAGE_IDS = new Set([10, 29, 42, 63]);
+const GOAL_STAGE_IDS = new Set([55, 88, 89]);
 
 var Debug_Mode = 0;                         // display debug mode on/off       original name: ca
 var Curr_Sequence = ["0: Title Screen: launch game","1: Title Screen: spawn stickmen","2: Title Screen: enable buttons","3: Title Screen: class select","4: Title Screen: load new game","5: Title Screen: load saved game","6: Title Screen: world map","","","","10: Enemy Screen: load screen","11: Enemy Screen: fade in","12: Enemy Screen: play","13: Enemy Screen: fade out","","","","","","","20: Enemy Screen: pause","","","","","","","","","","30: Enemy Screen: game over","","","","","","","","","","40: Enemy Screen: game clear","","","","","","","","","","50: Town Screen: load screen","51: Town Screen: fade in","52: Town Screen: play","53: Town Screen: open shop","54: Town Screen: open book","55: Town Screen: open forget","56: Town Screen: open class selection","","","59: Town Screen: fade out","60: VS Mode Screen: ","61: VS Mode Screen: ","62: VS Mode Screen: ","63: VS Mode Screen: ","64: VS Mode Screen: ","","","","","","70: VS Mode Screen: ","71: VS Mode Screen: ","72: VS Mode Screen: ","73: VS Mode Screen: "]; // current game mode                (new variable)
@@ -12742,6 +12745,157 @@ SR_Terrain.prototype.TRdrawTerrain = function(){ // th.prototype.b
     }
 };
 
+function getUniqueEnemyIds(stageNumber) {
+    const enemyIds = new Set();
+    const stage = Stage_Spawns[stageNumber];
+    if (!stage) return [];
+
+    for (const screen of stage) {
+        const spawnData = screen.slice(2);
+        for (let i = 0; i < spawnData.length; i += 3) {
+            if (i + 1 < spawnData.length) {
+                const enemyId = spawnData[i + 1];
+                enemyIds.add(enemyId);
+            }
+        }
+    }
+    return enemyIds;
+}
+
+function done_all_checks(stage) {
+    let needsBooked = false;
+    let needsCommonEnemies = false;
+    let needsBossEnemies = false;
+    let isBeaten = false;
+    let isBooked = false;
+    let areCommonEnemiesCollected = false;
+    let areBossEnemiesCollected = false;
+
+    const enemyIdsSent = window.ArchipelagoMod.enemyIdsSent;
+
+    if (window.ArchipelagoMod.shuffleBooks == 1) {
+        needsBooked = true;
+    }
+    if (needsBooked && (Stage_Status[stage] & Booked) != 0) {
+        isBeaten = true;
+        isBooked = true;
+    } else if ((Stage_Status[stage] & Beaten) != 0) {
+        isBeaten = true;
+    }
+
+    switch (window.ArchipelagoMod.shuffleEnemies) {
+        case 1:
+            needsCommonEnemies = true;
+            break;
+        case 2:
+            needsBossEnemies = true;
+            break;
+        case 3:
+            needsCommonEnemies = true;
+            needsBossEnemies = true;
+            break;
+        default:
+            break;
+    }
+
+    const uniqueEnemyIdsInStage = getUniqueEnemyIds(stage);
+    const bossEnemyIdsInStage = [];
+    const commonEnemyIdsInStage = [];
+    for (const id of uniqueEnemyIdsInStage) {
+        if (BOSS_IDS.has(id)) {
+            bossEnemyIdsInStage.push(id);
+        } else {
+            commonEnemyIdsInStage.push(id);
+        }
+    }
+
+    if (needsCommonEnemies && needsBossEnemies) {
+        if ([...uniqueEnemyIdsInStage].every(id => enemyIdsSent.has(id))) {
+            areCommonEnemiesCollected = true;
+            areBossEnemiesCollected = true;
+        }
+    } else if (needsBossEnemies) {
+        if (stage === 55) {
+            if (bossEnemyIdsInStage.every(id => enemyIdsSent.has(id))) {
+                areBossEnemiesCollected = true;
+            }
+        } else if (enemyIdsSent.has(bossEnemyIdsInStage[0])) {
+            areBossEnemiesCollected = true;
+        }
+    } else if (needsCommonEnemies) {
+        if (commonEnemyIdsInStage.every(id => enemyIdsSent.has(id))) {
+            areCommonEnemiesCollected = true;
+        }
+    }
+
+    return (needsBooked ? isBooked : isBeaten) &&
+        (needsCommonEnemies ? areCommonEnemiesCollected : true) &&
+        (needsBossEnemies ? areBossEnemiesCollected : true);
+}
+
+const REGION_RANGES = {
+    grassland: [1, 19],
+    sea: [21, 33],
+    desert: [34, 46],
+    ice: [48, 62],
+    hell: [64, 87],
+};
+
+function getRegion(stage) {
+    for (const [region, [min, max]] of Object.entries(REGION_RANGES)) {
+        if (stage >= min && stage <= max) return region;
+    }
+    return null;
+}
+
+function in_logic(stage) {
+    if (stage <= 19 && stage !== 10) { // Grassland stages are always in logic
+        return true;
+    }
+
+    let beaten = {grassland: 0, sea: 0, desert: 0, ice: 0, hell: 0};
+    for (const id in Stage_Status) {
+        if (TOWN_STAGE_IDS.has(id) || BOSS_STAGE_IDS.has(id) || GOAL_STAGE_IDS.has(id)) continue;
+        if (Stage_Status[id] > 1) {
+            const region = getRegion(id);
+            if (region) beaten[region]++;
+        }
+    }
+
+    const amountOfClassesUnlocked = window.ArchipelagoMod.rangerClassesUnlocked.length;
+    const castle_predicate = beaten.grassland >= 6 && amountOfClassesUnlocked >= window.ArchipelagoMod.classesForCastle;
+    const submarine_shrine_predicate = beaten.sea >= 4 && amountOfClassesUnlocked >= window.ArchipelagoMod.classesForSubmarineShrine;
+    const pyramid_predicate = beaten.desert >= 4 && amountOfClassesUnlocked >= window.ArchipelagoMod.classesForPyramid;
+    const ice_castle_predicate = beaten.ice >= 5 && amountOfClassesUnlocked >= window.ArchipelagoMod.classesForIceCastle;
+    const goal_predicate = beaten.hell >= 6 && amountOfClassesUnlocked >= window.ArchipelagoMod.classesForHellCastle;
+
+    switch (stage) {
+        case 10: return castle_predicate;
+        case 29: return submarine_shrine_predicate;
+        case 42: return pyramid_predicate;
+        case 63: return ice_castle_predicate;
+        case 55: case 88: case 89: return goal_predicate;
+    }
+
+    const stage_region = getRegion(stage);
+    const sea_predicate = Stage_Status[10] > 1 && castle_predicate;
+    const desert_predicate = Stage_Status[29] > 1 && sea_predicate;
+    const ice_predicate = Stage_Status[42] > 1 && desert_predicate;
+    const hell_predicate = Stage_Status[63] > 1 && ice_predicate;
+    switch (stage_region) {
+        case "grassland": return true;
+        case "sea": return sea_predicate;
+        case "desert": return desert_predicate;
+        case "ice": return ice_predicate;
+        case "hell": return hell_predicate;
+    }
+    return false;
+}
+
+function unlocked(stage) {
+    return (Stage_Status[stage]&Unlocked)!=0;
+}
+
 // map size
 var WorldMap = new SR_map; // qe = new uh
 function SR_map(){ // original name: uh()
@@ -12919,21 +13073,23 @@ SR_map.prototype.MAPmain = function(){ // uh.prototype.b
             b = 8*Dot_Locations[s][0];
             path_len = 8*Dot_Locations[s][1];
 
-            if (s==0||s==20||s==47||s==77)        // if town stages, dot is white
+            if (s==0||s==20||s==47||s==70||s==77)        // if town stages, dot is white
                 dot_color = 0xFFFFFF;
-            else if (s==33||s==71)                // if ??? or !!!, dot is black
-                dot_color = 0x000000;
-            else if ((Stage_Status[s]&Beaten)!=0) // if stage is complete
+            else if (done_all_checks(s))
                 dot_color = 0x990000;
-            else                                  // if stage is not beaten
+            else if (in_logic(s))
                 dot_color = 0xCCCC00;
+            else if (unlocked(s))
+                dot_color = 0xFF5000;
 
-            if (Dot_Locations[s][2]==0)
+            if (s==71) { // if stage is !!!
+                filledRectCentered(this.MAP_tile_horizontal_spacer+b,path_len,3,3,dot_color);
+                dot_size = 3;
+            }
+            else {
                 filledRectCentered(this.MAP_tile_horizontal_spacer+b,path_len,6,6,dot_color);
-
-            if (s==71) // if stage is !!!
-                 dot_size = 3;
-            else dot_size = 24;
+                dot_size = 24
+            };
 
             if (isMouseHoveredCenter(this.MAP_tile_horizontal_spacer+b,path_len,dot_size,dot_size))
                 outlineRectCentered(this.MAP_tile_horizontal_spacer+b,path_len,dot_size,dot_size,0xCC0000);
