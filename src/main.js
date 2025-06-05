@@ -454,6 +454,7 @@ class APIntegration {
                 this.randomizedBookCosts = this.createRandomizedBookCosts(bookCostRandomizer);
             }
             window.ArchipelagoMod.randomizedBookCosts = this.randomizedBookCosts ?? {};
+            window.ArchipelagoMod.removeNullCompo = this.slotData.remove_null_compo ?? 1;
 
             if (this.slotData.death_link) {
                 this.client.deathLink.enableDeathLink();
