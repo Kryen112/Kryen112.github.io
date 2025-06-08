@@ -12865,11 +12865,21 @@ function in_logic(stage) {
     }
 
     const amountOfClassesUnlocked = window.ArchipelagoMod.rangerClassesUnlocked.length;
-    const castle_predicate = beaten.grassland >= 6 && amountOfClassesUnlocked >= window.ArchipelagoMod.classesForCastle;
-    const submarine_shrine_predicate = beaten.sea >= 4 && amountOfClassesUnlocked >= window.ArchipelagoMod.classesForSubmarineShrine;
-    const pyramid_predicate = beaten.desert >= 4 && amountOfClassesUnlocked >= window.ArchipelagoMod.classesForPyramid;
-    const ice_castle_predicate = beaten.ice >= 5 && amountOfClassesUnlocked >= window.ArchipelagoMod.classesForIceCastle;
-    const goal_predicate = beaten.hell >= 6 && amountOfClassesUnlocked >= window.ArchipelagoMod.classesForHellCastle;
+    const castle_predicate =
+        beaten.grassland >= window.ArchipelagoMod.stagesForCastle &&
+            amountOfClassesUnlocked >= window.ArchipelagoMod.classesForCastle;
+    const submarine_shrine_predicate =
+        beaten.sea >= window.ArchipelagoMod.stagesForSubmarineShrine &&
+            amountOfClassesUnlocked >= window.ArchipelagoMod.classesForSubmarineShrine;
+    const pyramid_predicate =
+        beaten.desert >= window.ArchipelagoMod.stagesForPyramid &&
+            amountOfClassesUnlocked >= window.ArchipelagoMod.classesForPyramid;
+    const ice_castle_predicate =
+        beaten.ice >= window.ArchipelagoMod.stagesForIceCastle &&
+            amountOfClassesUnlocked >= window.ArchipelagoMod.classesForIceCastle;
+    const goal_predicate =
+        beaten.hell >= window.ArchipelagoMod.stagesForHellCastle &&
+            amountOfClassesUnlocked >= window.ArchipelagoMod.classesForHellCastle;
 
     switch (stage) {
         case 10: return castle_predicate;

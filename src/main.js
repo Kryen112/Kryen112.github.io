@@ -440,6 +440,11 @@ class APIntegration {
             window.ArchipelagoMod.classesForPyramid = this.slotData.classes_req_for_pyramid ?? 4;
             window.ArchipelagoMod.classesForIceCastle = this.slotData.classes_req_for_ice_castle ?? 5;
             window.ArchipelagoMod.classesForHellCastle = this.slotData.classes_req_for_hell_castle ?? 6;
+            window.ArchipelagoMod.stagesForCastle = this.slotData.stages_req_for_castle ?? 6;
+            window.ArchipelagoMod.stagesForSubmarineShrine = this.slotData.stages_req_for_submarine_shrine ?? 4;
+            window.ArchipelagoMod.stagesForPyramid = this.slotData.stages_req_for_pyramid ?? 4;
+            window.ArchipelagoMod.stagesForIceCastle = this.slotData.stages_req_for_ice_castle ?? 5;
+            window.ArchipelagoMod.stagesForHellCastle = this.slotData.stages_req_for_hell_castle ?? 7;
             window.ArchipelagoMod.shuffleBooks = this.slotData.shuffle_books ?? 0;
             window.ArchipelagoMod.shuffleEnemies = this.slotData.shuffle_enemies ?? 0;
             window.ArchipelagoMod.enemyIdsSent = window.ArchipelagoMod.enemyIdsSent ?? new Set([]);
