@@ -8760,8 +8760,7 @@ function getDropChance(enemyID, shuffleMode) {
             break;
         case 2: // Boss enemies
             if (isBoss) {
-                if (isRare) return RARE_CHANCE;
-                if (isUncommon) return UNCOMMON_CHANCE;
+                return UNCOMMON_CHANCE
             }
             break;
         case 3: // All enemies
