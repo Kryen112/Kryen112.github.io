@@ -3500,10 +3500,6 @@ function townScreens(){ // original name: wf()
             Sequence_Step = 6;
             antiCheatCheck();
             Stage_Status[Current_Stage] |= Beaten;
-            if (Dot_Locations[Current_Stage][3]>0)
-                Stage_Status[Dot_Locations[Current_Stage][3]] |= Unlocked;
-            if (Dot_Locations[Current_Stage][4]>0)
-                Stage_Status[Dot_Locations[Current_Stage][4]] |= Unlocked;
             antiCheatSet();
             Save_Code3 = genSaveCode(0);
             Save_Code1 = 1;
