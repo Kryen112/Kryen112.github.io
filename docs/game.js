@@ -12864,15 +12864,19 @@ function in_logic(stage) {
         beaten.grassland >= window.ArchipelagoMod.stagesForCastle &&
             amountOfClassesUnlocked >= window.ArchipelagoMod.classesForCastle;
     const submarine_shrine_predicate =
+        castle_predicate &&
         beaten.sea >= window.ArchipelagoMod.stagesForSubmarineShrine &&
             amountOfClassesUnlocked >= window.ArchipelagoMod.classesForSubmarineShrine;
     const pyramid_predicate =
+        submarine_shrine_predicate &&
         beaten.desert >= window.ArchipelagoMod.stagesForPyramid &&
             amountOfClassesUnlocked >= window.ArchipelagoMod.classesForPyramid;
     const ice_castle_predicate =
+        pyramid_predicate &&
         beaten.ice >= window.ArchipelagoMod.stagesForIceCastle &&
             amountOfClassesUnlocked >= window.ArchipelagoMod.classesForIceCastle;
     const goal_predicate =
+        ice_castle_predicate &&
         beaten.hell >= window.ArchipelagoMod.stagesForHellCastle &&
             amountOfClassesUnlocked >= window.ArchipelagoMod.classesForHellCastle;
 
