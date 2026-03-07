@@ -14079,9 +14079,10 @@ function getMousePos(event){ // original name: ai()
 // ——————————————————————————
 // Desktop mouse handlers
 // ——————————————————————————
-document.onmousemove = getMousePos;
+//document.onmousemove = getMousePos;
+document.addEventListener("mousemove", getMousePos);
 
-document.onmousedown = function(event){ // original name: vh.onmousedown
+document.addEventListener("mousedown", function(event){ // original name: vh.onmousedown
     getMousePos(event);
     Mouse_In_Window = false;
     if (!(Mouse_Xpos2 < 0 || Win_Width <= Mouse_Xpos2 ||
@@ -14091,17 +14092,17 @@ document.onmousedown = function(event){ // original name: vh.onmousedown
         if (event.button === 2) Right_Click_Is_Down = true;
         return false;
     }
-};
+});
 
-document.onmouseup = function(event){ // original name: vh.onmouseup
+document.addEventListener("mouseup", function(event){ // original name: vh.onmouseup
     getMousePos(event);
     if (event.button === 0) Left_Click_Is_Down  = false;
     if (event.button === 2) Right_Click_Is_Down = false;
-};
+});
 
-document.oncontextmenu = function(){ // original name: vh.oncontextmenu
+document.addEventListener("contextmenu", function(){ // original name: vh.oncontextmenu
     if (Mouse_In_Window) return false;
-};
+});
 
 // ——————————————————————————
 // Unified touch handlers
@@ -14111,7 +14112,7 @@ function handleTouchPos(clientX, clientY){ // original name: ci()
     getMousePos(fakeEvent);
 }
 
-document.ontouchstart = function(event){ // original name: vh.ontouchstart
+document.addEventListener("touchstart", function(event){ // original name: vh.ontouchstart
     var touch = event.touches[0];
     handleTouchPos(touch.clientX, touch.clientY);
 
@@ -14124,32 +14125,32 @@ document.ontouchstart = function(event){ // original name: vh.ontouchstart
             Right_Click_Is_Down = true;
         return false;
     }
-};
+});
 
-document.ontouchmove = function(event){ // original name: vh.ontouchmove
+document.addEventListener("touchmove", function(event){ // original name: vh.ontouchmove
     var touch = event.touches[0];
     handleTouchPos(touch.clientX, touch.clientY);
     if (Mouse_In_Window) return false;
-};
+});
 
-document.ontouchend = function(){ // original name: vh.ontouchend
+document.addEventListener("touchend", function(){ // original name: vh.ontouchend
     Left_Click_Is_Down  = false;
     Right_Click_Is_Down = false;
     if (Mouse_In_Window) return false;
-};
+});
 
-document.ontouchcancel = function(){ // vh.ontouchcancel
+document.addEventListener("touchcancel", function(){ // vh.ontouchcancel
     Right_Click_Is_Down = false;
     Left_Click_Is_Down  = false;
     Mouse_In_Window     = false;
-};
+});
 
 var Is_Key_Pressed1 = Array(256); // original name: Ze
 var Arr256_2 = Array(256); // original name: $e
 var Is_Key_Held = Array(256); // original name: af
 var Arr256_4 = Array(256); // original name: bf
 var Arr256_5 = Array(256); // original name: cf
-document.onkeydown = function(event){ // vh.onkeydown
+document.addEventListener("keydown", function(event){ // vh.onkeydown
     var key = event.keyCode;
     if (65<=key && key<=90){ // if key is a letter
         if (!event.shiftKey)
@@ -14166,9 +14167,9 @@ document.onkeydown = function(event){ // vh.onkeydown
     }
     if (key!=0 && Mouse_In_Window)
         return false;
-};
+});
 
-document.onkeyup = function(event){ // vh.onkeyup
+document.addEventListener("keyup", function(event){ // vh.onkeyup
     var key = event.keyCode;
     if (65<=key & key<=90){ // if pressed key is a letter key
         if (event.shiftKey==false)
@@ -14182,7 +14183,7 @@ document.onkeyup = function(event){ // vh.onkeyup
         Is_Key_Held[key] = false;
     if (key!=0 && Mouse_In_Window)
         return false;
-};
+});
 
 var Mouse_In_Window = false; // original name: bi
 //var wg = "";                 // unused
