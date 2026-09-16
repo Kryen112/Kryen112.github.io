@@ -12,6 +12,7 @@ class APIntegration {
         this.ITEM_OFFSET = 12000;
         this.TRAPS_OFFSET = 13000;
         this.CLASS_OFFSET = 14000;
+        this.PROGRESSIVE_SHOP_ID = 15000;
         this.RANGER_CLASSES = {
             14000: "Boxer",
             14001: "Gladiator",
@@ -162,6 +163,17 @@ class APIntegration {
         } catch {
             // storage unavailable; not worth interrupting the connection over
         }
+    }
+
+    /**
+     * How many rows of the shop are open, i.e. how many Progressive Shop items
+     * have arrived. Counted from receivedItems rather than incremented, so a
+     * reconnect that replays the whole item list cannot inflate it.
+     */
+    _refreshProgressiveShop() {
+        window.ArchipelagoMod.progressiveShopItems = this.receivedItems.filter(
+            (id) => id === this.PROGRESSIVE_SHOP_ID,
+        ).length;
     }
 
     getStorageKey() {
@@ -510,6 +522,8 @@ class APIntegration {
             window.ArchipelagoMod.randomizedBookCosts = this.randomizedBookCosts ?? {};
             window.ArchipelagoMod.removeNullCompo = this.slotData.remove_null_compo ?? 1;
             window.ArchipelagoMod.freeRespec = this.slotData.free_respec ?? 0;
+            window.ArchipelagoMod.progressiveShop = this.slotData.progressive_shop ?? 0;
+            this._refreshProgressiveShop();
 
             if (this.slotData.death_link) {
                 this.client.deathLink.enableDeathLink();
@@ -612,6 +626,13 @@ class APIntegration {
             if (firstTime) {
                 this.receivedItems.push(id);
             }
+        }
+
+        if (id === this.PROGRESSIVE_SHOP_ID) {
+            if (firstTime) {
+                this.receivedItems.push(id);
+            }
+            this._refreshProgressiveShop();
         }
 
         // location unlock

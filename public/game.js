@@ -73,6 +73,14 @@ const BOSS_IDS = new Set([4, 8, 13, 18, 22, 26, 30, 34, 38, 39, 44, 48, 52, 56, 
 const BOSS_ATTACK_IDS = new Set([40, 115, 163, 244, 333, 334, 335, 336, 337, 339]);
 const TOWN_STAGE_IDS = new Set([0, 20, 47, 70, 77]); // Town, Village, Resort, Forget Tree, Island
 
+// Shop rows normalised onto the 0..32 scale the Town shop uses, so one
+// Progressive Shop count means the same thing in every town regardless of how
+// deep that town's columns are. Mirrored by shop.py in the apworld.
+const SHOP_TIERS = 33;
+function shopTier(row, columnLength){
+    return Math.floor((row * SHOP_TIERS) / columnLength);
+}
+
 var Debug_Mode = 0;                         // display debug mode on/off       original name: ca
 var Curr_Sequence = ["0: Title Screen: launch game","1: Title Screen: spawn stickmen","2: Title Screen: enable buttons","3: Title Screen: class select","4: Title Screen: load new game","5: Title Screen: load saved game","6: Title Screen: world map","","","","10: Enemy Screen: load screen","11: Enemy Screen: fade in","12: Enemy Screen: play","13: Enemy Screen: fade out","","","","","","","20: Enemy Screen: pause","","","","","","","","","","30: Enemy Screen: game over","","","","","","","","","","40: Enemy Screen: game clear","","","","","","","","","","50: Town Screen: load screen","51: Town Screen: fade in","52: Town Screen: play","53: Town Screen: open shop","54: Town Screen: open book","55: Town Screen: open forget","56: Town Screen: open class selection","","","59: Town Screen: fade out","60: VS Mode Screen: ","61: VS Mode Screen: ","62: VS Mode Screen: ","63: VS Mode Screen: ","64: VS Mode Screen: ","","","","","","70: VS Mode Screen: ","71: VS Mode Screen: ","72: VS Mode Screen: ","73: VS Mode Screen: "]; // current game mode                (new variable)
 var Win_Width = 512;                        // width of game window            original name: ea
@@ -2943,13 +2951,26 @@ function townScreens(){ // original name: wf()
 
         item_cell = (3*Menu_Row+Menu_Entry) % Shop_Items[town_stage][Menu_Column].length;
         shop_item = Shop_Items[town_stage][Menu_Column][item_cell];
-        latest_unlock = 1;
-        for (var s=0; s<Stage_Count; s++){
-            if ((Stage_Status[s]&Beaten)>0 && Shop_Reqs[s]>latest_unlock)
-                latest_unlock = Shop_Reqs[s];
+        // Progressive Shop replaces "beat stages to widen the stock" with one
+        // item per row, and applies in every town -- the vanilla gate only ran
+        // in the first Town, so Island's 219 ungated cells would otherwise skip
+        // the whole option.
+        if (window.ArchipelagoMod.progressiveShop){
+            latest_unlock = 1 + (window.ArchipelagoMod.progressiveShopItems || 0);
+            // Columns are not all 33 deep -- Island's run to 78 -- so compare on
+            // a normalised tier. Using the raw row would leave everything past
+            // row 32 of those columns permanently hidden.
+            if (shopTier(item_cell,Shop_Items[town_stage][Menu_Column].length)>=latest_unlock)
+                shop_item = 0;
+        } else {
+            latest_unlock = 1;
+            for (var s=0; s<Stage_Count; s++){
+                if ((Stage_Status[s]&Beaten)>0 && Shop_Reqs[s]>latest_unlock)
+                    latest_unlock = Shop_Reqs[s];
+            }
+            if (Current_Stage==0 && item_cell>=latest_unlock)
+                shop_item = 0;
         }
-        if (Current_Stage==0 && item_cell>=latest_unlock)
-            shop_item = 0;
         itemText(shop_left+8,shop_top+24,Item_Catalogue[shop_item][Item_Name]+" "+(Item_Catalogue[shop_item][Item_LV]? Item_Catalogue[shop_item][Item_LV] :""),-1,0x282828,-2);
         itemText(shop_left+8,shop_top+24,Item_Catalogue[shop_item][Item_Name]+" "+(Item_Catalogue[shop_item][Item_LV]? Item_Catalogue[shop_item][Item_LV] :""),0xFFFFFF,-1,-2);
         UI_weapClass = getVal(shop_item,Item_Class_ID);
