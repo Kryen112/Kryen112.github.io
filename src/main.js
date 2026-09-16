@@ -509,6 +509,7 @@ class APIntegration {
             }
             window.ArchipelagoMod.randomizedBookCosts = this.randomizedBookCosts ?? {};
             window.ArchipelagoMod.removeNullCompo = this.slotData.remove_null_compo ?? 1;
+            window.ArchipelagoMod.freeRespec = this.slotData.free_respec ?? 0;
 
             if (this.slotData.death_link) {
                 this.client.deathLink.enableDeathLink();
