@@ -1,0 +1,6 @@
+# ha55ii's game with the Archipelago hooks grafted in -- reformatting it would
+# bury every future AP change in whitespace noise.
+public/game.js
+docs/
+node_modules/
+package-lock.json

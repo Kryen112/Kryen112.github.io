@@ -9,7 +9,16 @@ class APIntegration {
         this.ITEM_OFFSET = 12000;
         this.TRAPS_OFFSET = 13000;
         this.CLASS_OFFSET = 14000;
-        this.RANGER_CLASSES = { 14000: "Boxer", 14001: "Gladiator", 14002: "Sniper", 14003: "Magician", 14004: "Priest", 14005: "Gunner", 14006: "Whipper", 14007: "Angel" };
+        this.RANGER_CLASSES = {
+            14000: "Boxer",
+            14001: "Gladiator",
+            14002: "Sniper",
+            14003: "Magician",
+            14004: "Priest",
+            14005: "Gunner",
+            14006: "Whipper",
+            14007: "Angel",
+        };
         this.INV_START = 16;
         this.MOUSE_SLOT = 40;
         this.stagesToWin = [88];
@@ -167,7 +176,8 @@ class APIntegration {
 
     async _onConnectClick() {
         this.leftPanel.style.display = "block";
-        this.connectionInfo.textContent = "Connected at: " + this.host.value + ":" + this.port.value + " - " + this.slotName.value;
+        this.connectionInfo.textContent =
+            "Connected at: " + this.host.value + ":" + this.port.value + " - " + this.slotName.value;
         this._disconnected = false;
         this.apDiv.style.display = "none";
         this.connectionBox.style.display = "flex";
@@ -183,9 +193,8 @@ class APIntegration {
         this.chatLine.style.display = "none";
         this.log("Disconnected from multiworld server.", "info");
         Sequence_Step = 0;
-        for (var s=0; s<Stage_Count; s++)
-            Stage_Status[s] = 0;
-        Stage_Status[0] = Beaten|Unlocked;
+        for (let s = 0; s < Stage_Count; s++) Stage_Status[s] = 0;
+        Stage_Status[0] = Beaten | Unlocked;
         Stage_Status[1] = Unlocked;
         antiCheatSet();
     }
@@ -198,7 +207,9 @@ class APIntegration {
 
         this.client.messages.say(text);
         if (text[0] === "/") {
-            this.log("Cannot issue command " + text.slice(1).split(" ")[0] + ". Client commands are not yet supported.");
+            this.log(
+                "Cannot issue command " + text.slice(1).split(" ")[0] + ". Client commands are not yet supported.",
+            );
         }
         this.message.value = "";
     }
@@ -324,7 +335,10 @@ class APIntegration {
                     const stageIndex = networkItem.location - this.BOOK_OFFSET;
                     this.bookHints[stageIndex] = {
                         player: this.client.players.findPlayer(networkItem.player).name,
-                        item: this.client.package.lookupItemName(this.client.players.findPlayer(networkItem.player).game, networkItem.item),
+                        item: this.client.package.lookupItemName(
+                            this.client.players.findPlayer(networkItem.player).game,
+                            networkItem.item,
+                        ),
                         itemClassification: networkItem.flags,
                     };
                 }
@@ -346,7 +360,10 @@ class APIntegration {
                             span.style.color = "#eee8cd";
                         }
                     } else if (el.type === "item_id") {
-                        span.textContent = this.client.package.lookupItemName(this.client.players.findPlayer(el.player).game, Number(el.text));
+                        span.textContent = this.client.package.lookupItemName(
+                            this.client.players.findPlayer(el.player).game,
+                            Number(el.text),
+                        );
                         switch (printJSONPacket.item.flags) {
                             case 1: // Progression
                                 span.style.color = "#9f79ee";
@@ -363,7 +380,10 @@ class APIntegration {
                                 break;
                         }
                     } else if (el.type === "location_id") {
-                        span.textContent = this.client.package.lookupLocationName(this.client.players.findPlayer(el.player).game, Number(el.text));
+                        span.textContent = this.client.package.lookupLocationName(
+                            this.client.players.findPlayer(el.player).game,
+                            Number(el.text),
+                        );
                         span.style.color = "limegreen";
                     } else if (el.text) {
                         span.textContent = el.text;
@@ -429,7 +449,7 @@ class APIntegration {
             await this.loadAPData();
             this._connected = true;
 
-            if (this.slotData.ranger_class_randomizer == 1) {
+            if (this.slotData.ranger_class_randomizer === 1) {
                 window.ArchipelagoMod.unlockForgetTree = true;
             }
             this.setStagesToWinFromGoal();
@@ -479,14 +499,24 @@ class APIntegration {
                 Comp2_Inv[this.MOUSE_SLOT] = 0;
                 antiCheatSet();
                 await this.saveAPData();
-                this.log("Storing mouse item (" + Item_Catalogue[this.connectMouseItem.itemId][0] + ") to be recovered when in-game again.", "info");
+                this.log(
+                    "Storing mouse item (" +
+                        Item_Catalogue[this.connectMouseItem.itemId][0] +
+                        ") to be recovered when in-game again.",
+                    "info",
+                );
             }
 
             this.chatLine.style.display = "flex";
             antiCheatSet();
         } catch (error) {
             if (Array.isArray(error) && error[0]?.target instanceof WebSocket) {
-                this.log("Cannot connect to: " + error[0].target.url + " Please check the hostname and port, or the server's online status.", "error");
+                this.log(
+                    "Cannot connect to: " +
+                        error[0].target.url +
+                        " Please check the hostname and port, or the server's online status.",
+                    "error",
+                );
             } else {
                 this.log("Unknown error during connection: " + error, "error");
             }
@@ -525,13 +555,13 @@ class APIntegration {
     setStagesToWinFromGoal() {
         // Mapping for goal options, as per server logic
         const goalStageMap = {
-            0: [88],           // Hell Castle
-            1: [89],           // Volcano
-            2: [55],           // Mountaintop
-            3: [88, 89],       // Hell Castle + Volcano
-            4: [88, 55],       // Hell Castle + Mountaintop
-            5: [89, 55],       // Volcano + Mountaintop
-            6: [88, 89, 55],   // All
+            0: [88], // Hell Castle
+            1: [89], // Volcano
+            2: [55], // Mountaintop
+            3: [88, 89], // Hell Castle + Volcano
+            4: [88, 55], // Hell Castle + Mountaintop
+            5: [89, 55], // Volcano + Mountaintop
+            6: [88, 89, 55], // All
         };
         const goal = this.slotData.goal ?? 0; // fallback to 0 if undefined
         this.stagesToWin = goalStageMap[goal] || [88];
@@ -679,7 +709,13 @@ class APIntegration {
         const lostGold = Math.floor(Team_Gold / 2);
         Team_Gold -= lostGold;
         this.log("You lost $" + lostGold + "!", "error");
-        Indicators.INadd(Players.PL_joint[Selected_Player][0].x, Players.PL_joint[Selected_Player][0].y, 0, "-$" + lostGold, 0xff3f3f);
+        Indicators.INadd(
+            Players.PL_joint[Selected_Player][0].x,
+            Players.PL_joint[Selected_Player][0].y,
+            0,
+            "-$" + lostGold,
+            0xff3f3f,
+        );
         antiCheatSet();
     }
 
@@ -774,7 +810,7 @@ class APIntegration {
             if (Sequence_Step === 6 && this.lastSequence === 4) {
                 console.log("New game detected");
                 this.receivedItems = [];
-                if (this.slotData.ranger_class_randomizer == 1) {
+                if (this.slotData.ranger_class_randomizer === 1) {
                     this.unlockForgetTree = true;
                 }
             }
@@ -846,10 +882,7 @@ class APIntegration {
             }
 
             // report win
-            if (
-                !this.winReported &&
-                this.stagesToWin.every(stageId => (Stage_Status[stageId] & Beaten) === Beaten)
-            ) {
+            if (!this.winReported && this.stagesToWin.every((stageId) => (Stage_Status[stageId] & Beaten) === Beaten)) {
                 this.winReported = true;
                 this.client?.goal();
             }
@@ -863,7 +896,10 @@ class APIntegration {
                 if (Sequence_Step === 30 && !this.deathLinkSent && !this.deathLinkReceived) {
                     this.log("DeathLink: Sending death to your friends...");
                     this.deathLinkSent = true;
-                    this.client.deathLink.sendDeathLink(this.slotData.player_name, this.slotData.player_name + " was defeated in Stick Ranger.");
+                    this.client.deathLink.sendDeathLink(
+                        this.slotData.player_name,
+                        this.slotData.player_name + " was defeated in Stick Ranger.",
+                    );
                 }
 
                 if (Sequence_Step < 6) {
@@ -887,7 +923,12 @@ class APIntegration {
                     Comp2_Inv[this.MOUSE_SLOT] = 0;
                     antiCheatSet();
                     await this.saveAPData();
-                    this.log("Storing mouse item (" + Item_Catalogue[this.deathMouseItem.itemId][0] + ") to be recovered when in-game again.", "info");
+                    this.log(
+                        "Storing mouse item (" +
+                            Item_Catalogue[this.deathMouseItem.itemId][0] +
+                            ") to be recovered when in-game again.",
+                        "info",
+                    );
                 }
 
                 // Reset pending traps, to not trap the player upon connect again
@@ -904,7 +945,10 @@ class APIntegration {
                     this.deathMouseItem = {};
                     antiCheatSet();
                     await this.saveAPData();
-                    this.log("Mouse item (" + Item_Catalogue[Item_Inv[firstEmptyInvSlot]][0] + ") recovered into inventory.", "info");
+                    this.log(
+                        "Mouse item (" + Item_Catalogue[Item_Inv[firstEmptyInvSlot]][0] + ") recovered into inventory.",
+                        "info",
+                    );
                 }
             }
 
@@ -918,7 +962,10 @@ class APIntegration {
                     this.connectMouseItem = {};
                     antiCheatSet();
                     await this.saveAPData();
-                    this.log("Mouse item (" + Item_Catalogue[Item_Inv[firstEmptyInvSlot]][0] + ") recovered into inventory.", "info");
+                    this.log(
+                        "Mouse item (" + Item_Catalogue[Item_Inv[firstEmptyInvSlot]][0] + ") recovered into inventory.",
+                        "info",
+                    );
                 }
             }
 
@@ -927,13 +974,18 @@ class APIntegration {
                 const firstEmptyInvSlot = this._firstEmptyInvSlot();
                 if (firstEmptyInvSlot !== -1) {
                     const { itemId, compo1, compo2 } = window.ArchipelagoMod.pendingClassSwapItems.shift();
-                    if ([3, 4, 5, 6, 58, 76, 188, 289].includes(itemId) && compo1 == 0 && compo2 == 0) return;
+                    if ([3, 4, 5, 6, 58, 76, 188, 289].includes(itemId) && compo1 === 0 && compo2 === 0) return;
                     Item_Inv[firstEmptyInvSlot] = itemId;
                     Comp1_Inv[firstEmptyInvSlot] = compo1;
                     Comp2_Inv[firstEmptyInvSlot] = compo2;
                     antiCheatSet();
                     await this.saveAPData();
-                    this.log("Equipped item (" + Item_Catalogue[Item_Inv[firstEmptyInvSlot]][0] + ") recovered into inventory after class swap.", "info");
+                    this.log(
+                        "Equipped item (" +
+                            Item_Catalogue[Item_Inv[firstEmptyInvSlot]][0] +
+                            ") recovered into inventory after class swap.",
+                        "info",
+                    );
                 }
             }
 
