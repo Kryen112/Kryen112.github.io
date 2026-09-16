@@ -1,28 +1,28 @@
 {
-  "name": "stickranger-ap",
-  "private": true,
-  "version": "1.7.0",
-  "type": "module",
-  "engines": {
-    "node": ">=20.19"
-  },
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "test": "node --test \"test/**/*.test.js\"",
-    "lint": "eslint src test",
-    "format": "prettier --write src test *.js *.json",
-    "format:check": "prettier --check src test *.js *.json"
-  },
-  "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "eslint": "^10.10.0",
-    "globals": "^17.12.0",
-    "prettier": "^3.9.7",
-    "vite": "^8.3.0"
-  },
-  "dependencies": {
-    "archipelago.js": "^2.1.0"
-  }
+    "name": "stickranger-ap",
+    "private": true,
+    "version": "1.7.0",
+    "type": "module",
+    "engines": {
+        "node": ">=20.19"
+    },
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "test": "node --test \"test/**/*.test.js\"",
+        "lint": "eslint src test",
+        "format": "prettier --write src test *.js *.json",
+        "format:check": "prettier --check src test *.js *.json"
+    },
+    "devDependencies": {
+        "@eslint/js": "^10.0.1",
+        "eslint": "^10.10.0",
+        "globals": "^17.12.0",
+        "prettier": "^3.9.7",
+        "vite": "^8.3.0"
+    },
+    "dependencies": {
+        "archipelago.js": "^2.1.0"
+    }
 }
