@@ -14120,9 +14120,19 @@ function getMousePos(event){ // original name: ai()
 // ——————————————————————————
 // Desktop mouse handlers
 // ——————————————————————————
-document.onmousemove = getMousePos;
+// addEventListener rather than document.on*: anything else that assigns to the
+// same property replaces the game's handler outright, which is how browser
+// extensions (oneko.js and friends) break every Dan-Ball game. From
+// SunsetQuasar's PR.
+//
+// A property handler cancels the default action by returning false; a listener
+// has to call preventDefault(), so every former `return false` does that now.
+// Touch listeners pass {passive: false} because touchstart and touchmove are
+// passive by default on document, and preventDefault() is ignored in a passive
+// listener.
+document.addEventListener("mousemove", getMousePos);
 
-document.onmousedown = function(event){ // original name: vh.onmousedown
+document.addEventListener("mousedown", function(event){ // original name: vh.onmousedown
     getMousePos(event);
     Mouse_In_Window = false;
     if (!(Mouse_Xpos2 < 0 || Win_Width <= Mouse_Xpos2 ||
@@ -14130,19 +14140,19 @@ document.onmousedown = function(event){ // original name: vh.onmousedown
         Mouse_In_Window = true;
         if (event.button === 0) Left_Click_Is_Down  = true;
         if (event.button === 2) Right_Click_Is_Down = true;
-        return false;
+        event.preventDefault();
     }
-};
+});
 
-document.onmouseup = function(event){ // original name: vh.onmouseup
+document.addEventListener("mouseup", function(event){ // original name: vh.onmouseup
     getMousePos(event);
     if (event.button === 0) Left_Click_Is_Down  = false;
     if (event.button === 2) Right_Click_Is_Down = false;
-};
+});
 
-document.oncontextmenu = function(){ // original name: vh.oncontextmenu
-    if (Mouse_In_Window) return false;
-};
+document.addEventListener("contextmenu", function(event){ // original name: vh.oncontextmenu
+    if (Mouse_In_Window) event.preventDefault(); // right click scrolls the map
+});
 
 // ——————————————————————————
 // Unified touch handlers
@@ -14152,7 +14162,7 @@ function handleTouchPos(clientX, clientY){ // original name: ci()
     getMousePos(fakeEvent);
 }
 
-document.ontouchstart = function(event){ // original name: vh.ontouchstart
+document.addEventListener("touchstart", function(event){ // original name: vh.ontouchstart
     var touch = event.touches[0];
     handleTouchPos(touch.clientX, touch.clientY);
 
@@ -14163,27 +14173,27 @@ document.ontouchstart = function(event){ // original name: vh.ontouchstart
         Left_Click_Is_Down  = true;
         if (event.touches.length > 1)
             Right_Click_Is_Down = true;
-        return false;
+        event.preventDefault();
     }
-};
+}, {passive: false});
 
-document.ontouchmove = function(event){ // original name: vh.ontouchmove
+document.addEventListener("touchmove", function(event){ // original name: vh.ontouchmove
     var touch = event.touches[0];
     handleTouchPos(touch.clientX, touch.clientY);
-    if (Mouse_In_Window) return false;
-};
+    if (Mouse_In_Window) event.preventDefault();
+}, {passive: false});
 
-document.ontouchend = function(){ // original name: vh.ontouchend
+document.addEventListener("touchend", function(event){ // original name: vh.ontouchend
     Left_Click_Is_Down  = false;
     Right_Click_Is_Down = false;
-    if (Mouse_In_Window) return false;
-};
+    if (Mouse_In_Window) event.preventDefault();
+}, {passive: false});
 
-document.ontouchcancel = function(){ // vh.ontouchcancel
+document.addEventListener("touchcancel", function(){ // vh.ontouchcancel
     Right_Click_Is_Down = false;
     Left_Click_Is_Down  = false;
     Mouse_In_Window     = false;
-};
+});
 
 var Is_Key_Pressed1 = Array(256); // original name: Ze
 var Arr256_2 = Array(256); // original name: $e
