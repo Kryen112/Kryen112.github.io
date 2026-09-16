@@ -8704,17 +8704,21 @@ function enemyDeath(enemy,en_ID,xp_is_given){ // original name: Jg()
     }
     //*/
     gold_value = EN_Info[enemy.EN_array_ID[en_ID]][En_Gold];
-    gold_value_mult = 100 * (window.ArchipelagoMod.goldMultiplier || 1);
     onigiri_rate_mult = 100;
     drop_rate_mult = 100 * (window.ArchipelagoMod.dropMultiplier || 1);
+    // Medal bonuses sum across all four rangers, then multiply the yaml's
+    // multiplier rather than being added to it -- 5x gold with a +100% Gold
+    // Medal is 10x, not 6x.
+    var gold_medal_bonus = 0;
     for (var s=0; s<Stickmen_Slots; s++){
         if (checkEff(Stickmen_Slots+s,Medal_Bronze))
             drop_rate_mult += getEff(Stickmen_Slots+s,Eff1);
         if (checkEff(Stickmen_Slots+s,Medal_Silver))
             onigiri_rate_mult += getEff(Stickmen_Slots+s,Eff1);
         if (checkEff(Stickmen_Slots+s,Medal_Gold))
-            gold_value_mult += getEff(Stickmen_Slots+s,Eff1);
+            gold_medal_bonus += getEff(Stickmen_Slots+s,Eff1);
     }
+    gold_value_mult = 100 * (window.ArchipelagoMod.goldMultiplier || 1) * (1 + gold_medal_bonus/100);
     direction = 0;
     if (enemy.EN_species_ID[en_ID]==17)
         direction = enemy.EN_state[en_ID]-1;
