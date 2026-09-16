@@ -8710,9 +8710,12 @@ function enemyDeath(enemy,en_ID,xp_is_given){ // original name: Jg()
     // multiplier rather than being added to it -- 5x gold with a +100% Gold
     // Medal is 10x, not 6x.
     var gold_medal_bonus = 0;
+    var bronze_medal_bonus = 0;
     for (var s=0; s<Stickmen_Slots; s++){
-        if (checkEff(Stickmen_Slots+s,Medal_Bronze))
+        if (checkEff(Stickmen_Slots+s,Medal_Bronze)){
             drop_rate_mult += getEff(Stickmen_Slots+s,Eff1);
+            bronze_medal_bonus += getEff(Stickmen_Slots+s,Eff1);
+        }
         if (checkEff(Stickmen_Slots+s,Medal_Silver))
             onigiri_rate_mult += getEff(Stickmen_Slots+s,Eff1);
         if (checkEff(Stickmen_Slots+s,Medal_Gold))
@@ -8735,7 +8738,14 @@ function enemyDeath(enemy,en_ID,xp_is_given){ // original name: Jg()
 
     const enemyID = enemy.EN_array_ID[en_ID];
     if (!window.ArchipelagoMod.enemyIdsSent.has(enemyID)) {
-        const chanceToDropApItem = getDropChance(enemyID, window.ArchipelagoMod.shuffleEnemies);
+        // The Bronze Medal raises the AP check drop as well as normal loot. Each
+        // check drops once per enemy id, so this only makes it arrive sooner --
+        // it can never produce a duplicate. Clamped because four rangers at
+        // +100% would otherwise push a 100% rare drop past 1.
+        const chanceToDropApItem = Math.min(
+            getDropChance(enemyID, window.ArchipelagoMod.shuffleEnemies) * (1 + bronze_medal_bonus/100),
+            1,
+        );
 
         if (chanceToDropApItem > 0 && Math.random() < chanceToDropApItem) {
             const { x, y } = enemy.EN_joint[en_ID][direction];
