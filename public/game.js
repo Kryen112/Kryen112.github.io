@@ -3389,11 +3389,13 @@ function townScreens(){ // original name: wf()
             filledRect(forget_left+56,forget_top+144-2,48,17,0x990000);
         }
         Large_Text.TXoutputB(forget_left+64,forget_top+144+1,"Exit",0xFFFFFF,0x000000);
-        forget_cost = 1;
-        if (!window.ArchipelagoMod.rangerClassRandomizer) {
-            forget_cost = 1000*(LP_SP[Menu_Column]+STR_SP[Menu_Column]+DEX_SP[Menu_Column]+MAG_SP[Menu_Column]);
-        }
-        if (isMouseHoveredCenter(forget_left+240,forget_top+80,120,32) && forget_cost>0){
+        // Class Randomizer hands you the Forget Tree so you can swap class, so
+        // respeccing there is free. It used to charge $1, because a literal 0
+        // disabled the button -- the old guard used the cost to mean "there is
+        // something to forget", which is really the spent SP.
+        const forget_sp = LP_SP[Menu_Column]+STR_SP[Menu_Column]+DEX_SP[Menu_Column]+MAG_SP[Menu_Column];
+        forget_cost = window.ArchipelagoMod.rangerClassRandomizer ? 0 : 1000*forget_sp;
+        if (isMouseHoveredCenter(forget_left+240,forget_top+80,120,32) && forget_sp>0){
             if (Team_Gold>=forget_cost && Clicked){
                 antiCheatCheck();
                 SP[Menu_Column] += LP_SP[Menu_Column]+STR_SP[Menu_Column]+DEX_SP[Menu_Column]+MAG_SP[Menu_Column];
