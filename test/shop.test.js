@@ -4,9 +4,11 @@
 // go back to showing the Archipelago logo if the purchase was never collected.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { beforeEach, describe, it } from "node:test";
+import { fileURLToPath } from "node:url";
 
-const GAME_JS = "C:/Users/kryen/Documents/Archipelago-play/Kryen112.github.io/public/game.js";
+const GAME_JS = join(dirname(fileURLToPath(import.meta.url)), "..", "public", "game.js");
 
 function loadShopHelpers(shopItems) {
     const src = readFileSync(GAME_JS, "utf8");
