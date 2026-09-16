@@ -1501,10 +1501,8 @@ function antiCheatCheck(){ // original name: Ne()
         xp_for_prev_LV = 4753000;
         xp_for_next_LV = 9999999;
         if (LV[0] < 98){
-            xp_for_prev_LV = 0;
-            for (var l=1; l<LV[0]; l++)
-                xp_for_prev_LV += 1000*l;
-            xp_for_next_LV = xp_for_prev_LV+1000*l;
+            xp_for_prev_LV = xpForLevel(LV[0]);
+            xp_for_next_LV = xpForLevel(LV[0]+1);
         }
         if (Team_EXP<xp_for_prev_LV || xp_for_next_LV<Team_EXP){
             console.log("Error: experience is below/above current level");
@@ -8597,6 +8595,15 @@ SR_Enemy.prototype.ENattack = function(monster,attack){ // original name: aa.p
     }
 };
 
+// Team_EXP needed to be at a given level. Below 99 this is the game's
+// arithmetic series; 99 has its own hardcoded threshold, and 100 does not exist
+// -- the value returned for it is only ever used as "one above the ceiling".
+function xpForLevel(level){
+    if (level>=100) return 10000000;
+    if (level>=99)  return 9999999;
+    return 1000*(level-1)*level/2;
+}
+
 function enemyDeath(enemy,en_ID,xp_is_given){ // original name: Jg()
     var en_ID2,next_stage_enemy,lvl_diff,xp_earned,exp_mult,anger_crown,spirit_target,gold_value,gold_value_mult,onigiri_rate_mult,drop_rate_mult,direction;
     var highest_en_lvl = 0;
@@ -8643,11 +8650,14 @@ function enemyDeath(enemy,en_ID,xp_is_given){ // original name: Jg()
     if (xp_is_given==1)
         return xp_earned;
 
-    // Prevent EXP from being too much to level up twice
-    const max_EXP_to_have = ((((LV[0]+1)*(LV[0]+2))/2)*1000) - 1;
-    const max_EXP_to_earn = max_EXP_to_have - Team_EXP;
+    // Prevent EXP from being too much to level up twice. The cap is one below
+    // the threshold for LV+2, and has to come from the same place the level-up
+    // check reads -- the arithmetic series only holds below 98, and assuming it
+    // held at 98 capped the team at 4,949,999 when reaching 99 needs 9,999,999,
+    // which made level 99 unreachable.
+    const max_EXP_to_have = xpForLevel(LV[0]+2) - 1;
     if (Team_EXP+xp_earned > max_EXP_to_have) {
-        xp_earned = max_EXP_to_earn;
+        xp_earned = max_EXP_to_have - Team_EXP;
     }
 
     // leveling up
@@ -8657,10 +8667,8 @@ function enemyDeath(enemy,en_ID,xp_is_given){ // original name: Jg()
     xp_for_next_LV = 9999999;
 
     if (LV[0]<98){
-        xp_for_prev_LV = 0;
-        for (var l=1; l<LV[0]; l++)
-            xp_for_prev_LV += 1000*l;
-        xp_for_next_LV = xp_for_prev_LV+1000*l;
+        xp_for_prev_LV = xpForLevel(LV[0]);
+        xp_for_next_LV = xpForLevel(LV[0]+1);
     }
     if (xp_for_next_LV<=Team_EXP && LV[0]<99){
         LV[0]++;
