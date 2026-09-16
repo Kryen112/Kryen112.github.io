@@ -1,4 +1,5 @@
 import { Client, itemsHandlingFlags } from "archipelago.js";
+import { itemColor } from "./colors.js";
 
 const CONNECTION_KEY = "StickRangerConnection";
 
@@ -405,21 +406,7 @@ class APIntegration {
                             this.client.players.findPlayer(el.player).game,
                             Number(el.text),
                         );
-                        switch (printJSONPacket.item.flags) {
-                            case 1: // Progression
-                                span.style.color = "#9f79ee";
-                                break;
-                            case 2: // Useful
-                                span.style.color = "#4f94cd";
-                                break;
-                            case 4: // Trap
-                                span.style.color = "#ed7b6e";
-                                break;
-                            case 0: // Filler
-                            default:
-                                span.style.color = "#09cbcb";
-                                break;
-                        }
+                        span.style.color = itemColor(printJSONPacket.item.flags);
                     } else if (el.type === "location_id") {
                         span.textContent = this.client.package.lookupLocationName(
                             this.client.players.findPlayer(el.player).game,
