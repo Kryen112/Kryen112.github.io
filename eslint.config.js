@@ -33,6 +33,8 @@ export default [
                 MP_Bar: "readonly",
                 Players: "readonly",
                 Enemies: "readonly",
+                EN_Info: "readonly",
+                EN_Species: "readonly",
                 Indicators: "readonly",
                 Terrain: "readonly",
                 Stickmen_Slots: "readonly",

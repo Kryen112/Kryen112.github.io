@@ -739,16 +739,34 @@ class APIntegration {
         }
     }
 
-    spawnEnemies() {
-        // IDs to exclude (Invisible boss attacks)
-        const excludedIds = new Set([40, 115, 163, 244, 333, 334, 335, 336, 337, 339]);
+    /**
+     * Enemy ids the trap is allowed to spawn.
+     *
+     * Excludes the invisible boss attacks, and diggers (species 17) -- a digger
+     * spawned outside its own stage burrows and can leave the screen in a state
+     * the player cannot clear.
+     *
+     * Built once and cached: picking from this list beats the old do/while,
+     * which re-rolled until it missed the excluded ids.
+     */
+    _spawnableEnemyIds() {
+        if (!this._spawnableIds) {
+            const invisibleBossAttacks = new Set([40, 115, 163, 244, 333, 334, 335, 336, 337, 339]);
+            this._spawnableIds = [];
+            for (let id = 1; id <= 338; id++) {
+                if (invisibleBossAttacks.has(id)) continue;
+                if (EN_Info[id] && EN_Info[id][EN_Species] === 17) continue;
+                this._spawnableIds.push(id);
+            }
+        }
+        return this._spawnableIds;
+    }
 
+    spawnEnemies() {
+        const spawnable = this._spawnableEnemyIds();
         const spawnAmount = this.randomRangeInt(3, 10);
         for (let i = 0; i < spawnAmount; i++) {
-            let randomType;
-            do {
-                randomType = this.randomRangeInt(1, 338);
-            } while (excludedIds.has(randomType));
+            const randomType = spawnable[this.randomRangeInt(0, spawnable.length - 1)];
             const en_xpos = Math.floor(Math.random() * ((Win_Width >> 3) - 4 - 12 + 1)) + 12;
             const en_ypos = fiftyfifty(Terrain.TR_low_surface[en_xpos], Terrain.TR_high_surface[en_xpos]);
 
