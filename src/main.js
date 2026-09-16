@@ -1,5 +1,7 @@
 import { Client, itemsHandlingFlags } from "archipelago.js";
 
+const CONNECTION_KEY = "StickRangerConnection";
+
 class APIntegration {
     constructor() {
         this.STAGE_COMPLETE_OFFSET = 10000;
@@ -63,6 +65,8 @@ class APIntegration {
         this.apDiv = document.getElementById("APConnection");
         this.leftPanel = document.getElementById("left-panel");
 
+        this._restoreConnectionInfo();
+
         this.connect.addEventListener("click", () => this._onConnectClick());
         const listenForEnter = (input) => {
             input.addEventListener("keydown", (event) => {
@@ -120,6 +124,43 @@ class APIntegration {
         window.addEventListener("beforeunload", () => this._onUnload());
         this._tick = this._tick.bind(this);
         requestAnimationFrame(this._tick);
+    }
+
+    /**
+     * Last-used connection details, so you don't retype them every session.
+     *
+     * localStorage is per-browser and never leaves the machine, but it is
+     * plaintext -- every read is wrapped because it throws outright in a private
+     * window or with site data blocked, and a failure here must not stop you
+     * connecting by hand.
+     */
+    _restoreConnectionInfo() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(CONNECTION_KEY) || "{}");
+            for (const field of ["host", "port", "slotName", "password"]) {
+                if (typeof saved[field] === "string" && saved[field] !== "") {
+                    this[field].value = saved[field];
+                }
+            }
+        } catch {
+            // no saved details, or storage is unavailable -- leave the defaults
+        }
+    }
+
+    _saveConnectionInfo() {
+        try {
+            localStorage.setItem(
+                CONNECTION_KEY,
+                JSON.stringify({
+                    host: this.host.value,
+                    port: this.port.value,
+                    slotName: this.slotName.value,
+                    password: this.password.value,
+                }),
+            );
+        } catch {
+            // storage unavailable; not worth interrupting the connection over
+        }
     }
 
     getStorageKey() {
@@ -448,6 +489,7 @@ class APIntegration {
 
             await this.loadAPData();
             this._connected = true;
+            this._saveConnectionInfo();
 
             if (this.slotData.ranger_class_randomizer === 1) {
                 window.ArchipelagoMod.unlockForgetTree = true;
