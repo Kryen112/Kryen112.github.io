@@ -61,6 +61,9 @@
 
 // Load Archipelago modifications
 window.ArchipelagoMod = window.ArchipelagoMod || {};
+// Class names the team has, starting class included. A Set: the client applies
+// each class item more than once per connect, so an array would double-count.
+window.ArchipelagoMod.rangerClassesUnlocked = window.ArchipelagoMod.rangerClassesUnlocked || new Set();
 const COMMON_CHANCE = 0.15;
 const UNCOMMON_CHANCE = 0.50;
 const UNCOMMON_IDS = new Set([7, 12, 17, 20, 21, 41, 45, 49, 50, 82, 86, 88, 92, 108, 112, 122, 148, 156, 165, 166, 170, 196, 205, 209, 217, 219, 220, 221, 225, 232, 237, 251, 255, 271, 272, 275, 276, 279, 284, 292, 296, 312, 317, 321, 322, 325, 326, 329, 330]);
@@ -68,9 +71,7 @@ const RARE_CHANCE = 1.00;
 const RARE_IDS = new Set([69, 74, 79, 176, 184, 189, 194, 211, 212, 213, 214, 264, 267, 269, 314, 319, 332, 338]);
 const BOSS_IDS = new Set([4, 8, 13, 18, 22, 26, 30, 34, 38, 39, 44, 48, 52, 56, 60, 64, 68, 73, 78, 84, 89, 93, 97, 101, 105, 109, 113, 114, 119, 123, 127, 129, 133, 137, 141, 145, 149, 153, 157, 161, 162, 167, 171, 175, 179, 183, 188, 193, 198, 202, 206, 210, 211, 212, 213, 214, 218, 222, 226, 230, 234, 238, 242, 243, 248, 252, 256, 259, 263, 267, 269, 273, 277, 281, 285, 289, 293, 297, 301, 305, 309, 313, 318, 323, 327, 331, 332, 338]);
 const BOSS_ATTACK_IDS = new Set([40, 115, 163, 244, 333, 334, 335, 336, 337, 339]);
-const TOWN_STAGE_IDS = new Set([0, 20, 47, 70, 77]);
-const BOSS_STAGE_IDS = new Set([10, 29, 42, 63]);
-const GOAL_STAGE_IDS = new Set([55, 88, 89]);
+const TOWN_STAGE_IDS = new Set([0, 20, 47, 70, 77]); // Town, Village, Resort, Forget Tree, Island
 
 var Debug_Mode = 0;                         // display debug mode on/off       original name: ca
 var Curr_Sequence = ["0: Title Screen: launch game","1: Title Screen: spawn stickmen","2: Title Screen: enable buttons","3: Title Screen: class select","4: Title Screen: load new game","5: Title Screen: load saved game","6: Title Screen: world map","","","","10: Enemy Screen: load screen","11: Enemy Screen: fade in","12: Enemy Screen: play","13: Enemy Screen: fade out","","","","","","","20: Enemy Screen: pause","","","","","","","","","","30: Enemy Screen: game over","","","","","","","","","","40: Enemy Screen: game clear","","","","","","","","","","50: Town Screen: load screen","51: Town Screen: fade in","52: Town Screen: play","53: Town Screen: open shop","54: Town Screen: open book","55: Town Screen: open forget","56: Town Screen: open class selection","","","59: Town Screen: fade out","60: VS Mode Screen: ","61: VS Mode Screen: ","62: VS Mode Screen: ","63: VS Mode Screen: ","64: VS Mode Screen: ","","","","","","70: VS Mode Screen: ","71: VS Mode Screen: ","72: VS Mode Screen: ","73: VS Mode Screen: "]; // current game mode                (new variable)
@@ -2298,7 +2299,7 @@ function menuAndMap(){ // original name: uf()
         antiCheatCheck();
 
         for (var i=0; i<8; i++){ // number of classes
-            if (window.ArchipelagoMod.rangerClassesUnlocked.includes(Class_Name_List[i+1]) || window.ArchipelagoMod.rangerClassRandomizer === 0) {
+            if (window.ArchipelagoMod.rangerClassesUnlocked.has(Class_Name_List[i+1]) || window.ArchipelagoMod.rangerClassRandomizer === 0) {
                 Large_Text.TX_spacing = -1;
                 centeredText(Large_Text,46+60*i,220,Class_Name_List[i+1],0xCC9449,0x640000);
                 Large_Text.TX_spacing = 0;
@@ -3430,7 +3431,7 @@ function townScreens(){ // original name: wf()
         outlineRectCentered(160+64*Displayed_Object,140,25,25,0xFF0000); // box around stickman slot
 
         for (var i=0; i<8; i++){ // number of classes
-            if (window.ArchipelagoMod.rangerClassesUnlocked.includes(Class_Name_List[i+1]) || window.ArchipelagoMod.rangerClassRandomizer === 0) {
+            if (window.ArchipelagoMod.rangerClassesUnlocked.has(Class_Name_List[i+1]) || window.ArchipelagoMod.rangerClassRandomizer === 0) {
                 Large_Text.TX_spacing = -1;
                 centeredText(Large_Text,46+60*i,270,Class_Name_List[i+1],0xCC9449,0x640000);
                 Large_Text.TX_spacing = 0;
@@ -12830,81 +12831,95 @@ function done_all_checks(stage) {
         (needsBossEnemies ? areBossEnemiesCollected : true);
 }
 
-const REGION_RANGES = {
-    grassland: [1, 19],
-    sea: [21, 33],
-    desert: [34, 46],
-    ice: [48, 62],
-    hell: [64, 87],
+// Stages that back an "Unlock <stage>" progression item, grouped exactly the way
+// worlds/stick_ranger/items.py groups them. These lists ARE the denominators of
+// the "stages required for <boss>" options: 17 / 12 / 12 / 14 / 22. Anything the
+// apworld does not hand out an unlock item for is absent on purpose -- Opening
+// Street (free), the five towns (useful, not progression) and the seven boss
+// stages, which gate on each other rather than counting towards each other.
+const LOGIC_REGION_STAGES = {
+    grassland: [2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+    sea: [21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 32, 33],
+    desert: [34, 35, 36, 37, 38, 39, 40, 41, 43, 44, 45, 46],
+    ice: [48, 49, 50, 51, 52, 53, 54, 56, 57, 58, 59, 60, 61, 62],
+    hell: [64, 65, 66, 67, 68, 69, 71, 72, 73, 74, 75, 76, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87],
 };
 
-function getRegion(stage) {
-    for (const [region, [min, max]] of Object.entries(REGION_RANGES)) {
-        if (stage >= min && stage <= max) return region;
-    }
-    return null;
-}
-
-function in_logic(stage) {
-    if (stage <= 19 && stage !== 10) { // Grassland stages are always in logic
-        return true;
-    }
-
-    let beaten = {grassland: 0, sea: 0, desert: 0, ice: 0, hell: 0};
-    for (const id in Stage_Status) {
-        if (TOWN_STAGE_IDS.has(id) || BOSS_STAGE_IDS.has(id) || GOAL_STAGE_IDS.has(id)) continue;
-        if (Stage_Status[id] > 1) {
-            const region = getRegion(id);
-            if (region) beaten[region]++;
-        }
-    }
-
-    const amountOfClassesUnlocked = window.ArchipelagoMod.rangerClassesUnlocked.length;
-    const castle_predicate =
-        beaten.grassland >= window.ArchipelagoMod.stagesForCastle &&
-            amountOfClassesUnlocked >= window.ArchipelagoMod.classesForCastle;
-    const submarine_shrine_predicate =
-        castle_predicate &&
-        beaten.sea >= window.ArchipelagoMod.stagesForSubmarineShrine &&
-            amountOfClassesUnlocked >= window.ArchipelagoMod.classesForSubmarineShrine;
-    const pyramid_predicate =
-        submarine_shrine_predicate &&
-        beaten.desert >= window.ArchipelagoMod.stagesForPyramid &&
-            amountOfClassesUnlocked >= window.ArchipelagoMod.classesForPyramid;
-    const ice_castle_predicate =
-        pyramid_predicate &&
-        beaten.ice >= window.ArchipelagoMod.stagesForIceCastle &&
-            amountOfClassesUnlocked >= window.ArchipelagoMod.classesForIceCastle;
-    const goal_predicate =
-        ice_castle_predicate &&
-        beaten.hell >= window.ArchipelagoMod.stagesForHellCastle &&
-            amountOfClassesUnlocked >= window.ArchipelagoMod.classesForHellCastle;
-
-    switch (stage) {
-        case 10: return castle_predicate;
-        case 29: return submarine_shrine_predicate;
-        case 42: return pyramid_predicate;
-        case 63: return ice_castle_predicate;
-        case 55: case 88: case 89: return goal_predicate;
-    }
-
-    const stage_region = getRegion(stage);
-    const sea_predicate = Stage_Status[10] > 1 && castle_predicate;
-    const desert_predicate = Stage_Status[29] > 1 && sea_predicate;
-    const ice_predicate = Stage_Status[42] > 1 && desert_predicate;
-    const hell_predicate = Stage_Status[63] > 1 && ice_predicate;
-    switch (stage_region) {
-        case "grassland": return true;
-        case "sea": return sea_predicate;
-        case "desert": return desert_predicate;
-        case "ice": return ice_predicate;
-        case "hell": return hell_predicate;
-    }
-    return false;
+const STAGE_LOGIC_REGION = new Map();
+for (const [region, stages] of Object.entries(LOGIC_REGION_STAGES)) {
+    for (const stage of stages) STAGE_LOGIC_REGION.set(stage, region);
 }
 
 function unlocked(stage) {
-    return (Stage_Status[stage]&Unlocked)!=0;
+    return (Stage_Status[stage] & Unlocked) != 0;
+}
+
+// How many of a region's unlock items the player holds. The apworld counts items,
+// not clears -- a stage you can walk into is one Archipelago already assumes you
+// can finish -- so this counts Unlocked, never Beaten.
+function unlockedInRegion(region) {
+    let held = 0;
+    for (const stage of LOGIC_REGION_STAGES[region]) {
+        if (unlocked(stage)) held++;
+    }
+    return held;
+}
+
+// Mirror of worlds/stick_ranger/rules.py. Anything that changes here has to
+// change there too, or the map lies about what Archipelago thinks is reachable.
+function in_logic(stage) {
+    if (!unlocked(stage)) return false;   // every gate below starts with its own unlock
+    if (TOWN_STAGE_IDS.has(stage)) return true;
+    if (stage === 1) return true;         // Opening Street has no unlock item
+
+    const mod = window.ArchipelagoMod;
+    // The starting class counts, matching class_count() in rules.py.
+    const classes = mod.rangerClassesUnlocked.size;
+
+    const castle =
+        unlocked(10) &&
+        unlockedInRegion("grassland") >= mod.stagesForCastle &&
+        classes >= mod.classesForCastle;
+    const submarineShrine =
+        castle &&
+        unlocked(29) &&
+        unlockedInRegion("sea") >= mod.stagesForSubmarineShrine &&
+        classes >= mod.classesForSubmarineShrine;
+    const pyramid =
+        submarineShrine &&
+        unlocked(42) &&
+        unlockedInRegion("desert") >= mod.stagesForPyramid &&
+        classes >= mod.classesForPyramid;
+    const iceCastle =
+        pyramid &&
+        unlocked(63) &&
+        unlockedInRegion("ice") >= mod.stagesForIceCastle &&
+        classes >= mod.classesForIceCastle;
+    const hellCastle =
+        iceCastle &&
+        unlocked(88) &&
+        unlockedInRegion("hell") >= mod.stagesForHellCastle &&
+        classes >= mod.classesForHellCastle;
+
+    switch (stage) {
+        case 10: return castle;
+        case 29: return submarineShrine;
+        case 42: return pyramid;
+        case 63: return iceCastle;
+        case 88: return hellCastle;
+        // Mountaintop and Volcano sit behind the Hell Castle gate; their own
+        // unlock was already required at the top of this function.
+        case 55: case 89: return hellCastle;
+    }
+
+    switch (STAGE_LOGIC_REGION.get(stage)) {
+        case "grassland": return true;
+        case "sea": return castle;
+        case "desert": return submarineShrine;
+        case "ice": return pyramid;
+        case "hell": return iceCastle;
+    }
+    return false;
 }
 
 // map size
@@ -13084,13 +13099,13 @@ SR_map.prototype.MAPmain = function(){ // uh.prototype.b
             b = 8*Dot_Locations[s][0];
             path_len = 8*Dot_Locations[s][1];
 
-            if (s==0||s==20||s==47||s==70||s==77)        // if town stages, dot is white
+            if (TOWN_STAGE_IDS.has(s))                   // if town stages, dot is white
                 dot_color = 0xFFFFFF;
-            else if (done_all_checks(s))
+            else if (done_all_checks(s))                 // every check here has been sent
                 dot_color = 0x990000;
-            else if (in_logic(s))
+            else if (in_logic(s))                        // Archipelago expects you can do this
                 dot_color = 0xCCCC00;
-            else if (unlocked(s))
+            else                                         // unlocked, but out of logic
                 dot_color = 0xFF5000;
 
             if (s==71) { // if stage is !!!

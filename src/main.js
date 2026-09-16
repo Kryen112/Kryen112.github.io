@@ -498,13 +498,21 @@ class APIntegration {
         }
     }
 
+    /**
+     * The classes the team has, starting class included -- class_count() in the
+     * apworld's rules.py counts it the same way.
+     *
+     * A Set, because every class item passes through _applyItem more than once
+     * (the queue applies it, then the reconnect pass applies it again, on top of
+     * whatever loadAPData already restored). An array would grow on every pass
+     * and quietly satisfy class gates the generator never opened.
+     */
     getUnlockedClasses() {
-        const unlocked = [];
-        unlocked.push(this.slotData.ranger_class_selected);
+        const unlocked = new Set([this.slotData.ranger_class_selected]);
         for (const id of this.receivedItems) {
             const name = this.RANGER_CLASSES[id];
             if (name) {
-                unlocked.push(name);
+                unlocked.add(name);
             }
         }
         return unlocked;
@@ -540,7 +548,7 @@ class APIntegration {
         // class unlocks
         const name = this.RANGER_CLASSES[id];
         if (name) {
-            window.ArchipelagoMod.rangerClassesUnlocked.push(name);
+            window.ArchipelagoMod.rangerClassesUnlocked.add(name);
             if (firstTime) {
                 this.receivedItems.push(id);
             }
