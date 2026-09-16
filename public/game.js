@@ -81,6 +81,71 @@ function shopTier(row, columnLength){
     return Math.floor((row * SHOP_TIERS) / columnLength);
 }
 
+// The Archipelago logo drop, reused for shop checks. DP_val2 tells the pickup
+// handler which kind it is: 0 for an enemy drop, 1 for a shop purchase.
+const AP_DROP_ICON = 564;
+const AP_DROP_FROM_SHOP = 1;
+
+window.ArchipelagoMod.shopIdsSent = window.ArchipelagoMod.shopIdsSent || new Set();
+// Bought this visit but not picked up yet. Cleared on entering a town, which is
+// what reverts the cell to the logo if you walk out without the drop.
+window.ArchipelagoMod.shopBoughtThisVisit = window.ArchipelagoMod.shopBoughtThisVisit || new Set();
+
+// Is this shop cell still an uncollected check?
+function shopItemIsCheck(itemId){
+    return !!itemId
+        && !!window.ArchipelagoMod.shopChecks
+        && !window.ArchipelagoMod.shopIdsSent.has(itemId)
+        && !window.ArchipelagoMod.shopBoughtThisVisit.has(itemId);
+}
+
+// Whether a cell is in stock, which is the only thing Progressive Shop changes.
+function shopCellUnlocked(town_stage, column, row, latest_unlock){
+    if (window.ArchipelagoMod.progressiveShop)
+        return shopTier(row,Shop_Items[town_stage][column].length) < latest_unlock;
+    return town_stage!=0 || row < latest_unlock;
+}
+
+// Shop_Items is indexed by town, not by stage id.
+function shopTownIndex(stage){
+    switch (stage){
+        case 0:  return 0;
+        case 20: return 1;
+        case 47: return 2;
+        case 77: return 3;
+        default: return -1;
+    }
+}
+
+function shopStockLevel(){
+    if (window.ArchipelagoMod.progressiveShop)
+        return 1 + (window.ArchipelagoMod.progressiveShopItems || 0);
+    var level = 1;
+    for (var s=0; s<Stage_Count; s++){
+        if ((Stage_Status[s]&Beaten)>0 && Shop_Reqs[s]>level)
+            level = Shop_Reqs[s];
+    }
+    return level;
+}
+
+// Catalogue ids a town currently stocks, which is what the client scouts.
+function shopStockedItemIds(town_stage){
+    var latest_unlock = shopStockLevel();
+    var ids = new Set();
+    var town = Shop_Items[town_stage];
+    for (var column=0; column<town.length; column++){
+        for (var row=0; row<town[column].length; row++){
+            var id = town[column][row];
+            if (id && shopCellUnlocked(town_stage,column,row,latest_unlock))
+                ids.add(id);
+        }
+    }
+    return Array.from(ids);
+}
+
+window.ArchipelagoMod.shopTownIndex = shopTownIndex;
+window.ArchipelagoMod.shopStockedItemIds = shopStockedItemIds;
+
 var Debug_Mode = 0;                         // display debug mode on/off       original name: ca
 var Curr_Sequence = ["0: Title Screen: launch game","1: Title Screen: spawn stickmen","2: Title Screen: enable buttons","3: Title Screen: class select","4: Title Screen: load new game","5: Title Screen: load saved game","6: Title Screen: world map","","","","10: Enemy Screen: load screen","11: Enemy Screen: fade in","12: Enemy Screen: play","13: Enemy Screen: fade out","","","","","","","20: Enemy Screen: pause","","","","","","","","","","30: Enemy Screen: game over","","","","","","","","","","40: Enemy Screen: game clear","","","","","","","","","","50: Town Screen: load screen","51: Town Screen: fade in","52: Town Screen: play","53: Town Screen: open shop","54: Town Screen: open book","55: Town Screen: open forget","56: Town Screen: open class selection","","","59: Town Screen: fade out","60: VS Mode Screen: ","61: VS Mode Screen: ","62: VS Mode Screen: ","63: VS Mode Screen: ","64: VS Mode Screen: ","","","","","","70: VS Mode Screen: ","71: VS Mode Screen: ","72: VS Mode Screen: ","73: VS Mode Screen: "]; // current game mode                (new variable)
 var Win_Width = 512;                        // width of game window            original name: ea
@@ -2767,6 +2832,9 @@ function townScreens(){ // original name: wf()
         Indicators.IN_index = 0;
         Drops.DP_index = 0;
         Text_Fade = Sign_Touched_Mode = Target_Array_ID = En_Count_From_Max = Target_HP_Max = Target_HP_Current = Drops.DP_log = 0;
+        // A fresh town visit: anything bought last time but left on the floor
+        // never became a check, so those cells show the logo again.
+        window.ArchipelagoMod.shopBoughtThisVisit.clear();
         Sequence_Step++;
     } else if (Sequence_Step==51){                                                    // Sequence: fade in town screen
         drawStage(0);
@@ -2955,25 +3023,37 @@ function townScreens(){ // original name: wf()
         // item per row, and applies in every town -- the vanilla gate only ran
         // in the first Town, so Island's 219 ungated cells would otherwise skip
         // the whole option.
+        // Progressive Shop replaces "beat stages to widen the stock" with one
+        // item per row, and applies in every town -- the vanilla gate only ran
+        // in the first Town, so Island's 219 ungated cells would otherwise skip
+        // the whole option.
         if (window.ArchipelagoMod.progressiveShop){
             latest_unlock = 1 + (window.ArchipelagoMod.progressiveShopItems || 0);
-            // Columns are not all 33 deep -- Island's run to 78 -- so compare on
-            // a normalised tier. Using the raw row would leave everything past
-            // row 32 of those columns permanently hidden.
-            if (shopTier(item_cell,Shop_Items[town_stage][Menu_Column].length)>=latest_unlock)
-                shop_item = 0;
         } else {
             latest_unlock = 1;
             for (var s=0; s<Stage_Count; s++){
                 if ((Stage_Status[s]&Beaten)>0 && Shop_Reqs[s]>latest_unlock)
                     latest_unlock = Shop_Reqs[s];
             }
-            if (Current_Stage==0 && item_cell>=latest_unlock)
-                shop_item = 0;
         }
-        itemText(shop_left+8,shop_top+24,Item_Catalogue[shop_item][Item_Name]+" "+(Item_Catalogue[shop_item][Item_LV]? Item_Catalogue[shop_item][Item_LV] :""),-1,0x282828,-2);
-        itemText(shop_left+8,shop_top+24,Item_Catalogue[shop_item][Item_Name]+" "+(Item_Catalogue[shop_item][Item_LV]? Item_Catalogue[shop_item][Item_LV] :""),0xFFFFFF,-1,-2);
-        UI_weapClass = getVal(shop_item,Item_Class_ID);
+        if (!shopCellUnlocked(town_stage,Menu_Column,item_cell,latest_unlock))
+            shop_item = 0;
+        // An uncollected check hides behind the Archipelago logo. Shop Hints
+        // reveals what it really is, exactly as it does for books; without it
+        // you still see the price, so you can decide whether to buy.
+        var shop_is_check = shopItemIsCheck(shop_item);
+        var shop_hide = shop_is_check && !window.ArchipelagoMod.shopHints;
+        var shop_label = shop_hide
+            ? "AP Item"
+            : Item_Catalogue[shop_item][Item_Name]+" "+(Item_Catalogue[shop_item][Item_LV]? Item_Catalogue[shop_item][Item_LV] :"");
+        itemText(shop_left+8,shop_top+24,shop_label,-1,0x282828,-2);
+        itemText(shop_left+8,shop_top+24,shop_label,0xFFFFFF,-1,-2);
+        if (shop_is_check && window.ArchipelagoMod.shopHints){
+            var shop_hint = (window.ArchipelagoMod.shopHintSpoiler || {})[shop_item];
+            if (shop_hint)
+                itemText(shop_left+8,shop_top+36,shop_hint.item+" ("+shop_hint.player+")",0xFFFF00,-1,-2);
+        }
+        UI_weapClass = shop_hide ? -1 : getVal(shop_item,Item_Class_ID);
         if (UI_weapClass==Class_Compo){
             Large_Text.TXoutputB(shop_left+8,shop_top+40,"Compo Item",-1,0x505050);
             itemText(shop_left+8,shop_top+56,Item_Catalogue[shop_item][Compo_Desc_1],-1,0x282828,-2);
@@ -3030,13 +3110,15 @@ function townScreens(){ // original name: wf()
         }
         for (var i=0; i<9; i++){
             r = (3*Menu_Row+i) % Shop_Items[town_stage][Menu_Column].length;
-            if (Current_Stage!=0 || latest_unlock>r){
+            if (shopCellUnlocked(town_stage,Menu_Column,r,latest_unlock)){
+                var cell_item = Shop_Items[town_stage][Menu_Column][r];
+                var cell_icon = shopItemIsCheck(cell_item) ? AP_DROP_ICON : cell_item;
                 Display_Mode2 = 2;
-                dispItem(Item_Img,shop_left+120+i%3*28,shop_top+24+28*floor(i/3),24,24,24*getVal(Shop_Items[town_stage][Menu_Column][r],Item_Ico_Big),0,24,24,getVal(Shop_Items[town_stage][Menu_Column][r],Item_Color)); // icon of item in shop
+                dispItem(Item_Img,shop_left+120+i%3*28,shop_top+24+28*floor(i/3),24,24,24*getVal(cell_icon,Item_Ico_Big),0,24,24,getVal(cell_icon,Item_Color)); // icon of item in shop
                 Display_Mode2 = 0;
 
-                if (Item_Catalogue[Shop_Items[town_stage][Menu_Column][r]][Item_LV])
-                    Small_Text.TXoutputB(shop_left+120+i%3*28+19,shop_top+24+28*floor(i/3)+17,""+Item_Catalogue[Shop_Items[town_stage][Menu_Column][r]][Item_LV],0xFFFFFF,-1); // tier number next to item in shop
+                if (cell_icon==cell_item && Item_Catalogue[cell_item][Item_LV])
+                    Small_Text.TXoutputB(shop_left+120+i%3*28+19,shop_top+24+28*floor(i/3)+17,""+Item_Catalogue[cell_item][Item_LV],0xFFFFFF,-1); // tier number next to item in shop
             }
         }
         outlineRect(shop_left+120+Menu_Entry%3*28,shop_top+24+28*floor(Menu_Entry/3),24,24,0x990000);
@@ -3046,12 +3128,20 @@ function townScreens(){ // original name: wf()
         if (isMouseHovered(shop_left+176-56,shop_top+120-10,108,20)){
             if (shop_item!=0 && Team_Gold>=buy_price && Clicked){
                 antiCheatCheck();
-                second_slot = (window.ArchipelagoMod.removeNullCompo === 1)
-                    ? 0
-                    : (town_stage === 0 || town_stage === 2 && item_cell === 0)
-                        ? Null_Slot
-                        : 0;
-                Drops.DPadd(40,200,shop_item,0,second_slot);
+                if (shop_is_check){
+                    // Buying a check drops the Archipelago logo instead of the
+                    // weapon. It only counts once picked up; walk out without
+                    // it and the cell goes back to the logo, gold already spent.
+                    window.ArchipelagoMod.shopBoughtThisVisit.add(shop_item);
+                    Drops.DPadd(40,200,AP_DROP_ICON,shop_item,AP_DROP_FROM_SHOP);
+                } else {
+                    second_slot = (window.ArchipelagoMod.removeNullCompo === 1)
+                        ? 0
+                        : (town_stage === 0 || town_stage === 2 && item_cell === 0)
+                            ? Null_Slot
+                            : 0;
+                    Drops.DPadd(40,200,shop_item,0,second_slot);
+                }
                 Team_Gold -= buy_price;
                 antiCheatSet();
             }
@@ -12534,10 +12624,14 @@ SR_Drop.prototype.DPmain = function(){ // aa.move
                 LP_Current[target_player] = clamp(LP_Current[target_player]+floor(LP_Max[target_player]/5),0,LP_Max[target_player]); // increase LP
                 antiCheatSet();
                 Indicators.INadd(this.DP_position[d].x,this.DP_position[d].y,0,floor(LP_Max[target_player]/5),0x00FF00);             // output LP increase
-            } else if (this.DP_item_ID[d]==564) { // Archipelago item pickup
-                const enemyID = this.DP_val1[d];
-                if (!window.ArchipelagoMod.enemyIdsSent.has(enemyID)) {
-                    window.ArchipelagoMod.pendingAPItemDrops.push(enemyID); // Push enemy id into pendingDrops
+            } else if (this.DP_item_ID[d]==AP_DROP_ICON) { // Archipelago item pickup
+                const sourceID = this.DP_val1[d];
+                if (this.DP_val2[d]==AP_DROP_FROM_SHOP) {
+                    if (!window.ArchipelagoMod.shopIdsSent.has(sourceID)) {
+                        window.ArchipelagoMod.pendingAPShopDrops.push(sourceID);
+                    }
+                } else if (!window.ArchipelagoMod.enemyIdsSent.has(sourceID)) {
+                    window.ArchipelagoMod.pendingAPItemDrops.push(sourceID); // Push enemy id into pendingDrops
                 }
             } else {
                 for (var i=Inv_First; i<Inv_Last; i++){ // search for next open slot

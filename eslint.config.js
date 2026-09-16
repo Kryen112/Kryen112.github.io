@@ -18,6 +18,7 @@ export default [
                 // Supplied by public/game.js, which loads before the client.
                 Stage_Status: "readonly",
                 Stage_Count: "readonly",
+                Current_Stage: "readonly",
                 Unlocked: "readonly",
                 Beaten: "readonly",
                 Booked: "readonly",

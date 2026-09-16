@@ -13,6 +13,7 @@ class APIntegration {
         this.TRAPS_OFFSET = 13000;
         this.CLASS_OFFSET = 14000;
         this.PROGRESSIVE_SHOP_ID = 15000;
+        this.SHOP_OFFSET = 20000;
         this.RANGER_CLASSES = {
             14000: "Boxer",
             14001: "Gladiator",
@@ -37,8 +38,10 @@ class APIntegration {
         this.lastSequence = -1;
         this.sendShopHints = false;
         this.isScouting = false;
+        this.isScoutingShop = false;
         this.excludedBookStages = [0, 20, 47, 70, 77]; // Town, Village, Resort, Forget Tree, Island
         this.bookHints = {};
+        this.shopHints = {};
         this.randomizedBookCosts = {};
         this.slotData = {};
         this.deathLinkSent = false;
@@ -190,10 +193,12 @@ class APIntegration {
             this.receivedItems = data.receivedItems ?? [];
             this.prevStage = data.stages ?? [...Stage_Status];
             this.bookHints = data.bookHints ?? {};
+            this.shopHints = data.shopHints ?? {};
             this.randomizedBookCosts = data.randomizedBookCosts ?? {};
             this.deathMouseItem = data.deathMouseItem ?? {};
             this.connectMouseItem = data.connectMouseItem ?? {};
             window.ArchipelagoMod.enemyIdsSent = new Set(data.enemyIdsSent ?? []);
+            window.ArchipelagoMod.shopIdsSent = new Set(data.shopIdsSent ?? []);
             window.ArchipelagoMod.pendingClassSwapItems = data.pendingClassSwapItems ?? [];
             GameLoad(data.save.replace(/\r\n|\r|\n/g, ""));
             this.restoreStagesBeaten(data.stages);
@@ -212,10 +217,12 @@ class APIntegration {
                 stages: Stage_Status,
                 save: GameSave("0"),
                 bookHints: this.bookHints,
+                shopHints: this.shopHints,
                 randomizedBookCosts: this.randomizedBookCosts,
                 deathMouseItem: this.deathMouseItem,
                 connectMouseItem: this.connectMouseItem,
                 enemyIdsSent: Array.from(window.ArchipelagoMod.enemyIdsSent ?? []),
+                shopIdsSent: Array.from(window.ArchipelagoMod.shopIdsSent ?? []),
                 pendingClassSwapItems: window.ArchipelagoMod.pendingClassSwapItems ?? [],
             };
 
@@ -385,7 +392,16 @@ class APIntegration {
 
         this.client.socket.on("locationInfo", (locationInfoPacket) => {
             locationInfoPacket.locations.forEach((networkItem) => {
-                if (networkItem.location >= this.BOOK_OFFSET && networkItem.location < this.BOOK_OFFSET + 100) {
+                if (networkItem.location >= this.SHOP_OFFSET) {
+                    this.shopHints[networkItem.location - this.SHOP_OFFSET] = {
+                        player: this.client.players.findPlayer(networkItem.player).name,
+                        item: this.client.package.lookupItemName(
+                            this.client.players.findPlayer(networkItem.player).game,
+                            networkItem.item,
+                        ),
+                        itemClassification: networkItem.flags,
+                    };
+                } else if (networkItem.location >= this.BOOK_OFFSET && networkItem.location < this.BOOK_OFFSET + 100) {
                     const stageIndex = networkItem.location - this.BOOK_OFFSET;
                     this.bookHints[stageIndex] = {
                         player: this.client.players.findPlayer(networkItem.player).name,
@@ -477,6 +493,7 @@ class APIntegration {
         try {
             window.ArchipelagoMod.pendingSave = false;
             window.ArchipelagoMod.pendingAPItemDrops = [];
+            window.ArchipelagoMod.pendingAPShopDrops = [];
             window.ArchipelagoMod.pendingClassSwapItems = [];
             this.slotData = await this.client.login(url, slot, game, {
                 password,
@@ -523,6 +540,9 @@ class APIntegration {
             window.ArchipelagoMod.removeNullCompo = this.slotData.remove_null_compo ?? 1;
             window.ArchipelagoMod.freeRespec = this.slotData.free_respec ?? 0;
             window.ArchipelagoMod.progressiveShop = this.slotData.progressive_shop ?? 0;
+            window.ArchipelagoMod.shopChecks = this.slotData.shop_checks ?? 0;
+            window.ArchipelagoMod.shopHints = this.sendShopHints;
+            window.ArchipelagoMod.shopHintSpoiler = this.shopHints;
             this._refreshProgressiveShop();
 
             if (this.slotData.death_link) {
@@ -864,6 +884,31 @@ class APIntegration {
         }
     }
 
+    /**
+     * Scout everything the shop currently stocks, once per item.
+     *
+     * Cached in DataStorage next to bookHints, so the expensive pass is the
+     * first shop visit -- later ones only scout rows that Progressive Shop has
+     * opened since.
+     */
+    async scoutShopOnOpen() {
+        if (!window.ArchipelagoMod.shopChecks) return;
+        const town = window.ArchipelagoMod.shopTownIndex(Current_Stage);
+        if (town < 0) return;
+
+        const unscouted = window.ArchipelagoMod.shopStockedItemIds(town).filter(
+            (id) => !this.shopHints[id] && !window.ArchipelagoMod.shopIdsSent.has(id),
+        );
+        if (unscouted.length === 0) return;
+
+        console.log(`Scouting ${unscouted.length} shop items`);
+        this.client.scout(
+            unscouted.map((id) => id + this.SHOP_OFFSET),
+            2,
+        );
+        await this.saveAPData();
+    }
+
     _tick() {
         if (!this._disconnected) {
             this._doTickWork().catch((err) => {
@@ -1065,6 +1110,23 @@ class APIntegration {
 
             if (Sequence_Step !== 54 && this.isScouting) {
                 this.isScouting = false;
+            }
+
+            if (Sequence_Step === 53 && !this.isScoutingShop && this.sendShopHints) {
+                this.isScoutingShop = true;
+                this.scoutShopOnOpen();
+            }
+
+            if (Sequence_Step !== 53 && this.isScoutingShop) {
+                this.isScoutingShop = false;
+            }
+
+            while (window.ArchipelagoMod.pendingAPShopDrops.length > 0) {
+                const shopItemId = window.ArchipelagoMod.pendingAPShopDrops.shift();
+                if (!window.ArchipelagoMod.shopIdsSent.has(shopItemId)) {
+                    window.ArchipelagoMod.shopIdsSent.add(shopItemId);
+                    await this.sendLocation(shopItemId + this.SHOP_OFFSET);
+                }
             }
 
             while (window.ArchipelagoMod.pendingAPItemDrops.length > 0) {
