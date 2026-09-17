@@ -2,6 +2,8 @@ import { Client, itemsHandlingFlags } from "archipelago.js";
 import { itemColor } from "./colors.js";
 
 const CONNECTION_KEY = "StickRangerConnection";
+// Ring Link sends at most one Bounce this often, however much gold moved.
+const RING_LINK_FLUSH_MS = 5000;
 
 class APIntegration {
     constructor() {
@@ -39,6 +41,9 @@ class APIntegration {
         this.sendShopHints = false;
         this.isScouting = false;
         this.isScoutingShop = false;
+        // Per-connection id, so the server's echo of our own Bounce is dropped.
+        this.ringSource = null;
+        this.lastRingFlush = 0;
         this.excludedBookStages = [0, 20, 47, 70, 77]; // Town, Village, Resort, Forget Tree, Island
         this.bookHints = {};
         this.shopHints = {};
@@ -475,8 +480,7 @@ class APIntegration {
         });
 
         this.client.socket.on("bounced", (packet) => {
-            console.warn("Bounced");
-            console.log(packet);
+            this._onRingLinkBounce(packet);
         });
 
         this.client.socket.on("invalidPacket", (packet) => {
@@ -546,6 +550,11 @@ class APIntegration {
             window.ArchipelagoMod.logic = this.slotData.logic ?? null;
             window.ArchipelagoMod.enforceLogic = this.slotData.enforce_logic ?? 0;
             window.ArchipelagoMod.ringGold = this.slotData.ring_gold ?? 0;
+            window.ArchipelagoMod.ringLink = this.slotData.ring_link ?? 0;
+            window.ArchipelagoMod.ringLinkRatio = this.slotData.ring_link_ratio ?? 100;
+            window.ArchipelagoMod.pendingRingLinkGold = 0;
+            this.ringSource = Math.floor(Math.random() * 2 ** 31);
+            this.lastRingFlush = Date.now();
             if (!window.ArchipelagoMod.logic) {
                 this.log("This seed predates logic colouring; stages show as unlocked or done.", "info");
             }
@@ -553,10 +562,17 @@ class APIntegration {
             window.ArchipelagoMod.shopHintSpoiler = this.shopHints;
             this._refreshProgressiveShop();
 
+            // One updateTags call for every link, because it replaces the whole
+            // list -- setting them separately would have the last one win.
+            const tags = ["AP"];
+            if (window.ArchipelagoMod.ringLink) {
+                tags.push("RingLink");
+            }
             if (this.slotData.death_link) {
                 this.client.deathLink.enableDeathLink();
-                this.client.updateTags(["AP", "DeathLink"]);
+                tags.push("DeathLink");
             }
+            this.client.updateTags(tags);
 
             if (Item_Inv[this.MOUSE_SLOT]) {
                 // Guard against having an item in hand on connect, if inventory was full on disconnect
@@ -917,6 +933,57 @@ class APIntegration {
         await this.saveAPData();
     }
 
+    /**
+     * Inbound Ring Link: someone else's rings become gold here.
+     *
+     * Applied through applyRingLinkGold, which does not add to the pending
+     * total, so it is never rebroadcast -- two linked Stick Rangers would
+     * otherwise amplify each other without limit.
+     */
+    _onRingLinkBounce(packet) {
+        if (!window.ArchipelagoMod.ringLink) return;
+        if (!(packet.tags || []).includes("RingLink")) return;
+
+        const data = packet.data || {};
+        // The server echoes our own Bounce back to us, so drop it.
+        if (data.source !== undefined && data.source === this.ringSource) return;
+
+        const rings = Number(data.amount);
+        if (!Number.isFinite(rings) || rings === 0) return;
+
+        const gold = Math.trunc(rings * (window.ArchipelagoMod.ringLinkRatio || 100));
+        if (gold === 0) return;
+        window.ArchipelagoMod.applyRingLinkGold(gold);
+        this.log(`RingLink: ${rings > 0 ? "+" : ""}${rings} rings (${gold > 0 ? "+" : ""}$${gold})`, "info");
+    }
+
+    /**
+     * Outbound Ring Link, on a timer rather than per gold change.
+     *
+     * Gold moves constantly here -- every enemy drop, every gun shot, every
+     * thrown ring -- so one Bounce per change would be dozens a second. The
+     * pending total is accumulated first and floored second, so ten $40 gun
+     * shots become 4 rings rather than ten lots of zero, and the sub-ratio
+     * remainder is kept for next time.
+     */
+    async _flushRingLink() {
+        if (!window.ArchipelagoMod.ringLink) return;
+        if (Date.now() - this.lastRingFlush < RING_LINK_FLUSH_MS) return;
+        this.lastRingFlush = Date.now();
+
+        const ratio = window.ArchipelagoMod.ringLinkRatio || 100;
+        const pending = window.ArchipelagoMod.pendingRingLinkGold || 0;
+        const rings = Math.trunc(pending / ratio);
+        if (rings === 0) return;
+
+        window.ArchipelagoMod.pendingRingLinkGold = pending - rings * ratio;
+        await this.client.socket.send({
+            cmd: "Bounce",
+            tags: ["RingLink"],
+            data: { time: Date.now() / 1000, amount: rings, source: this.ringSource },
+        });
+    }
+
     _tick() {
         if (!this._disconnected) {
             this._doTickWork().catch((err) => {
@@ -1127,6 +1194,9 @@ class APIntegration {
 
             if (Sequence_Step !== 53 && this.isScoutingShop) {
                 this.isScoutingShop = false;
+                // Per-connection id, so the server's echo of our own Bounce is dropped.
+                this.ringSource = null;
+                this.lastRingFlush = 0;
             }
 
             while (window.ArchipelagoMod.pendingAPShopDrops.length > 0) {
@@ -1145,6 +1215,8 @@ class APIntegration {
                     await this.sendLocation(enemyId + this.ENEMY_OFFSET);
                 }
             }
+
+            await this._flushRingLink();
 
             if (window.ArchipelagoMod.pendingSave) {
                 window.ArchipelagoMod.pendingSave = false;

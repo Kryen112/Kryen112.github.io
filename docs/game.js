@@ -91,18 +91,35 @@ const AP_DROP_ICON = 564;
 /**
  * Every organic change to the team's gold goes through here.
  *
- * One seam means Ring Link has exactly one place to observe, and nothing that
- * pays out can forget to be counted. Gold arriving *from* Ring Link does not
- * come through here -- see applyRingLinkGold.
+ * One seam means Ring Link has exactly one place to observe and nothing that
+ * moves gold can forget to be counted. What is recorded is the change that
+ * actually happened, after the cap, so a purchase that could not be afforded or
+ * a pickup at the ceiling does not send rings for gold that never moved.
+ *
+ * Deliberately does not touch antiCheat: callers that need it already wrap
+ * their whole operation, and calling antiCheatCheck() part-way through one of
+ * those blocks would validate a half-mutated state.
  */
 function gainGold(amount){
     if (!amount) return;
-    antiCheatCheck();
-    Team_Gold = clamp(Team_Gold+amount,0,99999999);
-    antiCheatSet();
+    var before = Team_Gold;
+    Team_Gold = clamp(Team_Gold+amount,0,9999999);
     window.ArchipelagoMod.pendingRingLinkGold =
-        (window.ArchipelagoMod.pendingRingLinkGold || 0) + amount;
+        (window.ArchipelagoMod.pendingRingLinkGold || 0) + (Team_Gold-before);
 }
+
+/**
+ * Gold arriving from Ring Link. Applied without touching the pending total, so
+ * it is never rebroadcast -- two linked Stick Rangers would otherwise amplify
+ * each other without limit.
+ */
+function applyRingLinkGold(amount){
+    if (!amount) return;
+    antiCheatCheck();
+    Team_Gold = clamp(Team_Gold+amount,0,9999999);
+    antiCheatSet();
+}
+window.ArchipelagoMod.applyRingLinkGold = applyRingLinkGold;
 const AP_DROP_FROM_SHOP = 1;
 
 window.ArchipelagoMod.shopIdsSent = window.ArchipelagoMod.shopIdsSent || new Set();
@@ -2938,7 +2955,7 @@ function townScreens(){ // original name: wf()
                             LP_Current[s] = LP_Max[s];
                         }
                     }
-                    Team_Gold -= inn_cost;
+                    gainGold(-inn_cost);
                     antiCheatSet();
                 }
             } else if (isMouseHoveredCenter(Win_Hcenter,184,34,24)){
@@ -2964,7 +2981,7 @@ function townScreens(){ // original name: wf()
                         LP_Current[s] = LP_Max[s]; // restore LP
                     }
                 }
-                Team_Gold -= inn_cost;
+                gainGold(-inn_cost);
                 antiCheatSet();
             }
         } else if (isMouseHoveredCenter(40,152,72,24)){
@@ -3161,7 +3178,7 @@ function townScreens(){ // original name: wf()
                             : 0;
                     Drops.DPadd(40,200,shop_item,0,second_slot);
                 }
-                Team_Gold -= buy_price;
+                gainGold(-buy_price);
                 antiCheatSet();
             }
             filledRect(shop_left+176-56,shop_top+120-10,108,20,0x990000);
@@ -3465,7 +3482,7 @@ function townScreens(){ // original name: wf()
                     if (Team_Gold>=entry_cost && Clicked){
                         antiCheatCheck();
                         Stage_Status[book_stage] |= Booked;
-                        Team_Gold -= entry_cost;
+                        gainGold(-entry_cost);
                         antiCheatSet();
                     }
                     filledRectCentered(book_left+240,book_top+70+(20*(maxLines-1)),120,32,0x990000); // highlights button when mouse hovers over information fee
@@ -3535,7 +3552,7 @@ function townScreens(){ // original name: wf()
                 STR_SP[Menu_Column] = 0;
                 DEX_SP[Menu_Column] = 0;
                 MAG_SP[Menu_Column] = 0;
-                Team_Gold -= forget_cost;
+                gainGold(-forget_cost);
                 antiCheatSet();
             }
             filledRectCentered(forget_left+240,forget_top+80,120,32,0x990000);
@@ -4687,7 +4704,7 @@ function drawUI(UI_mode){ // original name: Jf()
                 if (Mouse_Up && revival_cost<=Team_Gold && Clicked){
                     antiCheatCheck();
                     LP_Current[Displayed_Object] += LP_Max[Displayed_Object]>>2;
-                    Team_Gold -= revival_cost;
+                    gainGold(-revival_cost);
                     Players.PLadd(Displayed_Object,Players.PL_joint[Displayed_Object][0].x>>3,Players.PL_joint[Displayed_Object][0].y>>3);
                     antiCheatSet();
                 }
@@ -6919,7 +6936,7 @@ SR_Player.prototype.Gunner = function(current_char){
                 if (gun_cost>0){                                                                                                                            // create exception for starter gun
                     gun_cost = maxOf(gun_cost-MAG[current_char],1);                                                                                         // set shooting cost after reduction from MAG (minimum of 1)
                     if (gun_cost*gun_bullet <= Team_Gold){                                                                                                  // if you have enough gold to pay for each bullet
-                        Team_Gold = clamp(Team_Gold-gun_cost*gun_bullet,0,9999999);                                                                         // pay for each bullet
+                        gainGold(-gun_cost*gun_bullet);                                                                         // pay for each bullet
                         for (var b=0; b<gun_bullet; b++)
                             Indicators.INadd(this.PL_joint[current_char][6].x,this.PL_joint[current_char][6].y,point_gun.x<0? 0.5 :-0.5,gun_cost,0xFFFF00); // output gold payments
                         gun_cost = 0;                                                                                                                       // after paying for bullets, set cost to 0
@@ -12633,7 +12650,7 @@ SR_Drop.prototype.DPmain = function(){ // aa.move
             antiCheatCheck();
 
             if (this.DP_item_ID[d]==1){                                                                   // gold pickup
-                Team_Gold = clamp(Team_Gold+this.DP_val1[d],0,9999999);                                   // gold increase from pickup
+                gainGold(this.DP_val1[d]);                                   // gold increase from pickup
                 Indicators.INadd(this.DP_position[d].x,this.DP_position[d].y,0,this.DP_val1[d],0xFFFF00); // output gold increase
             } else if (this.DP_item_ID[d]==2){                                                                                       // onigiri pickup
                 for (var s=0; s<Stickmen_Slots; s++){                                                                                // find ranger with lowest LP
