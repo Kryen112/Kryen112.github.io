@@ -13247,6 +13247,8 @@ SR_map.prototype.MAPmain = function(){ // uh.prototype.b
                 dot_color = 0x990000;
             else if (in_logic(s))                        // Archipelago expects you can do this
                 dot_color = 0xCCCC00;
+            else if (stageIsBlocked(s))                  // out of logic, and Enforce Logic bars it
+                dot_color = 0x707070;
             else                                         // unlocked, but out of logic
                 dot_color = 0xFF5000;
 
@@ -13276,8 +13278,10 @@ SR_map.prototype.MAPmain = function(){ // uh.prototype.b
             else dot_size = 24;
 
             if (0<Mouse_Xpos && Mouse_Xpos<Win_Width && isMouseHoveredCenter(this.MAP_tile_horizontal_spacer+last_stage_xpos,last_stage_ypos,dot_size,dot_size)){
-                if (!Clicked || s!=0 && s!=20 && s!=47 && s!=70 && s!=77){
-                    if (Clicked && s!=0){
+                if (!Clicked || !isTownStage(s)){
+                    // Enforce Logic bars a stage Archipelago does not consider
+                    // reachable. Towns are never barred.
+                    if (Clicked && s!=0 && !stageIsBlocked(s)){
                         Current_Stage = s;
                         Current_Screen = 0;
                         Sequence_Step = 10;

@@ -544,6 +544,7 @@ class APIntegration {
             // The seed's own logic. Absent on a seed generated before 1.8.0, in
             // which case the map falls back to plain unlocked/done colouring.
             window.ArchipelagoMod.logic = this.slotData.logic ?? null;
+            window.ArchipelagoMod.enforceLogic = this.slotData.enforce_logic ?? 0;
             if (!window.ArchipelagoMod.logic) {
                 this.log("This seed predates logic colouring; stages show as unlocked or done.", "info");
             }
