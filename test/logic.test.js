@@ -1,98 +1,78 @@
-// The Archipelago logic block inside public/game.js, exercised in isolation.
-//
 // in_logic() decides whether a world-map dot is yellow ("Archipelago thinks you
-// can do this") or orange ("unlocked, but out of logic"). It is a hand-written
-// mirror of stick_ranger/rules.py in the apworld repo, so it can silently drift
-// away from the generator. These tests pin the shape of that mirror; the apworld
-// has the matching test in stick_ranger/test/test_data.py.
+// can do this") or orange ("unlocked, but out of logic").
+//
+// It used to carry its own copy of the apworld's tables, which drifted six
+// different ways before 1.6.0. It now evaluates the description the seed sends
+// in slot_data, so these tests feed it descriptions rather than asserting
+// against constants -- there are none left in the client to assert against.
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { beforeEach, describe, it } from "node:test";
+import { fileURLToPath } from "node:url";
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const GAME_JS = join(HERE, "..", "public", "game.js");
+const GAME_JS = join(dirname(fileURLToPath(import.meta.url)), "..", "public", "game.js");
 
 const Unlocked = 1;
-const TOWN_STAGE_IDS = new Set([0, 20, 47, 70, 77]);
 const STAGE_COUNT = 90;
 
-// Same ids as CLIENT_LOGIC_REGION_STAGES in the apworld's test_data.py, which
-// derives them from the actual "Unlock <stage>" item codes.
-const EXPECTED_REGION_STAGES = {
-    grassland: [2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19],
-    sea: [21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 32, 33],
-    desert: [34, 35, 36, 37, 38, 39, 40, 41, 43, 44, 45, 46],
-    ice: [48, 49, 50, 51, 52, 53, 54, 56, 57, 58, 59, 60, 61, 62],
-    hell: [64, 65, 66, 67, 68, 69, 71, 72, 73, 74, 75, 76, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87],
-};
-
-const BOSS_STAGES = { castle: 10, submarineShrine: 29, pyramid: 42, iceCastle: 63, hellCastle: 88 };
-const MOUNTAINTOP = 55;
-const VOLCANO = 89;
-
-/**
- * Evaluate just the AP logic block out of game.js. Loading the whole file needs
- * a canvas and the game's own globals, and this is the only part under test.
- */
+/** Evaluate just the logic block; loading all of game.js needs a canvas. */
 function loadLogic() {
     const source = readFileSync(GAME_JS, "utf8");
-    const start = source.indexOf("const LOGIC_REGION_STAGES = {");
+    const start = source.indexOf("function unlocked(stage) {");
     const end = source.indexOf("// map size");
     assert.ok(start !== -1 && end > start, "could not find the logic block in public/game.js");
 
     const stageStatus = new Array(STAGE_COUNT).fill(0);
     const fakeWindow = { ArchipelagoMod: {} };
+    const townIds = new Set([0, 20, 47, 70, 77]);
     const build = new Function(
         "Stage_Status",
         "Unlocked",
-        "TOWN_STAGE_IDS",
         "window",
+        "isTownStage",
         `${source.slice(start, end)}
-         return { in_logic, unlocked, unlockedInRegion, LOGIC_REGION_STAGES };`,
+         return { in_logic, unlocked, unlockedInRegion, openGates, stageIsBlocked };`,
     );
-    return { stageStatus, mod: fakeWindow.ArchipelagoMod, ...build(stageStatus, Unlocked, TOWN_STAGE_IDS, fakeWindow) };
+    const api = build(stageStatus, Unlocked, fakeWindow, (s) => townIds.has(s));
+    return { stageStatus, mod: fakeWindow.ArchipelagoMod, ...api };
 }
 
-describe("LOGIC_REGION_STAGES", () => {
-    const { LOGIC_REGION_STAGES } = loadLogic();
-
-    it("matches the stage ids the apworld hands out unlock items for", () => {
-        assert.deepEqual(LOGIC_REGION_STAGES, EXPECTED_REGION_STAGES);
-    });
-
-    it("never counts a boss stage towards a region", () => {
-        const counted = new Set(Object.values(LOGIC_REGION_STAGES).flat());
-        for (const stage of [...Object.values(BOSS_STAGES), MOUNTAINTOP, VOLCANO]) {
-            assert.ok(!counted.has(stage), `boss stage ${stage} is counted as a region stage`);
-        }
-    });
-
-    it("never counts a town or Opening Street", () => {
-        const counted = new Set(Object.values(LOGIC_REGION_STAGES).flat());
-        for (const stage of [...TOWN_STAGE_IDS, 1]) {
-            assert.ok(!counted.has(stage), `stage ${stage} has no unlock item but is counted`);
-        }
-    });
-});
+// A description shaped exactly like the one rules.py emits.
+function description({ stages = 0, classes = 0 } = {}) {
+    return {
+        regions: {
+            Grassland: [2, 3, 4, 5],
+            Sea: [21, 22, 23, 24],
+            Desert: [34, 35],
+            Ice: [48, 49],
+            Hell: [64, 65],
+        },
+        region_gate: { Grassland: null, Sea: 10, Desert: 29, Ice: 42, Hell: 63 },
+        gates: [
+            { stage: 10, region: "Grassland", after: null, stages, classes },
+            { stage: 29, region: "Sea", after: 10, stages, classes },
+            { stage: 42, region: "Desert", after: 29, stages, classes },
+            { stage: 63, region: "Ice", after: 42, stages, classes },
+            { stage: 88, region: "Hell", after: 63, stages, classes },
+        ],
+        boss_rush: [
+            { stage: 89, after: 88 },
+            { stage: 55, after: 88 },
+        ],
+        free: [1],
+    };
+}
 
 describe("in_logic", () => {
     let logic;
-
-    const unlock = (...stages) => stages.forEach((stage) => (logic.stageStatus[stage] |= Unlocked));
-    const setRequirements = (stages, classes) => {
-        for (const boss of ["Castle", "SubmarineShrine", "Pyramid", "IceCastle", "HellCastle"]) {
-            logic.mod[`stagesFor${boss}`] = stages;
-            logic.mod[`classesFor${boss}`] = classes;
-        }
-    };
+    const unlock = (...stages) => stages.forEach((s) => (logic.stageStatus[s] |= Unlocked));
 
     beforeEach(() => {
         logic = loadLogic();
         logic.mod.rangerClassesUnlocked = new Set(["Sniper"]);
-        setRequirements(0, 0);
+        logic.mod.logic = description();
     });
 
     it("keeps a locked stage out of logic", () => {
@@ -104,77 +84,125 @@ describe("in_logic", () => {
         assert.equal(logic.in_logic(1), true);
     });
 
-    it("does not count Opening Street towards the Castle gate", () => {
-        setRequirements(1, 0);
-        unlock(1, BOSS_STAGES.castle);
-        assert.equal(logic.unlockedInRegion("grassland"), 0);
-        assert.equal(logic.in_logic(BOSS_STAGES.castle), false);
+    it("does not count a free stage towards a gate", () => {
+        logic.mod.logic = description({ stages: 1 });
+        unlock(1, 10);
+        assert.equal(logic.in_logic(10), false, "Opening Street is not a Grassland unlock");
         unlock(2);
-        assert.equal(logic.in_logic(BOSS_STAGES.castle), true);
+        assert.equal(logic.in_logic(10), true);
     });
 
-    it("requires the Castle unlock before any sea stage", () => {
+    it("requires a boss's own unlock before the region behind it", () => {
         unlock(21);
         assert.equal(logic.in_logic(21), false);
-        unlock(BOSS_STAGES.castle);
+        unlock(10);
         assert.equal(logic.in_logic(21), true);
     });
 
-    it("chains each boss gate onto the one before it", () => {
-        const chain = [
-            BOSS_STAGES.castle,
-            BOSS_STAGES.submarineShrine,
-            BOSS_STAGES.pyramid,
-            BOSS_STAGES.iceCastle,
-            BOSS_STAGES.hellCastle,
-        ];
-        for (const [index, boss] of chain.entries()) {
+    it("chains each gate onto the one before it", () => {
+        const chain = [10, 29, 42, 63, 88];
+        for (const [index, missing] of chain.entries()) {
             logic = loadLogic();
             logic.mod.rangerClassesUnlocked = new Set(["Sniper"]);
-            setRequirements(0, 0);
-            unlock(...chain.filter((stage) => stage !== boss));
+            logic.mod.logic = description();
+            unlock(...chain.filter((s) => s !== missing));
             for (const blocked of chain.slice(index)) {
-                assert.equal(logic.in_logic(blocked), false, `stage ${blocked} opened without ${boss}`);
+                assert.equal(logic.in_logic(blocked), false, `${blocked} opened without ${missing}`);
             }
         }
     });
 
-    it("keeps the boss rush stages behind Hell Castle and their own unlock", () => {
-        const chain = Object.values(BOSS_STAGES);
-        for (const bossRush of [MOUNTAINTOP, VOLCANO]) {
+    it("keeps boss rush stages behind the last gate and their own unlock", () => {
+        const chain = [10, 29, 42, 63, 88];
+        for (const bossRush of [55, 89]) {
             logic = loadLogic();
             logic.mod.rangerClassesUnlocked = new Set(["Sniper"]);
-            setRequirements(0, 0);
+            logic.mod.logic = description();
 
             unlock(...chain);
             assert.equal(logic.in_logic(bossRush), false, "opened without its own unlock");
-
             unlock(bossRush);
             assert.equal(logic.in_logic(bossRush), true);
-
-            logic.stageStatus[BOSS_STAGES.hellCastle] = 0;
-            assert.equal(logic.in_logic(bossRush), false, "opened without Unlock Hell Castle");
+            logic.stageStatus[88] = 0;
+            assert.equal(logic.in_logic(bossRush), false, "opened without the last gate");
         }
     });
 
-    it("counts the starting class towards the class gate", () => {
-        setRequirements(0, 2);
-        unlock(BOSS_STAGES.castle);
-        assert.equal(logic.in_logic(BOSS_STAGES.castle), false, "one class should not satisfy two");
+    it("counts the starting class towards a class gate", () => {
+        logic.mod.logic = description({ classes: 2 });
+        unlock(10);
+        assert.equal(logic.in_logic(10), false, "one class should not satisfy two");
         logic.mod.rangerClassesUnlocked.add("Boxer");
-        assert.equal(logic.in_logic(BOSS_STAGES.castle), true, "start + 1 unlock is 2");
+        assert.equal(logic.in_logic(10), true, "start + 1 unlock is 2");
     });
 
-    it("counts unlocks rather than clears", () => {
-        setRequirements(3, 0);
-        unlock(BOSS_STAGES.castle, 2, 3, 4);
-        assert.equal(logic.unlockedInRegion("grassland"), 3);
-        assert.equal(logic.in_logic(BOSS_STAGES.castle), true, "no stage was beaten, but three are unlocked");
+    it("counts unlocks held, not stages cleared", () => {
+        logic.mod.logic = description({ stages: 3 });
+        unlock(10, 2, 3, 4);
+        assert.equal(logic.unlockedInRegion([2, 3, 4, 5]), 3);
+        assert.equal(logic.in_logic(10), true, "nothing was beaten, three are unlocked");
     });
 
     it("treats towns as in logic so they always draw white", () => {
-        setRequirements(99, 99);
         unlock(20);
         assert.equal(logic.in_logic(20), true);
+    });
+
+    it("puts Grassland stages in logic on their own unlock alone", () => {
+        unlock(3);
+        assert.equal(logic.in_logic(3), true, "Grassland sits behind no gate");
+    });
+});
+
+describe("in_logic on a seed that describes no logic", () => {
+    // Every 1.7.0 game in progress gets the new client the moment the site
+    // deploys, and those seeds send no description.
+    let logic;
+
+    beforeEach(() => {
+        logic = loadLogic();
+        logic.mod.logic = null;
+        logic.mod.rangerClassesUnlocked = new Set(["Sniper"]);
+    });
+
+    it("falls back to unlocked, so the map still works", () => {
+        assert.equal(logic.in_logic(42), false);
+        logic.stageStatus[42] |= Unlocked;
+        assert.equal(logic.in_logic(42), true);
+    });
+
+    it("never blocks a stage, whatever enforcement says", () => {
+        logic.mod.enforceLogic = 1;
+        assert.equal(logic.stageIsBlocked(42), false);
+    });
+});
+
+describe("stageIsBlocked", () => {
+    let logic;
+
+    beforeEach(() => {
+        logic = loadLogic();
+        logic.mod.rangerClassesUnlocked = new Set(["Sniper"]);
+        logic.mod.logic = description();
+    });
+
+    it("blocks nothing when enforcement is off", () => {
+        logic.mod.enforceLogic = 0;
+        logic.stageStatus[21] |= Unlocked; // unlocked but behind the Castle gate
+        assert.equal(logic.in_logic(21), false);
+        assert.equal(logic.stageIsBlocked(21), false);
+    });
+
+    it("blocks an unlocked stage that is out of logic", () => {
+        logic.mod.enforceLogic = 1;
+        logic.stageStatus[21] |= Unlocked;
+        assert.equal(logic.stageIsBlocked(21), true);
+    });
+
+    it("stops blocking once the stage comes into logic", () => {
+        logic.mod.enforceLogic = 1;
+        logic.stageStatus[21] |= Unlocked;
+        logic.stageStatus[10] |= Unlocked;
+        assert.equal(logic.stageIsBlocked(21), false);
     });
 });

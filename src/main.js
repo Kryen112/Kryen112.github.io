@@ -541,6 +541,12 @@ class APIntegration {
             window.ArchipelagoMod.freeRespec = this.slotData.free_respec ?? 0;
             window.ArchipelagoMod.progressiveShop = this.slotData.progressive_shop ?? 0;
             window.ArchipelagoMod.shopChecks = this.slotData.shop_checks ?? 0;
+            // The seed's own logic. Absent on a seed generated before 1.8.0, in
+            // which case the map falls back to plain unlocked/done colouring.
+            window.ArchipelagoMod.logic = this.slotData.logic ?? null;
+            if (!window.ArchipelagoMod.logic) {
+                this.log("This seed predates logic colouring; stages show as unlocked or done.", "info");
+            }
             window.ArchipelagoMod.shopHints = this.sendShopHints;
             window.ArchipelagoMod.shopHintSpoiler = this.shopHints;
             this._refreshProgressiveShop();

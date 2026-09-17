@@ -71,7 +71,10 @@ const RARE_CHANCE = 1.00;
 const RARE_IDS = new Set([69, 74, 79, 176, 184, 189, 194, 211, 212, 213, 214, 264, 267, 269, 314, 319, 332, 338]);
 const BOSS_IDS = new Set([4, 8, 13, 18, 22, 26, 30, 34, 38, 39, 44, 48, 52, 56, 60, 64, 68, 73, 78, 84, 89, 93, 97, 101, 105, 109, 113, 114, 119, 123, 127, 129, 133, 137, 141, 145, 149, 153, 157, 161, 162, 167, 171, 175, 179, 183, 188, 193, 198, 202, 206, 210, 211, 212, 213, 214, 218, 222, 226, 230, 234, 238, 242, 243, 248, 252, 256, 259, 263, 267, 269, 273, 277, 281, 285, 289, 293, 297, 301, 305, 309, 313, 318, 323, 327, 331, 332, 338]);
 const BOSS_ATTACK_IDS = new Set([40, 115, 163, 244, 333, 334, 335, 336, 337, 339]);
+// Which stages are towns is map geometry, not logic -- Archipelago does not
+// decide it, and the dots need it even on a seed that describes no logic.
 const TOWN_STAGE_IDS = new Set([0, 20, 47, 70, 77]); // Town, Village, Resort, Forget Tree, Island
+function isTownStage(stage){ return TOWN_STAGE_IDS.has(stage); }
 
 // Shop rows normalised onto the 0..32 scale the Town shop uses, so one
 // Progressive Shop count means the same thing in every town regardless of how
@@ -12987,89 +12990,78 @@ function done_all_checks(stage) {
 // apworld does not hand out an unlock item for is absent on purpose -- Opening
 // Street (free), the five towns (useful, not progression) and the seven boss
 // stages, which gate on each other rather than counting towards each other.
-const LOGIC_REGION_STAGES = {
-    grassland: [2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19],
-    sea: [21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 32, 33],
-    desert: [34, 35, 36, 37, 38, 39, 40, 41, 43, 44, 45, 46],
-    ice: [48, 49, 50, 51, 52, 53, 54, 56, 57, 58, 59, 60, 61, 62],
-    hell: [64, 65, 66, 67, 68, 69, 71, 72, 73, 74, 75, 76, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87],
-};
-
-const STAGE_LOGIC_REGION = new Map();
-for (const [region, stages] of Object.entries(LOGIC_REGION_STAGES)) {
-    for (const stage of stages) STAGE_LOGIC_REGION.set(stage, region);
-}
-
 function unlocked(stage) {
     return (Stage_Status[stage] & Unlocked) != 0;
 }
 
-// How many of a region's unlock items the player holds. The apworld counts items,
-// not clears -- a stage you can walk into is one Archipelago already assumes you
-// can finish -- so this counts Unlocked, never Beaten.
-function unlockedInRegion(region) {
-    let held = 0;
-    for (const stage of LOGIC_REGION_STAGES[region]) {
-        if (unlocked(stage)) held++;
+// The seed's own logic, straight from slot_data. There are deliberately no
+// stage lists or boss ids in this file: the apworld describes its rules and
+// this evaluates them, so the two cannot drift the way they did before 1.6.0.
+// Undefined means an older seed that predates the description -- see in_logic.
+function logicDescription(){
+    return window.ArchipelagoMod.logic;
+}
+
+// How many of a region's unlock items the player holds. The apworld counts items
+// held, not stages cleared -- a stage you can walk into is one Archipelago
+// already assumes you can finish -- so this counts Unlocked, never Beaten.
+function unlockedInRegion(stage_ids){
+    var held = 0;
+    for (var i=0; i<stage_ids.length; i++){
+        if (unlocked(stage_ids[i])) held++;
     }
     return held;
 }
 
-// Mirror of worlds/stick_ranger/rules.py. Anything that changes here has to
-// change there too, or the map lies about what Archipelago thinks is reachable.
-function in_logic(stage) {
-    if (!unlocked(stage)) return false;   // every gate below starts with its own unlock
-    if (TOWN_STAGE_IDS.has(stage)) return true;
-    if (stage === 1) return true;         // Opening Street has no unlock item
+// Which boss gates are open, keyed by boss stage id. Gates are listed in chain
+// order, so one pass is enough.
+function openGates(logic){
+    // The starting class counts, matching class_count() in the apworld's rules.
+    var classes = window.ArchipelagoMod.rangerClassesUnlocked.size;
+    var open = {};
+    for (var i=0; i<logic.gates.length; i++){
+        var gate = logic.gates[i];
+        open[gate.stage] =
+            (gate.after === null || open[gate.after])
+            && unlocked(gate.stage)
+            && unlockedInRegion(logic.regions[gate.region]) >= gate.stages
+            && classes >= gate.classes;
+    }
+    return open;
+}
 
-    const mod = window.ArchipelagoMod;
-    // The starting class counts, matching class_count() in rules.py.
-    const classes = mod.rangerClassesUnlocked.size;
+// Does Archipelago consider this stage reachable right now?
+function in_logic(stage){
+    var logic = logicDescription();
+    // An older seed carries no description. Everything unlocked reads as in
+    // logic, which is what the map showed before any of this existed.
+    if (!logic) return unlocked(stage);
 
-    const castle =
-        unlocked(10) &&
-        unlockedInRegion("grassland") >= mod.stagesForCastle &&
-        classes >= mod.classesForCastle;
-    const submarineShrine =
-        castle &&
-        unlocked(29) &&
-        unlockedInRegion("sea") >= mod.stagesForSubmarineShrine &&
-        classes >= mod.classesForSubmarineShrine;
-    const pyramid =
-        submarineShrine &&
-        unlocked(42) &&
-        unlockedInRegion("desert") >= mod.stagesForPyramid &&
-        classes >= mod.classesForPyramid;
-    const iceCastle =
-        pyramid &&
-        unlocked(63) &&
-        unlockedInRegion("ice") >= mod.stagesForIceCastle &&
-        classes >= mod.classesForIceCastle;
-    const hellCastle =
-        iceCastle &&
-        unlocked(88) &&
-        unlockedInRegion("hell") >= mod.stagesForHellCastle &&
-        classes >= mod.classesForHellCastle;
+    if (isTownStage(stage)) return true;
+    if (!unlocked(stage)) return false;          // every gate below needs its own unlock
+    if (logic.free.indexOf(stage) !== -1) return true;
 
-    switch (stage) {
-        case 10: return castle;
-        case 29: return submarineShrine;
-        case 42: return pyramid;
-        case 63: return iceCastle;
-        case 88: return hellCastle;
-        // Mountaintop and Volcano sit behind the Hell Castle gate; their own
-        // unlock was already required at the top of this function.
-        case 55: case 89: return hellCastle;
+    var open = openGates(logic);
+    if (stage in open) return open[stage];
+
+    for (var i=0; i<logic.boss_rush.length; i++){
+        if (logic.boss_rush[i].stage === stage) return !!open[logic.boss_rush[i].after];
     }
 
-    switch (STAGE_LOGIC_REGION.get(stage)) {
-        case "grassland": return true;
-        case "sea": return castle;
-        case "desert": return submarineShrine;
-        case "ice": return pyramid;
-        case "hell": return iceCastle;
+    for (var region in logic.regions){
+        if (logic.regions[region].indexOf(stage) === -1) continue;
+        var gate = logic.region_gate[region];
+        return gate === null || gate === undefined ? true : !!open[gate];
     }
     return false;
+}
+
+// Enforcement: with the option on, a stage out of logic cannot be entered at
+// all. Only meaningful when the seed described its logic.
+function stageIsBlocked(stage){
+    return !!window.ArchipelagoMod.enforceLogic
+        && !!logicDescription()
+        && !in_logic(stage);
 }
 
 // map size
@@ -13249,7 +13241,7 @@ SR_map.prototype.MAPmain = function(){ // uh.prototype.b
             b = 8*Dot_Locations[s][0];
             path_len = 8*Dot_Locations[s][1];
 
-            if (TOWN_STAGE_IDS.has(s))                   // if town stages, dot is white
+            if (isTownStage(s))                          // if town stages, dot is white
                 dot_color = 0xFFFFFF;
             else if (done_all_checks(s))                 // every check here has been sent
                 dot_color = 0x990000;
