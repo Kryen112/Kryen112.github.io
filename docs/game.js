@@ -87,6 +87,22 @@ function shopTier(row, columnLength){
 // The Archipelago logo drop, reused for shop checks. DP_val2 tells the pickup
 // handler which kind it is: 0 for an enemy drop, 1 for a shop purchase.
 const AP_DROP_ICON = 564;
+
+/**
+ * Every organic change to the team's gold goes through here.
+ *
+ * One seam means Ring Link has exactly one place to observe, and nothing that
+ * pays out can forget to be counted. Gold arriving *from* Ring Link does not
+ * come through here -- see applyRingLinkGold.
+ */
+function gainGold(amount){
+    if (!amount) return;
+    antiCheatCheck();
+    Team_Gold = clamp(Team_Gold+amount,0,99999999);
+    antiCheatSet();
+    window.ArchipelagoMod.pendingRingLinkGold =
+        (window.ArchipelagoMod.pendingRingLinkGold || 0) + amount;
+}
 const AP_DROP_FROM_SHOP = 1;
 
 window.ArchipelagoMod.shopIdsSent = window.ArchipelagoMod.shopIdsSent || new Set();
@@ -7134,6 +7150,11 @@ SR_Player.prototype.Angel = function(current_char){
             if (this.PL_reload_ticks[current_char]==0 && current_ring!=ang_ring){ // when ready to attack and this is not the last ring
                 this.PL_reload_ticks[current_char] = ang_AGI;                     // restart reload timer
                 this.PL_ring_thrown_status[current_char][current_ring] = 1;                      // set ring as outgoing
+                // Flat payout per thrown ring: deliberately ignores the gold
+                // multiplier and the Gold Medal, so the yaml's number is what
+                // you actually get.
+                if (window.ArchipelagoMod.ringGold > 0)
+                    gainGold(window.ArchipelagoMod.ringGold);
                 this.PL_ring_distance_to_travel[current_char][current_ring] = (ang_range>>1)+20; // set destination as 20 pixels past enemy
                 this.PL_ring_ticks_until_active[current_char][current_ring] = 0;                 // set ring hitbox as active
 
