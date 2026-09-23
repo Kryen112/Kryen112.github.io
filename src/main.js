@@ -368,6 +368,27 @@ class APIntegration {
         antiCheatSet();
     }
 
+    /** Treat shop locations the server already has as sent.
+     *
+     *  The server's view outranks this browser's: a location checked from
+     *  another machine, from a cleared save, or released by hand must not be
+     *  offered as a check again, or the cell would keep showing the logo and
+     *  buying it would spend gold on a location that is already gone. */
+    adoptCheckedShopLocations() {
+        for (const id of this.client?.room?.checkedLocations ?? []) {
+            if (id >= this.SHOP_OFFSET && id < this.SHOP_OFFSET + 1000) {
+                window.ArchipelagoMod.shopIdsSent.add(id - this.SHOP_OFFSET);
+            }
+        }
+    }
+
+    /** Whether this seed carries shop locations, which only Shop Checks creates.
+     *  Used to recover seeds generated before the option reached slot_data. */
+    seedHasShopLocations() {
+        const all = this.client?.room?.allLocations ?? [];
+        return all.some((id) => id >= this.SHOP_OFFSET && id < this.SHOP_OFFSET + 1000);
+    }
+
     async _connect() {
         this.client = new Client();
         const host = this.host.value;
@@ -544,7 +565,16 @@ class APIntegration {
             window.ArchipelagoMod.removeNullCompo = this.slotData.remove_null_compo ?? 1;
             window.ArchipelagoMod.freeRespec = this.slotData.free_respec ?? 0;
             window.ArchipelagoMod.progressiveShop = this.slotData.progressive_shop ?? 0;
-            window.ArchipelagoMod.shopChecks = this.slotData.shop_checks ?? 0;
+            // Seeds generated before 1.8.1 never shipped this option, which left
+            // the feature dead: the locations existed, so they showed up in the
+            // tracker, but the client read the absent key as off and never sent
+            // one. The seed's own location list says whether the shop is in
+            // play, so those runs recover without regenerating.
+            window.ArchipelagoMod.shopChecks = this.slotData.shop_checks ?? (this.seedHasShopLocations() ? 1 : 0);
+            if (this.slotData.shop_checks === undefined && window.ArchipelagoMod.shopChecks) {
+                this.log("Shop Checks recovered from this seed's locations; buying sends checks again.", "info");
+            }
+            this.adoptCheckedShopLocations();
             // The seed's own logic. Absent on a seed generated before 1.8.0, in
             // which case the map falls back to plain unlocked/done colouring.
             window.ArchipelagoMod.logic = this.slotData.logic ?? null;
