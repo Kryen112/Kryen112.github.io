@@ -240,3 +240,35 @@ describe("the ring flush does not ride on the tick's other work", () => {
         );
     });
 });
+
+// The source id identifies our own packets so the server's echo can be dropped.
+// A stray copy of the connect-time initialisation sat in the shop-exit branch of
+// _doTickWork, so walking out of a shop set it to null. Once both players had
+// visited a shop, every packet carried source null, every client matched null
+// against its own null, and the whole link threw itself away as self-echo.
+describe("the ring source survives play", () => {
+    const MAIN_JS = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "main.js");
+    const src = readFileSync(MAIN_JS, "utf8");
+
+    it("is only assigned at construction and on connect", () => {
+        const assignments = src.match(/this\.ringSource\s*=(?!=)/g) ?? [];
+        assert.equal(assignments.length, 2, "something else assigns the ring source");
+    });
+
+    it("is not touched by the tick", () => {
+        const work = src.slice(src.indexOf("async _doTickWork() {"), src.indexOf("\n    _tick() {"));
+        assert.doesNotMatch(work, /ringSource/, "the tick can reset the ring source again");
+    });
+
+    it("an unset source never matches another player's packet", () => {
+        assert.match(
+            src,
+            /this\.ringSource !== null && data\.source === this\.ringSource/,
+            "a null source would swallow every incoming packet",
+        );
+    });
+
+    it("nothing unidentified goes on the wire", () => {
+        assert.match(src, /this\.ringSource === null\)\s*\{\s*\n\s*stats\.skippedNoSource/);
+    });
+});

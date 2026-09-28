@@ -1002,6 +1002,7 @@ class APIntegration {
             skippedDisabled: 0,
             skippedThrottled: 0,
             skippedEmpty: 0,
+            skippedNoSource: 0,
         };
         return window.ArchipelagoMod.ringLinkStats;
     }
@@ -1025,8 +1026,10 @@ class APIntegration {
         }
 
         const data = packet.data || {};
-        // The server echoes our own Bounce back to us, so drop it.
-        if (data.source !== undefined && data.source === this.ringSource) {
+        // The server echoes our own Bounce back to us, so drop it. Comparing an
+        // unset source would match every other player's packet, which is what a
+        // stray reset did: both clients went null and threw each other away.
+        if (this.ringSource !== null && data.source === this.ringSource) {
             stats.droppedOwnEcho++;
             return;
         }
@@ -1065,6 +1068,12 @@ class APIntegration {
             // Nothing will ever send it, so do not let it accumulate all session.
             window.ArchipelagoMod.pendingRingLinkGold = 0;
             stats.skippedDisabled++;
+            return;
+        }
+        // Without an id the other end cannot tell our packets from its own, so
+        // stay quiet and be countable rather than poison the room.
+        if (this.ringSource === null) {
+            stats.skippedNoSource++;
             return;
         }
         if (Date.now() - this.lastRingFlush < RING_LINK_FLUSH_MS) {
@@ -1313,9 +1322,6 @@ class APIntegration {
 
             if (Sequence_Step !== 53 && this.isScoutingShop) {
                 this.isScoutingShop = false;
-                // Per-connection id, so the server's echo of our own Bounce is dropped.
-                this.ringSource = null;
-                this.lastRingFlush = 0;
             }
 
             while (window.ArchipelagoMod.pendingAPShopDrops.length > 0) {
