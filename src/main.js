@@ -1,5 +1,6 @@
 import { Client, itemsHandlingFlags } from "archipelago.js";
 import { itemColor, itemColorValue } from "./colors.js";
+import { disguiseFor } from "./disguise.js";
 
 const CONNECTION_KEY = "StickRangerConnection";
 // Ring Link sends at most one Bounce this often, however much gold moved.
@@ -436,24 +437,9 @@ class APIntegration {
         this.client.socket.on("locationInfo", (locationInfoPacket) => {
             locationInfoPacket.locations.forEach((networkItem) => {
                 if (networkItem.location >= this.SHOP_OFFSET) {
-                    this.shopHints[networkItem.location - this.SHOP_OFFSET] = {
-                        player: this.client.players.findPlayer(networkItem.player).name,
-                        item: this.client.package.lookupItemName(
-                            this.client.players.findPlayer(networkItem.player).game,
-                            networkItem.item,
-                        ),
-                        itemClassification: networkItem.flags,
-                    };
+                    this.shopHints[networkItem.location - this.SHOP_OFFSET] = this._hintFor(networkItem);
                 } else if (networkItem.location >= this.BOOK_OFFSET && networkItem.location < this.BOOK_OFFSET + 100) {
-                    const stageIndex = networkItem.location - this.BOOK_OFFSET;
-                    this.bookHints[stageIndex] = {
-                        player: this.client.players.findPlayer(networkItem.player).name,
-                        item: this.client.package.lookupItemName(
-                            this.client.players.findPlayer(networkItem.player).game,
-                            networkItem.item,
-                        ),
-                        itemClassification: networkItem.flags,
-                    };
+                    this.bookHints[networkItem.location - this.BOOK_OFFSET] = this._hintFor(networkItem);
                 }
             });
         });
@@ -952,6 +938,46 @@ class APIntegration {
         if (worthHinting.length > 0) {
             await this.client.scout(worthHinting, 2);
         }
+    }
+
+    /**
+     * What a shop shelf or book page says is waiting at a location.
+     *
+     * With Trap Disguise on, a trap borrows some other item's name from the
+     * room and wears it misspelled, and is coloured as progression to match --
+     * a trap-red name would give the game away on its own.
+     */
+    _hintFor(networkItem) {
+        const owner = this.client.players.findPlayer(networkItem.player);
+        const hint = {
+            player: owner.name,
+            item: this.client.package.lookupItemName(owner.game, networkItem.item),
+            itemClassification: networkItem.flags,
+        };
+
+        const isTrap = (networkItem.flags & 0b100) !== 0;
+        if (!isTrap || !this.slotData.trap_disguise) return hint;
+
+        const disguise = disguiseFor(networkItem.location, this._decoyNames());
+        if (disguise === null) return hint;
+        return { ...hint, item: disguise, itemClassification: 0b001 };
+    }
+
+    /**
+     * Every item name in the room, for traps to hide behind. Built once --
+     * the data package does not change mid-session, and there are thousands.
+     */
+    _decoyNames() {
+        if (this._decoys) return this._decoys;
+        const names = new Set();
+        for (const game of this.client.package.games) {
+            const pkg = this.client.package.findPackage(game);
+            for (const name of Object.keys(pkg?.item_name_to_id ?? {})) {
+                names.add(name);
+            }
+        }
+        this._decoys = [...names].sort();
+        return this._decoys;
     }
 
     async scoutBooksOnShopOpen() {
