@@ -4653,7 +4653,7 @@ function rangerSPupIndicators(ranger,stat){
 window.fff = drawUI;
 function drawUI(UI_mode){ // original name: Jf()
     Inv_Height = 128; // used to adjust tile drawing to fit above the inventory
-    var column,row,L,T,xp_for_prev_LV,xp_for_next_LV,ring_count,revive_data,revival_cost,lp_data,str_data,dex_data,mag_data,displayed_equipment,item_class,type,type_param,MP_price,bat_MIN,bat_MAX,mini_ui_compo1,mini_ui_compo2,r,b,color,mouse_slot_pos,proxy,sold_item,sell_price;
+    var column,row,L,T,xp_for_prev_LV,xp_for_next_LV,ring_count,revive_data,revival_cost,lp_data,str_data,dex_data,mag_data,displayed_equipment,item_class,type,type_param,MP_price,bat_MIN,bat_MAX,mini_ui_compo1,mini_ui_compo2,r,b,color,mouse_slot_pos,proxy,sold_item,sell_price,compo_weapon;
     var inventory_colors = [0xCC9449,0x90A8B0,0x6E8038,0x747016,0xAC7754,0xCF8138,0xA7BFC9,0x607890,0x1D50AB,0x996600,0x667373,0x605550,0x605550];
 
     if (Left_Click_Is_Up && Mouse_Ypos>=Inv_Top)
@@ -5000,16 +5000,24 @@ function drawUI(UI_mode){ // original name: Jf()
             Players.PL_gladr_resid_count[mouse_slot_pos-4] = 0;
         }
     } else if ((Stickmen_Slots<<1)<=mouse_slot_pos && mouse_slot_pos<Stickmen_Slots*3 && Clicked){ // compo row 1
-        if (getVal(Item_Inv[Inv_Last],Item_Class_ID)==Class_Compo && restrictSlots(mouse_slot_pos-8,0)){
-            Comp1_Inv[Stickmen_Slots+mouse_slot_pos-(Stickmen_Slots<<1)] = Item_Inv[Inv_Last];
+        compo_weapon = Stickmen_Slots+mouse_slot_pos-(Stickmen_Slots<<1);
+        if (compoCanBeRemoved(Comp1_Inv[compo_weapon])){
+            liftCompo(compo_weapon,0);
+            MP_Bar[mouse_slot_pos-(Stickmen_Slots<<1)] = 0;
+        } else if (getVal(Item_Inv[Inv_Last],Item_Class_ID)==Class_Compo && restrictSlots(mouse_slot_pos-8,0)){
+            Comp1_Inv[compo_weapon] = Item_Inv[Inv_Last];
             Item_Inv[Inv_Last] = 0;
             Comp1_Inv[Inv_Last] = 0;
             Comp2_Inv[Inv_Last] = 0;
             MP_Bar[mouse_slot_pos-(Stickmen_Slots<<1)] = 0;
         }
     } else if (Stickmen_Slots*3<=mouse_slot_pos && mouse_slot_pos<Stickmen_Slots*4 && Clicked){ // compo row 2
-        if (getVal(Item_Inv[Inv_Last],Item_Class_ID)==Class_Compo && restrictSlots(mouse_slot_pos-12,1)){
-            Comp2_Inv[Stickmen_Slots+mouse_slot_pos-Stickmen_Slots*3] = Item_Inv[Inv_Last];
+        compo_weapon = Stickmen_Slots+mouse_slot_pos-Stickmen_Slots*3;
+        if (compoCanBeRemoved(Comp2_Inv[compo_weapon])){
+            liftCompo(compo_weapon,1);
+            MP_Bar[mouse_slot_pos-Stickmen_Slots*3] = 0;
+        } else if (getVal(Item_Inv[Inv_Last],Item_Class_ID)==Class_Compo && restrictSlots(mouse_slot_pos-12,1)){
+            Comp2_Inv[compo_weapon] = Item_Inv[Inv_Last];
             Item_Inv[Inv_Last] = 0;
             Comp1_Inv[Inv_Last] = 0;
             Comp2_Inv[Inv_Last] = 0;
@@ -5063,6 +5071,31 @@ function drawUI(UI_mode){ // original name: Jf()
 }
 
 // hides slots
+// Taking a compo back out is not a thing in the base game: once it is in, it is
+// in for good. With Removable Compos on, clicking a filled slot with an empty
+// hand lifts it back onto the cursor instead. The cross that blocks a
+// store-bought slot is not a compo and stays put -- Remove Null Compo is the
+// option for that one.
+function compoCanBeRemoved(compo){
+    return !!window.ArchipelagoMod.removableCompos
+        && compo!=0
+        && compo!=Null_Slot
+        && Item_Inv[Inv_Last]==0; // only with an empty hand, or a swap would eat it
+}
+
+// Move a compo out of a weapon and onto the cursor.
+function liftCompo(weapon,compo_slot){
+    if (compo_slot==0){
+        Item_Inv[Inv_Last] = Comp1_Inv[weapon];
+        Comp1_Inv[weapon] = 0;
+    } else {
+        Item_Inv[Inv_Last] = Comp2_Inv[weapon];
+        Comp2_Inv[weapon] = 0;
+    }
+    Comp1_Inv[Inv_Last] = 0;
+    Comp2_Inv[Inv_Last] = 0;
+}
+
 function restrictSlots(item_pos,compo_slot){ // original name: Ng()
     var held_item_eff_ID = getVal(Item_Inv[Inv_Last],Eff_ID);
     var held_item_class_ID = getVal(Item_Inv[Inv_Last],Item_Class_ID);

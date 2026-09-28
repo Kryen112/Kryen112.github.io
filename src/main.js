@@ -554,6 +554,7 @@ class APIntegration {
             }
             window.ArchipelagoMod.randomizedBookCosts = this.randomizedBookCosts ?? {};
             window.ArchipelagoMod.removeNullCompo = this.slotData.remove_null_compo ?? 1;
+            window.ArchipelagoMod.removableCompos = this.slotData.removable_compos ?? 0;
             window.ArchipelagoMod.freeRespec = this.slotData.free_respec ?? 0;
             window.ArchipelagoMod.progressiveShop = this.slotData.progressive_shop ?? 0;
             // How each shop opens, straight from the seed. Absent on a seed
