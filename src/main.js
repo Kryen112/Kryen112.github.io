@@ -819,7 +819,8 @@ class APIntegration {
 
     loseHalfGold() {
         const lostGold = Math.floor(Team_Gold / 2);
-        Team_Gold -= lostGold;
+        // Through the seam, so Ring Link sees the loss like any other spend.
+        gainGold(-lostGold);
         this.log("You lost $" + lostGold + "!", "error");
         Indicators.INadd(
             Players.PL_joint[Selected_Player][0].x,
@@ -984,7 +985,11 @@ class APIntegration {
      * remainder is kept for next time.
      */
     async _flushRingLink() {
-        if (!window.ArchipelagoMod.ringLink) return;
+        if (!window.ArchipelagoMod.ringLink) {
+            // Nothing will ever send it, so do not let it accumulate all session.
+            window.ArchipelagoMod.pendingRingLinkGold = 0;
+            return;
+        }
         if (Date.now() - this.lastRingFlush < RING_LINK_FLUSH_MS) return;
         this.lastRingFlush = Date.now();
 

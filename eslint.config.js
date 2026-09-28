@@ -30,6 +30,7 @@ export default [
                 Comp2_Inv: "readonly",
                 Item_Catalogue: "readonly",
                 Team_Gold: "writable",
+                gainGold: "readonly",
                 clamp: "readonly",
                 antiCheatCheck: "readonly",
                 LP_Current: "readonly",
