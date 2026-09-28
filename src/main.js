@@ -14,7 +14,7 @@ class APIntegration {
         this.ITEM_OFFSET = 12000;
         this.TRAPS_OFFSET = 13000;
         this.CLASS_OFFSET = 14000;
-        this.PROGRESSIVE_SHOP_ID = 15000;
+        this.PROGRESSIVE_SHOP_OFFSET = 15000;
         this.SHOP_OFFSET = 20000;
         this.RANGER_CLASSES = {
             14000: "Boxer",
@@ -185,10 +185,20 @@ class APIntegration {
      * whole item list cannot inflate it.
      */
     _refreshProgressiveShop() {
-        const ids = window.ArchipelagoMod.shopProgression?.ids ?? [this.PROGRESSIVE_SHOP_ID];
+        const ids = window.ArchipelagoMod.shopProgression?.ids ?? [this.PROGRESSIVE_SHOP_OFFSET];
         window.ArchipelagoMod.progressiveShopItems = ids.map(
             (id) => this.receivedItems.filter((received) => received === id).length,
         );
+    }
+
+    /**
+     * Any shop's Progressive item. Matched by range rather than by the seed's
+     * id list, because an item can be applied before slot data has arrived.
+     * The shop split kept matching Town's id alone here, so Village, Resort
+     * and Island items were never recorded and those shops stayed empty.
+     */
+    _isProgressiveShopItem(id) {
+        return id >= this.PROGRESSIVE_SHOP_OFFSET && id < this.PROGRESSIVE_SHOP_OFFSET + 999;
     }
 
     getStorageKey() {
@@ -701,7 +711,7 @@ class APIntegration {
             }
         }
 
-        if (id === this.PROGRESSIVE_SHOP_ID) {
+        if (this._isProgressiveShopItem(id)) {
             if (firstTime) {
                 this.receivedItems.push(id);
             }
