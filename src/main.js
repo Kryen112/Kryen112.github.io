@@ -577,6 +577,7 @@ class APIntegration {
             // which case the map falls back to plain unlocked/done colouring.
             window.ArchipelagoMod.logic = this.slotData.logic ?? null;
             window.ArchipelagoMod.enforceLogic = this.slotData.enforce_logic ?? 0;
+            window.ArchipelagoMod.enforceShopLogic = this.slotData.enforce_shop_logic ?? 0;
             window.ArchipelagoMod.ringGold = this.slotData.ring_gold ?? 0;
             window.ArchipelagoMod.ringLink = this.slotData.ring_link ?? 0;
             window.ArchipelagoMod.ringLinkRatio = this.slotData.ring_link_ratio ?? 100;

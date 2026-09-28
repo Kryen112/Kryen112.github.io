@@ -3095,6 +3095,7 @@ function townScreens(){ // original name: wf()
         // reveals what it really is, exactly as it does for books; without it
         // you still see the price, so you can decide whether to buy.
         var shop_is_check = shopItemIsCheck(shop_item);
+        var shop_blocked = shop_item!=0 && shopCellBlocked(town_stage,Menu_Column,item_cell);
         var shop_hide = shop_is_check && !window.ArchipelagoMod.shopHints;
         var shop_label = shop_hide
             ? "AP Item"
@@ -3188,6 +3189,7 @@ function townScreens(){ // original name: wf()
             if (shopCellUnlocked(town_stage,Menu_Column,r,latest_unlock)){
                 var cell_item = Shop_Items[town_stage][Menu_Column][r];
                 var cell_is_check = shopItemIsCheck(cell_item);
+                var cell_blocked = shopCellBlocked(town_stage,Menu_Column,r);
                 var cell_x = shop_left+120+i%3*28;
                 var cell_y = shop_top+24+28*floor(i/3);
                 Display_Mode2 = 2;
@@ -3196,8 +3198,8 @@ function townScreens(){ // original name: wf()
                 // (Item_Ico_Big) is 0, so drawing it from Item_Img rendered a
                 // blank cell instead of the Archipelago logo.
                 if (cell_is_check)
-                     dispItem(AP_Img  ,cell_x,cell_y,24,24,0,0,24,24,0xFFFFFFFF);
-                else dispItem(Item_Img,cell_x,cell_y,24,24,24*getVal(cell_item,Item_Ico_Big),0,24,24,getVal(cell_item,Item_Color)); // icon of item in shop
+                     dispItem(cell_blocked? AP_Img_Grey :AP_Img,cell_x,cell_y,24,24,0,0,24,24,0xFFFFFFFF);
+                else dispItem(Item_Img,cell_x,cell_y,24,24,24*getVal(cell_item,Item_Ico_Big),0,24,24,cell_blocked? 0xFF606060 :getVal(cell_item,Item_Color)); // icon of item in shop
                 Display_Mode2 = 0;
 
                 if (!cell_is_check && Item_Catalogue[cell_item][Item_LV])
@@ -3209,7 +3211,7 @@ function townScreens(){ // original name: wf()
         if (town_stage==2 && item_cell==1)
             buy_price *= 10;
         if (isMouseHovered(shop_left+176-56,shop_top+120-10,108,20)){
-            if (shop_item!=0 && Team_Gold>=buy_price && Clicked){
+            if (shop_item!=0 && Team_Gold>=buy_price && Clicked && !shop_blocked){
                 antiCheatCheck();
                 if (shop_is_check){
                     // Buying a check drops the Archipelago logo instead of the
@@ -3228,9 +3230,12 @@ function townScreens(){ // original name: wf()
                 gainGold(-buy_price);
                 antiCheatSet();
             }
-            filledRect(shop_left+176-56,shop_top+120-10,108,20,0x990000);
+            if (!shop_blocked)
+                filledRect(shop_left+176-56,shop_top+120-10,108,20,0x990000);
         }
-        centeredText(Large_Text,shop_left+176,shop_top+120,"$"+buy_price+" Buy",0xFFFFFF,0x000000);
+        if (shop_blocked)
+             centeredText(Large_Text,shop_left+176,shop_top+120,"Out of logic",0x808080,0x000000);
+        else centeredText(Large_Text,shop_left+176,shop_top+120,"$"+buy_price+" Buy",0xFFFFFF,0x000000);
         outlineRect(shop_left+176-56,shop_top+120-10,108,20,0x990000);
         arrow_color = 0xFFFFFF;
 
@@ -13130,6 +13135,27 @@ function in_logic(stage){
         return gate === null || gate === undefined ? true : !!open[gate];
     }
     return false;
+}
+
+// Whether Archipelago considers a shop row reachable yet. The shop stocks by
+// Progressive items, but logic also wants the world open far enough -- so with
+// Enforce Shop Logic off the two simply disagree and the sale goes through.
+function shopTierInLogic(tier){
+    var logic = logicDescription();
+    if (!logic || !logic.shop_gates) return true; // a seed from before shop gating
+    var open = openGates(logic);
+    for (var i=0; i<logic.shop_gates.length; i++){
+        if (tier >= logic.shop_gates[i][0])
+            return !!open[logic.shop_gates[i][1]];
+    }
+    return true;
+}
+
+// Enforcement: with Enforce Shop Logic on, a row the seed does not consider
+// reachable yet is greyed out and cannot be bought.
+function shopCellBlocked(town_stage, column, row){
+    return !!window.ArchipelagoMod.enforceShopLogic
+        && !shopTierInLogic(shopTier(row,Shop_Items[town_stage][column].length));
 }
 
 // Enforcement: with the option on, a stage out of logic cannot be entered at

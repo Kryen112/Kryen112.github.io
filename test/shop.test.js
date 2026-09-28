@@ -219,7 +219,11 @@ describe("shop check presentation", () => {
     it("draws the logo from AP_Img, not a sprite index", () => {
         const block = src.slice(src.indexOf("var cell_is_check = shopItemIsCheck(cell_item);"));
         const cell = block.slice(0, block.indexOf("Display_Mode2 = 0;"));
-        assert.match(cell, /if \(cell_is_check\)\s*\n\s*dispItem\(AP_Img/, "the cell renders blank");
+        assert.match(
+            cell,
+            /if \(cell_is_check\)\s*\n\s*dispItem\(cell_blocked\? AP_Img_Grey :AP_Img/,
+            "the cell renders blank",
+        );
     });
 
     it("the AP logo has no inventory icon, which is why AP_Img is needed", () => {
