@@ -180,13 +180,15 @@ class APIntegration {
 
     /**
      * How many rows of the shop are open, i.e. how many Progressive Shop items
-     * have arrived. Counted from receivedItems rather than incremented, so a
-     * reconnect that replays the whole item list cannot inflate it.
+     * have arrived, one count per shop in the game's town order. Counted from
+     * receivedItems rather than incremented, so a reconnect that replays the
+     * whole item list cannot inflate it.
      */
     _refreshProgressiveShop() {
-        window.ArchipelagoMod.progressiveShopItems = this.receivedItems.filter(
-            (id) => id === this.PROGRESSIVE_SHOP_ID,
-        ).length;
+        const ids = window.ArchipelagoMod.shopProgression?.ids ?? [this.PROGRESSIVE_SHOP_ID];
+        window.ArchipelagoMod.progressiveShopItems = ids.map(
+            (id) => this.receivedItems.filter((received) => received === id).length,
+        );
     }
 
     getStorageKey() {
@@ -558,6 +560,9 @@ class APIntegration {
             window.ArchipelagoMod.removeNullCompo = this.slotData.remove_null_compo ?? 1;
             window.ArchipelagoMod.freeRespec = this.slotData.free_respec ?? 0;
             window.ArchipelagoMod.progressiveShop = this.slotData.progressive_shop ?? 0;
+            // How each shop opens, straight from the seed. Absent on a seed
+            // from before the shops had a track each.
+            window.ArchipelagoMod.shopProgression = this.slotData.shop_progression ?? null;
             // Seeds generated before 1.8.1 never shipped this option, which left
             // the feature dead: the locations existed, so they showed up in the
             // tracker, but the client read the absent key as off and never sent

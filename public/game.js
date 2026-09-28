@@ -145,9 +145,29 @@ function apItemColor(flags){
 }
 
 // Whether a cell is in stock, which is the only thing Progressive Shop changes.
+// How many of that shop's own Progressive items a row costs. The seed ships the
+// numbers, so the stock the player sees is the stock the fill assumed. Town,
+// Resort and Island charge for their first row as well; Village does not.
+function shopReq(town_stage, row, columnLength){
+    var progression = window.ArchipelagoMod.shopProgression;
+    if (!progression)
+        return shopTier(row,columnLength); // a seed from before the shops split
+    return Math.floor((row * progression.steps[town_stage]) / columnLength) + progression.first[town_stage];
+}
+
+// Progressive items held for one shop. A seed from before the split sends a
+// single count covering all of them.
+function shopProgressiveCount(town_stage){
+    var held = window.ArchipelagoMod.progressiveShopItems;
+    if (typeof held == "number")
+        return held;
+    return (held || [])[town_stage] || 0;
+}
+
 function shopCellUnlocked(town_stage, column, row, latest_unlock){
     if (window.ArchipelagoMod.progressiveShop)
-        return shopTier(row,Shop_Items[town_stage][column].length) < latest_unlock;
+        return shopReq(town_stage,row,Shop_Items[town_stage][column].length)
+            <= shopProgressiveCount(town_stage);
     return town_stage!=0 || row < latest_unlock;
 }
 
@@ -162,9 +182,9 @@ function shopTownIndex(stage){
     }
 }
 
+// Stock level from stages beaten, which is what widens the shop when
+// Progressive Shop is off. With it on, shopCellUnlocked ignores this.
 function shopStockLevel(){
-    if (window.ArchipelagoMod.progressiveShop)
-        return 1 + (window.ArchipelagoMod.progressiveShopItems || 0);
     var level = 1;
     for (var s=0; s<Stage_Count; s++){
         if ((Stage_Status[s]&Beaten)>0 && Shop_Reqs[s]>level)
@@ -3064,23 +3084,11 @@ function townScreens(){ // original name: wf()
 
         item_cell = (3*Menu_Row+Menu_Entry) % Shop_Items[town_stage][Menu_Column].length;
         shop_item = Shop_Items[town_stage][Menu_Column][item_cell];
-        // Progressive Shop replaces "beat stages to widen the stock" with one
-        // item per row, and applies in every town -- the vanilla gate only ran
-        // in the first Town, so Island's 219 ungated cells would otherwise skip
-        // the whole option.
-        // Progressive Shop replaces "beat stages to widen the stock" with one
-        // item per row, and applies in every town -- the vanilla gate only ran
-        // in the first Town, so Island's 219 ungated cells would otherwise skip
-        // the whole option.
-        if (window.ArchipelagoMod.progressiveShop){
-            latest_unlock = 1 + (window.ArchipelagoMod.progressiveShopItems || 0);
-        } else {
-            latest_unlock = 1;
-            for (var s=0; s<Stage_Count; s++){
-                if ((Stage_Status[s]&Beaten)>0 && Shop_Reqs[s]>latest_unlock)
-                    latest_unlock = Shop_Reqs[s];
-            }
-        }
+        // Progressive Shop replaces "beat stages to widen the stock" with items
+        // per shop, and applies in every town -- the vanilla gate only ran in
+        // the first Town, so Island's 219 ungated cells would otherwise skip the
+        // whole option. shopCellUnlocked ignores latest_unlock in that case.
+        latest_unlock = shopStockLevel();
         if (!shopCellUnlocked(town_stage,Menu_Column,item_cell,latest_unlock))
             shop_item = 0;
         // An uncollected check hides behind the Archipelago logo. Shop Hints
@@ -3165,6 +3173,16 @@ function townScreens(){ // original name: wf()
                 Large_Text.TXoutputB(shop_left+8,shop_top+116,"Slow "+type_para+"%",type_color,0x000000); // display slow %
             }
         }
+        // Town, Resort and Island start with nothing in stock, so say so rather
+        // than showing an empty grid the player cannot explain.
+        var stocked_rows = 0;
+        for (var sr=0; sr<Shop_Items[town_stage][Menu_Column].length; sr++){
+            if (shopCellUnlocked(town_stage,Menu_Column,sr,latest_unlock))
+                stocked_rows++;
+        }
+        if (stocked_rows==0)
+            centeredText(Large_Text,shop_left+162,shop_top+60,"No items in stock",0xFF6666,0x000000);
+
         for (var i=0; i<9; i++){
             r = (3*Menu_Row+i) % Shop_Items[town_stage][Menu_Column].length;
             if (shopCellUnlocked(town_stage,Menu_Column,r,latest_unlock)){

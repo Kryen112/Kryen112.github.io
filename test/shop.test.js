@@ -73,12 +73,83 @@ describe("shopCellUnlocked", () => {
         assert.equal(api.shopCellUnlocked(1, 0, 70, 1), false, "Island should be gated too");
     });
 
-    it("opens the deepest column fully at 32 items", () => {
+    it("still reads a seed from before the shops had a track each", () => {
+        // Those seeds send one count for all shops and charge nothing for row 0.
         api.mod.progressiveShop = 1;
         api.mod.progressiveShopItems = 32;
-        const level = 1 + 32;
         for (const row of [0, 40, 77]) {
-            assert.equal(api.shopCellUnlocked(1, 0, row, level), true, `row ${row} still locked`);
+            assert.equal(api.shopCellUnlocked(1, 0, row, 33), true, `row ${row} still locked`);
+        }
+    });
+});
+
+// One track per shop. The seed ships the numbers, so the stock the player sees
+// is the stock the fill assumed.
+const FOUR_TOWNS = [
+    [Array.from({ length: 33 }, (_, i) => 100 + i)], // Town
+    [Array.from({ length: 15 }, (_, i) => 200 + i)], // Village
+    [Array.from({ length: 9 }, (_, i) => 300 + i)], // Resort
+    [Array.from({ length: 78 }, (_, i) => 400 + i)], // Island
+];
+const PROGRESSION = { ids: [15000, 15001, 15002, 15003], steps: [33, 15, 9, 33], first: [0, 1, 1, 1] };
+
+describe("per-shop progressive stock", () => {
+    let api;
+    function held(counts) {
+        api.mod.progressiveShopItems = counts;
+    }
+    beforeEach(() => {
+        api = loadShopHelpers(FOUR_TOWNS);
+        api.mod.progressiveShop = 1;
+        api.mod.shopProgression = PROGRESSION;
+    });
+
+    it("starts Village, Resort and Island with nothing in stock", () => {
+        held([0, 0, 0, 0]);
+        for (const town of [1, 2, 3]) {
+            assert.equal(api.shopCellUnlocked(town, 0, 0, 1), false, `town ${town} row 0 is stocked`);
+        }
+    });
+
+    it("leaves Town's first row open, because that is where you start", () => {
+        held([0, 0, 0, 0]);
+        assert.equal(api.shopCellUnlocked(0, 0, 0, 1), true, "Town should start with stock");
+    });
+
+    it("opens one shop without opening the others", () => {
+        held([32, 0, 0, 0]);
+        assert.equal(api.shopCellUnlocked(0, 0, 32, 1), true, "Town should be fully open");
+        assert.equal(api.shopCellUnlocked(1, 0, 0, 1), false, "Village opened for free");
+        assert.equal(api.shopCellUnlocked(3, 0, 0, 1), false, "Island opened for free");
+    });
+
+    it("opens each shop fully at its own count", () => {
+        held([32, 15, 9, 33]);
+        for (const [town, row] of [
+            [0, 32],
+            [1, 14],
+            [2, 8],
+            [3, 77],
+        ]) {
+            assert.equal(api.shopCellUnlocked(town, 0, row, 1), true, `town ${town} row ${row} locked`);
+        }
+    });
+
+    it("never opens a row one item early", () => {
+        for (const [town, row, needs] of [
+            [0, 32, 32],
+            [1, 0, 1],
+            [1, 14, 15],
+            [2, 8, 9],
+            [3, 77, 33],
+        ]) {
+            const counts = [0, 0, 0, 0];
+            counts[town] = needs - 1;
+            held(counts);
+            assert.equal(api.shopCellUnlocked(town, 0, row, 1), false, `town ${town} row ${row} early`);
+            counts[town] = needs;
+            held(counts);
+            assert.equal(api.shopCellUnlocked(town, 0, row, 1), true, `town ${town} row ${row} late`);
         }
     });
 });
