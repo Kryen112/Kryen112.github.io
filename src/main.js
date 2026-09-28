@@ -930,20 +930,46 @@ class APIntegration {
         }
     }
 
+    /**
+     * Scout locations, hinting the room only about what is worth hearing.
+     *
+     * An item's classification is not known until it has been scouted, so with
+     * Important Hints Only on this looks first with create_as_hint 0 -- which
+     * still fills our own display through the locationInfo handler -- and then
+     * scouts the progression and trap ones again to create the hints. A seed
+     * with Shop Checks has 462 shop items, and hinting every one of them buries
+     * everybody else's hints.
+     */
+    async _scoutAndHint(locations) {
+        if (locations.length === 0) return;
+        if (!this.slotData.important_hints_only) {
+            await this.client.scout(locations, 2);
+            return;
+        }
+
+        const scouted = await this.client.scout(locations, 0);
+        const worthHinting = scouted.filter((item) => item.progression || item.trap).map((item) => item.locationId);
+        if (worthHinting.length > 0) {
+            await this.client.scout(worthHinting, 2);
+        }
+    }
+
     async scoutBooksOnShopOpen() {
         console.log("Scouting books");
         // TODO check if works in both states
         if (this.slotData.shuffle_books === 1) {
             // Book shuffle
+            const unscouted = [];
             for (let i = 0; i < Stage_Status.length; i++) {
                 if (this.excludedBookStages.includes(i)) {
                     continue;
                 }
 
                 if (Stage_Status[i] === 3 && !this.bookHints[i]) {
-                    this.client.scout([this.BOOK_OFFSET + i], 2);
+                    unscouted.push(this.BOOK_OFFSET + i);
                 }
             }
+            await this._scoutAndHint(unscouted);
             await this.saveAPData();
         }
     }
@@ -966,10 +992,7 @@ class APIntegration {
         if (unscouted.length === 0) return;
 
         console.log(`Scouting ${unscouted.length} shop items`);
-        this.client.scout(
-            unscouted.map((id) => id + this.SHOP_OFFSET),
-            2,
-        );
+        await this._scoutAndHint(unscouted.map((id) => id + this.SHOP_OFFSET));
         await this.saveAPData();
     }
 
