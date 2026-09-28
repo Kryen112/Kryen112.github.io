@@ -7170,8 +7170,15 @@ SR_Player.prototype.Angel = function(current_char){
                 // Flat payout per thrown ring: deliberately ignores the gold
                 // multiplier and the Gold Medal, so the yaml's number is what
                 // you actually get.
-                if (window.ArchipelagoMod.ringGold > 0)
+                // Bracketed like every other gold mutation: antiCheatCheck
+                // compares the gold recorded at the last antiCheatSet against
+                // the current value, so paying out here without committing
+                // nulls Game_Canvas the moment the ring lands.
+                if (window.ArchipelagoMod.ringGold > 0){
+                    antiCheatCheck();
                     gainGold(window.ArchipelagoMod.ringGold);
+                    antiCheatSet();
+                }
                 this.PL_ring_distance_to_travel[current_char][current_ring] = (ang_range>>1)+20; // set destination as 20 pixels past enemy
                 this.PL_ring_ticks_until_active[current_char][current_ring] = 0;                 // set ring hitbox as active
 

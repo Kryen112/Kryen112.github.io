@@ -131,3 +131,68 @@ describe("ring link flushing", () => {
         assert.equal(flush(gold.mod, 100), 2);
     });
 });
+
+// Stick Ranger's anti-cheat stores the gold seen at the last antiCheatSet and
+// compares it on the next antiCheatCheck. A mutation between the two nulls
+// Game_Canvas, which reads to the player as the game crashing. The Angel's
+// per-ring payout shipped unbracketed in 1.8.0, so an Angel froze the game as
+// soon as a thrown ring landed.
+describe("every gold mutation is anti-cheat bracketed", () => {
+    const lines = readFileSync(GAME_JS, "utf8").split("\n");
+    const lineNos = (needle) =>
+        lines.map((l, i) => (l.includes(needle) && !l.includes("function") ? i + 1 : 0)).filter(Boolean);
+
+    const checks = lineNos("antiCheatCheck()");
+    const sets = lineNos("antiCheatSet()");
+    const calls = lines
+        .map((l, i) => (/\bgainGold\(/.test(l) && !l.includes("function gainGold") ? i + 1 : 0))
+        .filter(Boolean);
+
+    it("finds the call sites", () => {
+        assert.ok(calls.length >= 9, `expected the gold call sites, found ${calls.length}`);
+    });
+
+    for (const call of calls) {
+        it(`line ${call}: ${lines[call - 1].trim().slice(0, 48)}`, () => {
+            const before = (xs) => Math.max(...xs.filter((x) => x < call), -1);
+            const lastCheck = before(checks);
+            const lastSet = before(sets);
+            assert.ok(lastCheck !== -1, "no antiCheatCheck precedes this gold change");
+            assert.ok(
+                lastSet < lastCheck,
+                `gold changes at line ${call} outside a bracket (last antiCheatSet at ${lastSet} came after the last antiCheatCheck at ${lastCheck})`,
+            );
+            assert.ok(
+                sets.some((s) => s > call),
+                "no antiCheatSet commits this gold change",
+            );
+        });
+    }
+});
+
+// The one-seam invariant: every gold movement the mod causes has to go through
+// gainGold, or Ring Link silently misses it. The -50% gold trap wrote Team_Gold
+// directly, so a trap that took half your money broadcast nothing.
+describe("the gold seam has no bypasses", () => {
+    const MAIN_JS = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "main.js");
+
+    it("main.js never assigns Team_Gold directly", () => {
+        const offenders = readFileSync(MAIN_JS, "utf8")
+            .split("\n")
+            .map((l, i) => [i + 1, l])
+            .filter(([, l]) => /^\s*Team_Gold\s*(=[^=]|\+=|-=)/.test(l));
+        assert.deepEqual(offenders, [], `these move gold without going through gainGold: ${JSON.stringify(offenders)}`);
+    });
+
+    it("drops the pending total when Ring Link is off", () => {
+        const src = readFileSync(MAIN_JS, "utf8");
+        const start = src.indexOf("async _flushRingLink() {");
+        assert.ok(start !== -1, "could not find _flushRingLink");
+        const guard = src.slice(start, src.indexOf("\n    }", start));
+        assert.match(
+            guard,
+            /if \(!window\.ArchipelagoMod\.ringLink\) \{[\s\S]*pendingRingLinkGold = 0;[\s\S]*return;/,
+            "with Ring Link off nothing drains the pending total, so it grows all session",
+        );
+    });
+});
