@@ -135,6 +135,15 @@ function shopItemIsCheck(itemId){
         && !window.ArchipelagoMod.shopBoughtThisVisit.has(itemId);
 }
 
+// Progression/useful/trap/filler colour for a scouted item. main.js owns the
+// table (src/colors.js) so the book page, the shop and the message log cannot
+// drift; flags is a bitfield, so progression+useful arrives as 3.
+function apItemColor(flags){
+    if (window.ArchipelagoMod.itemColor)
+        return window.ArchipelagoMod.itemColor(flags);
+    return 0xFFFFFF;
+}
+
 // Whether a cell is in stock, which is the only thing Progressive Shop changes.
 function shopCellUnlocked(town_stage, column, row, latest_unlock){
     if (window.ArchipelagoMod.progressiveShop)
@@ -3097,8 +3106,9 @@ function townScreens(){ // original name: wf()
                     // wrap down it instead of running into the item grid.
                     var hint_lines = wrapText(shop_hint.item,SHOP_HINT_COLS)
                         .concat(wrapText("("+shop_hint.player+")",SHOP_HINT_COLS));
+                    var hint_color = apItemColor(shop_hint.itemClassification);
                     for (var hl=0; hl<hint_lines.length && hl<6; hl++)
-                        itemText(shop_left+8,shop_top+56+12*hl,hint_lines[hl],0xFFFF00,-1,-2);
+                        itemText(shop_left+8,shop_top+56+12*hl,hint_lines[hl],hint_color,-1,-2);
                 }
             }
         } else if (UI_weapClass==Class_Compo){
@@ -3465,23 +3475,7 @@ function townScreens(){ // original name: wf()
                     const bookOfStage = window.ArchipelagoMod.bookHintSpoiler[book_stage];
                     centeredText(Large_Text,book_left+240,book_top+20,bookOfStage.player+"'s",0xEE00EE,0x000000);
 
-                    switch (bookOfStage.itemClassification) {
-                        case 1: // Progression
-                            itemTextColour = 0x9F79EE;
-                            break;
-                        case 2: // Useful
-                            itemTextColour = 0x4f94CD;
-                            break;
-                        case 4: // Trap
-                            itemTextColour = 0xED7B6E;
-                            break;
-                        case 0: // Filler
-                            itemTextColour = 0x09CBCB;
-                            break;
-                        default:
-                            itemTextColour = 0xFFFFFF;
-                            break;
-                    }
+                    itemTextColour = apItemColor(bookOfStage.itemClassification);
 
                     const items = bookOfStage.item;
                     const maxVisibleChars = 4 * 19;

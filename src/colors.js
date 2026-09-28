@@ -12,3 +12,14 @@ export function itemColor(flags) {
     if (flags & 0b100) return "#ed7b6e"; // trap
     return "#09cbcb"; // filler
 }
+
+/**
+ * The same colour as a 24-bit number, for the canvas UI drawn by game.js.
+ *
+ * game.js is a plain script and cannot import this module, so main.js hands it
+ * over on window.ArchipelagoMod. Keeping one table means the book page and the
+ * shop cannot drift from the message log.
+ */
+export function itemColorValue(flags) {
+    return parseInt(itemColor(flags).slice(1), 16);
+}

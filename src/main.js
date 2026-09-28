@@ -1,5 +1,5 @@
 import { Client, itemsHandlingFlags } from "archipelago.js";
-import { itemColor } from "./colors.js";
+import { itemColor, itemColorValue } from "./colors.js";
 
 const CONNECTION_KEY = "StickRangerConnection";
 // Ring Link sends at most one Bounce this often, however much gold moved.
@@ -547,6 +547,7 @@ class APIntegration {
             window.ArchipelagoMod.xpMultiplier = this.slotData.xp_multiplier ?? 1;
             window.ArchipelagoMod.dropMultiplier = this.slotData.drop_multiplier ?? 1;
             this.sendShopHints = this.slotData.shop_hints ?? false;
+            window.ArchipelagoMod.itemColor = itemColorValue;
             window.ArchipelagoMod.bookHintSpoiler = this.bookHints ?? {};
             const bookCostRandomizer = this.slotData.randomize_book_costs ?? 0;
             window.ArchipelagoMod.bookCostRandomizer = bookCostRandomizer;
