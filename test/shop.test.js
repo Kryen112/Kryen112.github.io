@@ -271,3 +271,44 @@ describe("wrapText", () => {
         assert.deepEqual(wrapText("", 17), []);
     });
 });
+
+// A seed generated before the shops had a track each sends one Progressive Shop
+// item covering all four, and no shop_progression in its slot data. Counting
+// that per town found nothing for Village, Resort and Island, so those shops
+// stayed shut however many items the player held.
+describe("a seed from before the shops split", () => {
+    function load(held) {
+        const api = loadShopHelpers(FOUR_TOWNS);
+        api.mod.progressiveShop = 1;
+        api.mod.shopProgression = null; // what an old seed sends
+        api.mod.progressiveShopItems = held;
+        return api;
+    }
+
+    it("opens every town from the one shared count", () => {
+        const api = load([4]);
+        for (const town of [0, 1, 2, 3]) {
+            assert.equal(api.shopCellUnlocked(town, 0, 1, 1), true, `town ${town} stayed shut`);
+        }
+    });
+
+    it("still gates on that count", () => {
+        const api = load([0]);
+        assert.equal(api.shopCellUnlocked(3, 0, 20, 1), false, "a deep row opened for free");
+    });
+
+    it("keeps its first row free everywhere, as it always did", () => {
+        const api = load([0]);
+        for (const town of [0, 1, 2, 3]) {
+            assert.equal(api.shopCellUnlocked(town, 0, 0, 1), true, `town ${town} row 0 closed`);
+        }
+    });
+
+    it("does not leak into a seed that ships its own numbers", () => {
+        const api = loadShopHelpers(FOUR_TOWNS);
+        api.mod.progressiveShop = 1;
+        api.mod.shopProgression = PROGRESSION;
+        api.mod.progressiveShopItems = [32, 0, 0, 0];
+        assert.equal(api.shopCellUnlocked(3, 0, 0, 1), false, "Town's items opened Island");
+    });
+});
