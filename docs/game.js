@@ -3084,13 +3084,24 @@ function townScreens(){ // original name: wf()
             : Item_Catalogue[shop_item][Item_Name]+" "+(Item_Catalogue[shop_item][Item_LV]? Item_Catalogue[shop_item][Item_LV] :"");
         itemText(shop_left+8,shop_top+24,shop_label,-1,0x282828,-2);
         itemText(shop_left+8,shop_top+24,shop_label,0xFFFFFF,-1,-2);
-        if (shop_is_check && window.ArchipelagoMod.shopHints){
-            var shop_hint = (window.ArchipelagoMod.shopHintSpoiler || {})[shop_item];
-            if (shop_hint)
-                itemText(shop_left+8,shop_top+36,shop_hint.item+" ("+shop_hint.player+")",0xFFFF00,-1,-2);
-        }
         UI_weapClass = shop_hide ? -1 : getVal(shop_item,Item_Class_ID);
-        if (UI_weapClass==Class_Compo){
+        if (shop_is_check){
+            // Buying this sends a check, not the weapon, so the weapon's AT,
+            // AGI and Range do not describe what you get. They also started at
+            // shop_top+40, four pixels into the hint line above them.
+            Large_Text.TXoutputB(shop_left+8,shop_top+40,"AP Check",0x44FF44,0x000000);
+            if (window.ArchipelagoMod.shopHints){
+                var shop_hint = (window.ArchipelagoMod.shopHintSpoiler || {})[shop_item];
+                if (shop_hint){
+                    // The stat rows used to own this space, so the hint can
+                    // wrap down it instead of running into the item grid.
+                    var hint_lines = wrapText(shop_hint.item,SHOP_HINT_COLS)
+                        .concat(wrapText("("+shop_hint.player+")",SHOP_HINT_COLS));
+                    for (var hl=0; hl<hint_lines.length && hl<6; hl++)
+                        itemText(shop_left+8,shop_top+56+12*hl,hint_lines[hl],0xFFFF00,-1,-2);
+                }
+            }
+        } else if (UI_weapClass==Class_Compo){
             Large_Text.TXoutputB(shop_left+8,shop_top+40,"Compo Item",-1,0x505050);
             itemText(shop_left+8,shop_top+56,Item_Catalogue[shop_item][Compo_Desc_1],-1,0x282828,-2);
             itemText(shop_left+8,shop_top+56,Item_Catalogue[shop_item][Compo_Desc_1],0xFFFFFF,-1,-2);
@@ -3148,12 +3159,20 @@ function townScreens(){ // original name: wf()
             r = (3*Menu_Row+i) % Shop_Items[town_stage][Menu_Column].length;
             if (shopCellUnlocked(town_stage,Menu_Column,r,latest_unlock)){
                 var cell_item = Shop_Items[town_stage][Menu_Column][r];
-                var cell_icon = shopItemIsCheck(cell_item) ? AP_DROP_ICON : cell_item;
+                var cell_is_check = shopItemIsCheck(cell_item);
+                var cell_x = shop_left+120+i%3*28;
+                var cell_y = shop_top+24+28*floor(i/3);
                 Display_Mode2 = 2;
-                dispItem(Item_Img,shop_left+120+i%3*28,shop_top+24+28*floor(i/3),24,24,24*getVal(cell_icon,Item_Ico_Big),0,24,24,getVal(cell_icon,Item_Color)); // icon of item in shop
+                // The logo is its own image, not a sprite in item.gif. Item 564
+                // carries a drop icon (Item_Ico_Sm) but its inventory icon
+                // (Item_Ico_Big) is 0, so drawing it from Item_Img rendered a
+                // blank cell instead of the Archipelago logo.
+                if (cell_is_check)
+                     dispItem(AP_Img  ,cell_x,cell_y,24,24,0,0,24,24,0xFFFFFFFF);
+                else dispItem(Item_Img,cell_x,cell_y,24,24,24*getVal(cell_item,Item_Ico_Big),0,24,24,getVal(cell_item,Item_Color)); // icon of item in shop
                 Display_Mode2 = 0;
 
-                if (cell_icon==cell_item && Item_Catalogue[cell_item][Item_LV])
+                if (!cell_is_check && Item_Catalogue[cell_item][Item_LV])
                     Small_Text.TXoutputB(shop_left+120+i%3*28+19,shop_top+24+28*floor(i/3)+17,""+Item_Catalogue[cell_item][Item_LV],0xFFFFFF,-1); // tier number next to item in shop
             }
         }
@@ -13671,6 +13690,25 @@ function centeredText(text,x_pos,y_pos,message,fill_color,outline_color){ // ori
     x_pos -= message.length*(text.TX_width+text.TX_spacing)>>1;
     y_pos -= text.TX_height>>1;
     text.TXoutputB(x_pos,y_pos,message,fill_color,outline_color);
+}
+
+// The shop's left pane runs from shop_left+8 to the item grid at shop_left+120.
+var SHOP_HINT_COLS = 17;
+
+/** Break text into lines of at most `cols` characters, on spaces where it can. */
+function wrapText(message,cols){
+    var lines = [];
+    var rest = ""+(message==null? "" :message);
+    while (rest.length > cols){
+        var cut = rest.lastIndexOf(" ",cols);
+        if (cut <= 0)
+            cut = cols;                 // a single word longer than the pane
+        lines.push(rest.slice(0,cut));
+        rest = rest.slice(cut).replace(/^ +/,"");
+    }
+    if (rest.length > 0)
+        lines.push(rest);
+    return lines;
 }
 
 function itemText(x_pos,y_pos,message,fill_color,outline_color,g){ // original name: hg()

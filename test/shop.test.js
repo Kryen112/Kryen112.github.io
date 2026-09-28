@@ -135,3 +135,64 @@ describe("shopTownIndex", () => {
         assert.equal(shopTownIndex(5), -1);
     });
 });
+
+// The shop cell and the detail pane for an uncollected check.
+//
+// Item 564 (the Archipelago logo) carries a drop icon but no inventory icon, so
+// drawing the cell out of item.gif rendered nothing. And the hint line sat at
+// shop_top+36 with the AT row at +40, four pixels into it, while a long item or
+// player name ran straight over the item grid at shop_left+120.
+describe("shop check presentation", () => {
+    const src = readFileSync(GAME_JS, "utf8");
+
+    it("draws the logo from AP_Img, not a sprite index", () => {
+        const block = src.slice(src.indexOf("var cell_is_check = shopItemIsCheck(cell_item);"));
+        const cell = block.slice(0, block.indexOf("Display_Mode2 = 0;"));
+        assert.match(cell, /if \(cell_is_check\)\s*\n\s*dispItem\(AP_Img/, "the cell renders blank");
+    });
+
+    it("the AP logo has no inventory icon, which is why AP_Img is needed", () => {
+        const entry = src.match(/Item_Catalogue\[564\] = \[([^\]]*)\]/);
+        assert.ok(entry, "could not find the AP logo catalogue entry");
+        const fields = entry[1].split(",").map((f) => f.trim());
+        assert.equal(fields[4], "0", "Item_Ico_Big is no longer 0; the workaround may be stale");
+    });
+
+    it("does not draw weapon stats over the hint line", () => {
+        const pane = src.slice(src.indexOf("var shop_is_check = shopItemIsCheck(shop_item);"));
+        const branch = pane.slice(0, pane.indexOf("} else if (UI_weapClass==Class_Compo){"));
+        assert.doesNotMatch(branch, /"AT "/, "the AT row is still drawn for a check");
+        assert.doesNotMatch(branch, /shop_top\+36/, "the hint still sits 4px above the AT row");
+    });
+});
+
+describe("wrapText", () => {
+    const wrapText = new Function(
+        `${readFileSync(GAME_JS, "utf8").match(/function wrapText\(message,cols\)\{[\s\S]*?\n\}/)[0]}
+         return wrapText;`,
+    )();
+
+    it("keeps every line inside the pane", () => {
+        for (const s of ["Progressive Shop Upgrade", "AP Item", "a".repeat(50), ""]) {
+            for (const line of wrapText(s, 17)) assert.ok(line.length <= 17, `too wide: ${line}`);
+        }
+    });
+
+    it("breaks on spaces when it can", () => {
+        assert.deepEqual(wrapText("Progressive Sword", 17), ["Progressive Sword"]);
+        assert.deepEqual(wrapText("Progressive Sword Upgrade", 17), ["Progressive Sword", "Upgrade"]);
+    });
+
+    it("splits a word longer than the pane instead of overflowing", () => {
+        assert.deepEqual(wrapText("Supercalifragilistic", 10), ["Supercalif", "ragilistic"]);
+    });
+
+    it("loses no characters", () => {
+        const text = "Some Long Item Name (SomePlayerName)";
+        assert.equal(wrapText(text, 17).join(" ").replace(/\s+/g, " "), text);
+    });
+
+    it("returns nothing for empty text", () => {
+        assert.deepEqual(wrapText("", 17), []);
+    });
+});
