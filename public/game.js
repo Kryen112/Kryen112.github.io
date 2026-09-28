@@ -92,7 +92,8 @@ const AP_DROP_ICON = 564;
  * Every organic change to the team's gold goes through here.
  *
  * One seam means Ring Link has exactly one place to observe and nothing that
- * moves gold can forget to be counted. What is recorded is the change that
+ * moves gold can forget to be counted. Returns the change that actually
+ * happened, so a caller showing a number shows the true one. What is recorded is the change that
  * actually happened, after the cap, so a purchase that could not be afforded or
  * a pickup at the ceiling does not send rings for gold that never moved.
  *
@@ -101,11 +102,13 @@ const AP_DROP_ICON = 564;
  * those blocks would validate a half-mutated state.
  */
 function gainGold(amount){
-    if (!amount) return;
+    if (!amount) return 0;
     var before = Team_Gold;
     Team_Gold = clamp(Team_Gold+amount,0,9999999);
+    var moved = Team_Gold-before;
     window.ArchipelagoMod.pendingRingLinkGold =
-        (window.ArchipelagoMod.pendingRingLinkGold || 0) + (Team_Gold-before);
+        (window.ArchipelagoMod.pendingRingLinkGold || 0) + moved;
+    return moved; // what actually landed, which is not always what was asked for
 }
 
 /**
@@ -7203,7 +7206,7 @@ SR_Player.prototype.Whipper = function(current_char){
 // angel class      original name: xa
 window.fff = SR_Player.prototype.Angel;
 SR_Player.prototype.Angel = function(current_char){
-    var ang_target,ang_is_controlled,ang_range2,ang_splash,ang_combatant,ring_MP,ang_heal_crd;
+    var ang_target,ang_is_controlled,ang_range2,ang_splash,ang_combatant,ring_MP,ang_heal_crd,ring_pay;
     var ring_vector = new Vector2D;
     var ang_ATin = AT_Min[current_char]; // set base stats
     var ang_ATax = AT_Max[current_char];
@@ -7262,8 +7265,13 @@ SR_Player.prototype.Angel = function(current_char){
                 // nulls Game_Canvas the moment the ring lands.
                 if (window.ArchipelagoMod.ringGold > 0){
                     antiCheatCheck();
-                    gainGold(window.ArchipelagoMod.ringGold);
+                    ring_pay = gainGold(window.ArchipelagoMod.ringGold);
                     antiCheatSet();
+                    // The same yellow number a gold pickup throws up, over the
+                    // angel that earned it. Uses what actually landed, so
+                    // nothing floats up once the gold cap is reached.
+                    if (ring_pay > 0)
+                        Indicators.INadd(this.PL_joint[current_char][0].x,this.PL_joint[current_char][0].y,0,ring_pay,0xFFFF00);
                 }
                 this.PL_ring_distance_to_travel[current_char][current_ring] = (ang_range>>1)+20; // set destination as 20 pixels past enemy
                 this.PL_ring_ticks_until_active[current_char][current_ring] = 0;                 // set ring hitbox as active

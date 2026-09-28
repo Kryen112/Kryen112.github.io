@@ -26,7 +26,7 @@ function loadGold() {
         "state",
         `${source.slice(start, end)}
          return {
-             gainGold: (n) => { Team_Gold = state.Team_Gold; gainGold(n); state.Team_Gold = Team_Gold; },
+             gainGold: (n) => { Team_Gold = state.Team_Gold; const moved = gainGold(n); state.Team_Gold = Team_Gold; return moved; },
              applyRingLinkGold: (n) => { Team_Gold = state.Team_Gold; applyRingLinkGold(n); state.Team_Gold = Team_Gold; },
          };
          var Team_Gold;`,
@@ -270,5 +270,57 @@ describe("the ring source survives play", () => {
 
     it("nothing unidentified goes on the wire", () => {
         assert.match(src, /this\.ringSource === null\)\s*\{\s*\n\s*stats\.skippedNoSource/);
+    });
+});
+
+// gainGold reports the change that actually happened, so a caller that shows a
+// number shows a true one. The angel's ring payout floats a "+gold" over its
+// head, and at the gold cap nothing lands, so nothing should float.
+describe("gainGold reports what landed", () => {
+    let gold;
+    beforeEach(() => {
+        gold = loadGold();
+    });
+
+    it("returns the amount for an ordinary gain", () => {
+        assert.equal(gold.gainGold(50), 50);
+    });
+
+    it("returns what fitted, not what was asked for", () => {
+        gold.state.Team_Gold = 9999990;
+        assert.equal(gold.gainGold(500), 9, "a caller would show a number that never arrived");
+    });
+
+    it("returns zero at the cap, so nothing is shown", () => {
+        gold.state.Team_Gold = 9999999;
+        assert.equal(gold.gainGold(50), 0);
+    });
+
+    it("returns a negative for a spend", () => {
+        gold.state.Team_Gold = 500;
+        assert.equal(gold.gainGold(-200), -200);
+    });
+
+    it("returns zero for a no-op", () => {
+        assert.equal(gold.gainGold(0), 0);
+    });
+});
+
+describe("the angel's ring payout is shown", () => {
+    const src = readFileSync(GAME_JS, "utf8");
+    const angel = src.slice(src.indexOf("SR_Player.prototype.Angel = function"));
+    const payout = angel.slice(0, angel.indexOf("PL_ring_distance_to_travel"));
+
+    it("floats a number over the angel that earned it", () => {
+        assert.match(payout, /Indicators\.INadd\(this\.PL_joint\[current_char\]\[0\]\.x/);
+    });
+
+    it("uses gold yellow, like a pickup", () => {
+        assert.match(payout, /ring_pay,0xFFFF00\)/);
+    });
+
+    it("shows what landed rather than what was offered", () => {
+        assert.match(payout, /ring_pay = gainGold\(window\.ArchipelagoMod\.ringGold\)/);
+        assert.match(payout, /if \(ring_pay > 0\)/, "a capped payout would still float a number");
     });
 });
