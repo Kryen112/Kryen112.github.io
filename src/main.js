@@ -974,6 +974,31 @@ class APIntegration {
     }
 
     /**
+     * Counters for Ring Link, readable from the console as
+     * window.ArchipelagoMod.ringLinkStats.
+     *
+     * Every way a bounce can be discarded is counted separately, because when
+     * the link goes quiet the useful question is which guard ate it -- the
+     * packet arriving and being dropped looks identical from the outside to the
+     * packet never arriving.
+     */
+    _ringLinkStats() {
+        window.ArchipelagoMod.ringLinkStats ??= {
+            sent: 0,
+            sentGold: 0,
+            received: 0,
+            receivedGold: 0,
+            droppedDisabled: 0,
+            droppedWrongTag: 0,
+            droppedOwnEcho: 0,
+            droppedZero: 0,
+            lastSentAt: null,
+            lastReceivedAt: null,
+        };
+        return window.ArchipelagoMod.ringLinkStats;
+    }
+
+    /**
      * Inbound Ring Link: someone else's rings become gold here.
      *
      * Applied through applyRingLinkGold, which does not add to the pending
@@ -981,18 +1006,33 @@ class APIntegration {
      * otherwise amplify each other without limit.
      */
     _onRingLinkBounce(packet) {
-        if (!window.ArchipelagoMod.ringLink) return;
-        if (!(packet.tags || []).includes("RingLink")) return;
+        const stats = this._ringLinkStats();
+        if (!window.ArchipelagoMod.ringLink) {
+            stats.droppedDisabled++;
+            return;
+        }
+        if (!(packet.tags || []).includes("RingLink")) {
+            stats.droppedWrongTag++;
+            return;
+        }
 
         const data = packet.data || {};
         // The server echoes our own Bounce back to us, so drop it.
-        if (data.source !== undefined && data.source === this.ringSource) return;
+        if (data.source !== undefined && data.source === this.ringSource) {
+            stats.droppedOwnEcho++;
+            return;
+        }
 
         const rings = Number(data.amount);
-        if (!Number.isFinite(rings) || rings === 0) return;
+        const gold = Number.isFinite(rings) ? Math.trunc(rings * (window.ArchipelagoMod.ringLinkRatio || 100)) : 0;
+        if (gold === 0) {
+            stats.droppedZero++;
+            return;
+        }
 
-        const gold = Math.trunc(rings * (window.ArchipelagoMod.ringLinkRatio || 100));
-        if (gold === 0) return;
+        stats.received++;
+        stats.receivedGold += gold;
+        stats.lastReceivedAt = new Date().toISOString();
         window.ArchipelagoMod.applyRingLinkGold(gold);
         this.log(`RingLink: ${rings > 0 ? "+" : ""}${rings} rings (${gold > 0 ? "+" : ""}$${gold})`, "info");
     }
@@ -1007,20 +1047,28 @@ class APIntegration {
      * remainder is kept for next time.
      */
     async _flushRingLink() {
+        if (!this._connected || !this.client?.authenticated) return;
         if (!window.ArchipelagoMod.ringLink) {
             // Nothing will ever send it, so do not let it accumulate all session.
             window.ArchipelagoMod.pendingRingLinkGold = 0;
             return;
         }
         if (Date.now() - this.lastRingFlush < RING_LINK_FLUSH_MS) return;
-        this.lastRingFlush = Date.now();
 
         const ratio = window.ArchipelagoMod.ringLinkRatio || 100;
         const pending = window.ArchipelagoMod.pendingRingLinkGold || 0;
         const rings = Math.trunc(pending / ratio);
+        // Nothing to send yet: leave the timer alone so the next gold movement
+        // goes out at once instead of waiting for the following window.
         if (rings === 0) return;
 
+        // Both of these land before the await, so an overlapping tick sees them.
+        this.lastRingFlush = Date.now();
         window.ArchipelagoMod.pendingRingLinkGold = pending - rings * ratio;
+        const stats = this._ringLinkStats();
+        stats.sent++;
+        stats.sentGold += rings * ratio;
+        stats.lastSentAt = new Date().toISOString();
         await this.client.socket.send({
             cmd: "Bounce",
             tags: ["RingLink"],
@@ -1032,6 +1080,14 @@ class APIntegration {
         if (!this._disconnected) {
             this._doTickWork().catch((err) => {
                 console.error("Tick error:", err);
+            });
+            // Ring Link is time-gated and self-contained, so it runs on its own
+            // rather than last in _doTickWork. It used to sit behind four saves
+            // and two location sends in a single promise: one slow save and the
+            // flush never ran that tick, and as the save payload grew the link
+            // quietly stopped sending with nothing in the console to show it.
+            this._flushRingLink().catch((err) => {
+                console.error("Ring Link flush error:", err);
             });
         }
 
@@ -1259,8 +1315,6 @@ class APIntegration {
                     await this.sendLocation(enemyId + this.ENEMY_OFFSET);
                 }
             }
-
-            await this._flushRingLink();
 
             if (window.ArchipelagoMod.pendingSave) {
                 window.ArchipelagoMod.pendingSave = false;

@@ -196,3 +196,47 @@ describe("the gold seam has no bypasses", () => {
         );
     });
 });
+
+// The flush has to survive a slow tick.
+//
+// It used to be the last statement of _doTickWork, behind four saveAPData calls
+// and two sendLocation calls in one promise. Any of those stalling meant the
+// flush did not run, and as the save payload grew the link went quiet with
+// nothing in the console to show for it.
+describe("the ring flush does not ride on the tick's other work", () => {
+    const MAIN_JS = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "main.js");
+    const src = readFileSync(MAIN_JS, "utf8");
+    const tick = src.slice(src.indexOf("    _tick() {"), src.indexOf("\n    }", src.indexOf("    _tick() {")));
+    const tickWork = src.slice(
+        src.indexOf("async _doTickWork() {"),
+        src.indexOf("\n    _tick() {", src.indexOf("async _doTickWork() {")),
+    );
+
+    it("_tick drives it directly", () => {
+        assert.match(tick, /this\._flushRingLink\(\)/, "the flush is not started by _tick");
+    });
+
+    it("_doTickWork does not", () => {
+        assert.doesNotMatch(tickWork, /_flushRingLink/, "the flush is back behind the tick's awaits");
+    });
+
+    it("its failures cannot take the tick down with them", () => {
+        assert.match(tick, /_flushRingLink\(\)\.catch\(/, "an unhandled rejection would escape");
+    });
+
+    it("it checks the connection itself, now that nothing else does", () => {
+        const flush = src.slice(src.indexOf("async _flushRingLink() {"));
+        const body = flush.slice(0, flush.indexOf("\n    }"));
+        assert.match(body, /this\._connected/, "it would send while disconnected");
+    });
+
+    it("keeps the timer for sends it actually makes", () => {
+        // Spending the window on an empty flush delays the next real one.
+        const flush = src.slice(src.indexOf("async _flushRingLink() {"));
+        const body = flush.slice(0, flush.indexOf("\n    }"));
+        assert.ok(
+            body.indexOf("if (rings === 0) return;") < body.indexOf("this.lastRingFlush = Date.now();"),
+            "the timer resets even when nothing is sent",
+        );
+    });
+});
