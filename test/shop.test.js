@@ -312,3 +312,35 @@ describe("a seed from before the shops split", () => {
         assert.equal(api.shopCellUnlocked(3, 0, 0, 1), false, "Town's items opened Island");
     });
 });
+
+// Scouting has to keep up with stock that grows while you are standing in the
+// shop. A Progressive Shop item arriving mid-visit opens a row that was never
+// scouted, so it showed an Archipelago logo with nothing behind it until you
+// walked out and back in.
+describe("re-scouting a shop that grows while you are in it", () => {
+    const MAIN_JS = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "main.js");
+    const src = readFileSync(MAIN_JS, "utf8");
+    const tick = src.slice(src.indexOf("const stockKey ="), src.indexOf("const stockKey =") + 600);
+
+    it("keys off how many Progressive items are held", () => {
+        assert.match(tick, /window\.ArchipelagoMod\.progressiveShopItems \|\| \[\]\)\.join/);
+    });
+
+    it("scouts again when that changes, not only on opening", () => {
+        assert.match(tick, /!this\.isScoutingShop \|\| stockKey !== this\.shopStockKey/);
+    });
+
+    it("remembers what it last scouted, so it does not loop", () => {
+        assert.match(tick, /this\.shopStockKey = stockKey;/);
+    });
+
+    it("leaves _applyItem out of it", () => {
+        const applyItem = src.slice(src.indexOf("    async _applyItem("));
+        const body = applyItem.slice(0, applyItem.indexOf("\n    isInPlayableSequenceStep()"));
+        assert.doesNotMatch(body, /scoutShopOnOpen/, "item handling should not know about the shop screen");
+    });
+
+    it("the hint check lives with the scout, not at each call site", () => {
+        assert.match(src, /shopChecks \|\| !this\.sendShopHints\) return;/);
+    });
+});

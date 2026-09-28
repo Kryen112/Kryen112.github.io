@@ -42,6 +42,7 @@ class APIntegration {
         this.sendShopHints = false;
         this.isScouting = false;
         this.isScoutingShop = false;
+        this.shopStockKey = "";
         // Per-connection id, so the server's echo of our own Bounce is dropped.
         this.ringSource = null;
         this.lastRingFlush = 0;
@@ -1009,7 +1010,7 @@ class APIntegration {
      * opened since.
      */
     async scoutShopOnOpen() {
-        if (!window.ArchipelagoMod.shopChecks) return;
+        if (!window.ArchipelagoMod.shopChecks || !this.sendShopHints) return;
         const town = window.ArchipelagoMod.shopTownIndex(Current_Stage);
         if (town < 0) return;
 
@@ -1365,9 +1366,16 @@ class APIntegration {
                 this.isScouting = false;
             }
 
-            if (Sequence_Step === 53 && !this.isScoutingShop && this.sendShopHints) {
+            // Scout on opening the shop, and again whenever its stock grows
+            // while you are still standing in it -- a Progressive Shop item
+            // arriving mid-visit opens a row that has never been scouted, so it
+            // would sit there as a blank logo until you walked out and back in.
+            // scoutShopOnOpen only asks about rows it has not hinted already.
+            const stockKey = (window.ArchipelagoMod.progressiveShopItems || []).join(",");
+            if (Sequence_Step === 53 && (!this.isScoutingShop || stockKey !== this.shopStockKey)) {
                 this.isScoutingShop = true;
-                this.scoutShopOnOpen();
+                this.shopStockKey = stockKey;
+                await this.scoutShopOnOpen();
             }
 
             if (Sequence_Step !== 53 && this.isScoutingShop) {
