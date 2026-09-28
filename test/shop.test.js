@@ -221,7 +221,7 @@ describe("shop check presentation", () => {
         const cell = block.slice(0, block.indexOf("Display_Mode2 = 0;"));
         assert.match(
             cell,
-            /if \(cell_is_check\)\s*\n\s*dispItem\(cell_blocked\? AP_Img_Grey :AP_Img/,
+            /if \(cell_is_check && cell_sprite<0\)\s*\n\s*dispItem\(cell_blocked\? AP_Img_Grey :AP_Img/,
             "the cell renders blank",
         );
     });
@@ -342,5 +342,66 @@ describe("re-scouting a shop that grows while you are in it", () => {
 
     it("the hint check lives with the scout, not at each call site", () => {
         assert.match(src, /shopChecks \|\| !this\.sendShopHints\) return;/);
+    });
+});
+
+// A shop check holding a Stick Ranger item is drawn as that item rather than
+// the Archipelago logo, so a shelf reads at a glance. Item codes are identical
+// in every Stick Ranger slot, so another player's sword is drawn as our sword.
+describe("shopCheckSprite", () => {
+    function load(mod) {
+        const src = readFileSync(GAME_JS, "utf8");
+        const start = src.indexOf("function shopCheckSprite(itemId){");
+        const end = src.indexOf("\n}", start) + 2;
+        return new Function("window", `${src.slice(start, end)} return shopCheckSprite;`)({
+            ArchipelagoMod: mod,
+        });
+    }
+
+    const WITH_SPRITE = { shopHints: 1, shopHintSpoiler: { 300: { sprite: 42 } } };
+
+    it("draws the item a Stick Ranger check is holding", () => {
+        assert.equal(load(WITH_SPRITE)(300), 42);
+    });
+
+    it("falls back to the logo for another game's item", () => {
+        assert.equal(load({ shopHints: 1, shopHintSpoiler: { 300: { sprite: null } } })(300), -1);
+    });
+
+    it("falls back to the logo for an unscouted cell", () => {
+        assert.equal(load({ shopHints: 1, shopHintSpoiler: {} })(300), -1);
+    });
+
+    it("keeps the mystery when Shop Hints are off", () => {
+        assert.equal(load({ ...WITH_SPRITE, shopHints: 0 })(300), -1, "the sprite gave the item away");
+    });
+
+    it("survives having never been handed any hints", () => {
+        assert.equal(load({ shopHints: 1 })(300), -1);
+    });
+
+    it("treats catalogue id 0 as a real sprite, not as absent", () => {
+        assert.equal(load({ shopHints: 1, shopHintSpoiler: { 300: { sprite: 0 } } })(300), 0);
+    });
+});
+
+describe("the sprite on the hint record", () => {
+    const MAIN_JS = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "main.js");
+    const src = readFileSync(MAIN_JS, "utf8");
+    const body = src.slice(src.indexOf("    _stickRangerSprite(game, itemId) {"));
+    const method = body.slice(0, body.search(/\n {4}\}/));
+
+    it("only maps Stick Ranger's own items", () => {
+        assert.match(method, /game !== "Stick Ranger"/);
+    });
+
+    it("only maps the filler range, where the catalogue lives", () => {
+        assert.match(method, /itemId < this\.ITEM_OFFSET \|\| itemId >= this\.ITEM_OFFSET \+ 999/);
+    });
+
+    it("a disguised trap keeps the logo", () => {
+        // Its own sprite would give it away, and wearing the sprite of what it
+        // pretends to be is a lie the shelf cannot take back.
+        assert.match(src, /itemClassification: 0b001, sprite: null/);
     });
 });

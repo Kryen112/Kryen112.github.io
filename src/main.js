@@ -955,6 +955,7 @@ class APIntegration {
             player: owner.name,
             item: this.client.package.lookupItemName(owner.game, networkItem.item),
             itemClassification: networkItem.flags,
+            sprite: this._stickRangerSprite(owner.game, networkItem.item),
         };
 
         const isTrap = (networkItem.flags & 0b100) !== 0;
@@ -962,7 +963,23 @@ class APIntegration {
 
         const disguise = disguiseFor(networkItem.location, this._decoyNames());
         if (disguise === null) return hint;
-        return { ...hint, item: disguise, itemClassification: 0b001 };
+        // A disguised trap keeps the logo: its own sprite would give it away,
+        // and wearing the sprite of the item it is pretending to be would be a
+        // lie the shelf cannot take back.
+        return { ...hint, item: disguise, itemClassification: 0b001, sprite: null };
+    }
+
+    /**
+     * The catalogue id to draw for a hinted item, or null.
+     *
+     * Only Stick Ranger's own items have a sprite we can show, but any Stick
+     * Ranger slot will do -- the item codes are the same in every one of them,
+     * so another player's sword is drawn as our sword.
+     */
+    _stickRangerSprite(game, itemId) {
+        if (game !== "Stick Ranger") return null;
+        if (itemId < this.ITEM_OFFSET || itemId >= this.ITEM_OFFSET + 999) return null;
+        return itemId - this.ITEM_OFFSET;
     }
 
     /**

@@ -128,6 +128,6 @@ describe("the buy path honours it", () => {
 
     it("greys the icon rather than hiding it", () => {
         assert.match(src, /cell_blocked\? AP_Img_Grey :AP_Img/);
-        assert.match(src, /cell_blocked\? 0xFF606060 :getVal\(cell_item,Item_Color\)/);
+        assert.match(src, /cell_blocked\? 0xFF606060 :getVal\(cell_sprite,Item_Color\)/);
     });
 });

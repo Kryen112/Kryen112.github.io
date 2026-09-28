@@ -144,6 +144,17 @@ function apItemColor(flags){
     return 0xFFFFFF;
 }
 
+// A shop check holding a Stick Ranger item can be drawn as that item rather
+// than the Archipelago logo, so a shelf reads at a glance. Only with Shop Hints
+// on: without them the cell is meant to be a mystery, and the sprite would give
+// it away. Returns -1 when there is nothing better than the logo to draw.
+function shopCheckSprite(itemId){
+    if (!window.ArchipelagoMod.shopHints) return -1;
+    var hint = (window.ArchipelagoMod.shopHintSpoiler || {})[itemId];
+    if (!hint || hint.sprite == null) return -1;
+    return hint.sprite;
+}
+
 // Whether a cell is in stock, which is the only thing Progressive Shop changes.
 // How many of that shop's own Progressive items a row costs. The seed ships the
 // numbers, so the stock the player sees is the stock the fill assumed. Town,
@@ -3202,9 +3213,10 @@ function townScreens(){ // original name: wf()
                 // carries a drop icon (Item_Ico_Sm) but its inventory icon
                 // (Item_Ico_Big) is 0, so drawing it from Item_Img rendered a
                 // blank cell instead of the Archipelago logo.
-                if (cell_is_check)
+                var cell_sprite = cell_is_check? shopCheckSprite(cell_item) :cell_item;
+                if (cell_is_check && cell_sprite<0)
                      dispItem(cell_blocked? AP_Img_Grey :AP_Img,cell_x,cell_y,24,24,0,0,24,24,0xFFFFFFFF);
-                else dispItem(Item_Img,cell_x,cell_y,24,24,24*getVal(cell_item,Item_Ico_Big),0,24,24,cell_blocked? 0xFF606060 :getVal(cell_item,Item_Color)); // icon of item in shop
+                else dispItem(Item_Img,cell_x,cell_y,24,24,24*getVal(cell_sprite,Item_Ico_Big),0,24,24,cell_blocked? 0xFF606060 :getVal(cell_sprite,Item_Color)); // icon of item in shop
                 Display_Mode2 = 0;
 
                 if (!cell_is_check && Item_Catalogue[cell_item][Item_LV])
