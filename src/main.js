@@ -984,6 +984,9 @@ class APIntegration {
      */
     _ringLinkStats() {
         window.ArchipelagoMod.ringLinkStats ??= {
+            // Compare this between the two clients: identical means every
+            // packet from the other player is discarded as your own echo.
+            source: null,
             sent: 0,
             sentGold: 0,
             received: 0,
@@ -994,6 +997,11 @@ class APIntegration {
             droppedZero: 0,
             lastSentAt: null,
             lastReceivedAt: null,
+            // Why a flush sent nothing.
+            skippedOffline: 0,
+            skippedDisabled: 0,
+            skippedThrottled: 0,
+            skippedEmpty: 0,
         };
         return window.ArchipelagoMod.ringLinkStats;
     }
@@ -1047,25 +1055,36 @@ class APIntegration {
      * remainder is kept for next time.
      */
     async _flushRingLink() {
-        if (!this._connected || !this.client?.authenticated) return;
+        const stats = this._ringLinkStats();
+        stats.source = this.ringSource;
+        if (!this._connected || !this.client?.authenticated) {
+            stats.skippedOffline++;
+            return;
+        }
         if (!window.ArchipelagoMod.ringLink) {
             // Nothing will ever send it, so do not let it accumulate all session.
             window.ArchipelagoMod.pendingRingLinkGold = 0;
+            stats.skippedDisabled++;
             return;
         }
-        if (Date.now() - this.lastRingFlush < RING_LINK_FLUSH_MS) return;
+        if (Date.now() - this.lastRingFlush < RING_LINK_FLUSH_MS) {
+            stats.skippedThrottled++;
+            return;
+        }
 
         const ratio = window.ArchipelagoMod.ringLinkRatio || 100;
         const pending = window.ArchipelagoMod.pendingRingLinkGold || 0;
         const rings = Math.trunc(pending / ratio);
         // Nothing to send yet: leave the timer alone so the next gold movement
         // goes out at once instead of waiting for the following window.
-        if (rings === 0) return;
+        if (rings === 0) {
+            stats.skippedEmpty++;
+            return;
+        }
 
         // Both of these land before the await, so an overlapping tick sees them.
         this.lastRingFlush = Date.now();
         window.ArchipelagoMod.pendingRingLinkGold = pending - rings * ratio;
-        const stats = this._ringLinkStats();
         stats.sent++;
         stats.sentGold += rings * ratio;
         stats.lastSentAt = new Date().toISOString();
