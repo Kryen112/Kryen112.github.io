@@ -14384,21 +14384,34 @@ document.onkeydown = function(event){ // vh.onkeydown
         return false;
 };
 
-document.onkeyup = function(event){ // vh.onkeyup
-    var key = event.keyCode;
-    if (65<=key & key<=90){ // if pressed key is a letter key
-        if (event.shiftKey==false)
-            key += 32;
-    } else {
-        if (event.shiftKey==true)
-             key = Arr256_5[key];
-        else key = Arr256_4[key];
-    }
+function releaseKey(key){
     if (0<=key && key<256)
         Is_Key_Held[key] = false;
+}
+
+document.onkeyup = function(event){ // vh.onkeyup
+    var key = event.keyCode;
+    // Release every index this physical key can map to, not just the one that
+    // matches Shift right now. Pressing "a" unshifted and letting go with Shift
+    // held used to clear 65 and leave 97 held for good, which walks the
+    // selected ranger until the key is pressed and released cleanly again.
+    if (65<=key && key<=90){ // if pressed key is a letter key
+        releaseKey(key);
+        releaseKey(key+32);
+    } else {
+        releaseKey(Arr256_4[key]);
+        releaseKey(Arr256_5[key]);
+    }
     if (key!=0 && Mouse_In_Window)
         return false;
 };
+
+// A keyup never arrives if the window loses focus mid-press, so the key would
+// stay held. Alt-tabbing while walking used to leave a ranger walking.
+window.addEventListener("blur", function(){
+    for (var k=0; k<256; k++)
+        Is_Key_Held[k] = false;
+});
 
 var Mouse_In_Window = false; // original name: bi
 //var wg = "";                 // unused

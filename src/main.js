@@ -130,6 +130,11 @@ class APIntegration {
                 this._onSendClick();
             }
         });
+        // The game reads keys off document, so anything typed in chat also
+        // drives the rangers -- an "a" or "d" walks whoever is selected.
+        for (const type of ["keydown", "keyup", "keypress"]) {
+            this.message.addEventListener(type, (event) => event.stopPropagation());
+        }
 
         window.addEventListener("beforeunload", () => this._onUnload());
         this._tick = this._tick.bind(this);
