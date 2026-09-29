@@ -1,5 +1,6 @@
 import { Client, itemsHandlingFlags } from "archipelago.js";
 import { itemColor, itemColorValue } from "./colors.js";
+import { connectionFromQuery } from "./connection.js";
 import { disguiseFor } from "./disguise.js";
 
 const CONNECTION_KEY = "StickRangerConnection";
@@ -162,6 +163,27 @@ class APIntegration {
             }
         } catch {
             // no saved details, or storage is unavailable -- leave the defaults
+        }
+        this._applyLinkedConnectionInfo();
+    }
+
+    /**
+     * Details from a room-page link win over what was saved, and are dropped
+     * from the address bar once read, so a refresh after retyping the port by
+     * hand keeps the retyped one rather than the link's.
+     */
+    _applyLinkedConnectionInfo() {
+        const linked = connectionFromQuery(window.location.search);
+        for (const [field, value] of Object.entries(linked)) {
+            this[field].value = value;
+        }
+        if (Object.keys(linked).length === 0) {
+            return;
+        }
+        try {
+            history.replaceState(null, "", window.location.pathname + window.location.hash);
+        } catch {
+            // leave the address as it is; the form is already filled in
         }
     }
 
