@@ -13239,6 +13239,46 @@ function shopCellBlocked(town_stage, column, row){
         && !shopTierInLogic(shopTier(row,Shop_Items[town_stage][column].length));
 }
 
+// What the next locked boss gate is still waiting for.
+//
+// A player can see that Castle will not open, but not which of the twenty-odd
+// Grassland stages counts towards it or how many ranger classes it wants. The
+// seed's own logic knows both, so this reads it back out.
+//
+// Returns null when the seed shipped no logic, or when every gate is already
+// open. Otherwise: the gate, and the stage ids and class count still missing.
+function nextGateNeeds(){
+    var logic = logicDescription();
+    if (!logic) return null;
+
+    var open = openGates(logic);
+    var classes = window.ArchipelagoMod.rangerClassesUnlocked.size;
+
+    for (var i=0; i<logic.gates.length; i++){
+        var gate = logic.gates[i];
+        if (open[gate.stage]) continue; // already through this one
+
+        // The gates chain, so the first closed one is the one being worked on.
+        var region = logic.regions[gate.region] || [];
+        var missing = [];
+        for (var r=0; r<region.length; r++){
+            if (!unlocked(region[r])) missing.push(region[r]);
+        }
+        return {
+            stage: gate.stage,
+            region: gate.region,
+            needsOwnUnlock: !unlocked(gate.stage),
+            heldInRegion: region.length-missing.length,
+            requiredInRegion: gate.stages,
+            missingStages: missing,
+            classesHeld: classes,
+            classesRequired: gate.classes,
+        };
+    }
+    return null; // every gate open
+}
+window.ArchipelagoMod.nextGateNeeds = nextGateNeeds;
+
 // Enforcement: with the option on, a stage out of logic cannot be entered at
 // all. Only meaningful when the seed described its logic.
 function stageIsBlocked(stage){

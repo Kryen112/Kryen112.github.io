@@ -17,6 +17,7 @@ export default [
                 ...globals.node,
                 // Supplied by public/game.js, which loads before the client.
                 Stage_Status: "readonly",
+                Stage_Names: "readonly",
                 Stage_Count: "readonly",
                 Current_Stage: "readonly",
                 Unlocked: "readonly",
