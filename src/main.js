@@ -39,6 +39,7 @@ class APIntegration {
         this.prevStage = [...Stage_Status];
         this.winReported = false;
         this.lastSequence = -1;
+        this.lastStage = -1;
         this.sendShopHints = false;
         this.isScouting = false;
         this.isScoutingShop = false;
@@ -1418,6 +1419,17 @@ class APIntegration {
 
             if (window.ArchipelagoMod.pendingSave) {
                 window.ArchipelagoMod.pendingSave = false;
+                await this.saveAPData();
+            }
+
+            // Saving used to happen only when something crossed the network: a
+            // check sent, an item received, a shop scouted. A run of stages
+            // with none of those never saved at all, so a refresh threw away
+            // every level and item earned since the last one. Leaving a stage,
+            // or moving to a different one, now saves as well.
+            const leftPlay = this.lastSequence === 12 && Sequence_Step !== 12;
+            if (leftPlay || this.lastStage !== Current_Stage) {
+                this.lastStage = Current_Stage;
                 await this.saveAPData();
             }
         }
