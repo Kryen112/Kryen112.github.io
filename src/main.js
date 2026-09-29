@@ -438,10 +438,20 @@ class APIntegration {
 
         this.client.socket.on("locationInfo", (locationInfoPacket) => {
             locationInfoPacket.locations.forEach((networkItem) => {
-                if (networkItem.location >= this.SHOP_OFFSET) {
-                    this.shopHints[networkItem.location - this.SHOP_OFFSET] = this._hintFor(networkItem);
-                } else if (networkItem.location >= this.BOOK_OFFSET && networkItem.location < this.BOOK_OFFSET + 100) {
-                    this.bookHints[networkItem.location - this.BOOK_OFFSET] = this._hintFor(networkItem);
+                // Per item: one hint that cannot be built must not cost the
+                // rest of the packet theirs, which is how a single throw left a
+                // run of shop cells with nothing to say.
+                try {
+                    if (networkItem.location >= this.SHOP_OFFSET) {
+                        this.shopHints[networkItem.location - this.SHOP_OFFSET] = this._hintFor(networkItem);
+                    } else if (
+                        networkItem.location >= this.BOOK_OFFSET &&
+                        networkItem.location < this.BOOK_OFFSET + 100
+                    ) {
+                        this.bookHints[networkItem.location - this.BOOK_OFFSET] = this._hintFor(networkItem);
+                    }
+                } catch (error) {
+                    console.error("Could not read a hint for location", networkItem.location, error);
                 }
             });
         });
@@ -1001,9 +1011,16 @@ class APIntegration {
      * the data package does not change mid-session, and there are thousands.
      */
     _decoyNames() {
-        if (this._decoys) return this._decoys;
+        // Cached only once there is something to cache: an empty array is
+        // truthy, so caching one before the data package arrived would leave
+        // every trap undisguised for the rest of the session.
+        if (this._decoys?.length) return this._decoys;
+
         const names = new Set();
-        for (const game of this.client.package.games) {
+        // The room knows which games are in it; the data package only knows how
+        // to look one up. Asking the package for the list returned undefined,
+        // which threw and took the whole hint out with it.
+        for (const game of this.client.room.games ?? []) {
             const pkg = this.client.package.findPackage(game);
             for (const name of Object.keys(pkg?.item_name_to_id ?? {})) {
                 names.add(name);

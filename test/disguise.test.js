@@ -124,3 +124,75 @@ describe("the hint record", () => {
         assert.match(method, /if \(disguise !== null\)/);
     });
 });
+
+// Where the decoy names come from.
+//
+// This asked the data package for the room's game list, which it does not have:
+// client.package.games is undefined, so the loop threw. The throw happened
+// inside the locationInfo handler, so the trap went undisguised AND every
+// location after it in that packet lost its hint text too.
+describe("_decoyNames", () => {
+    const MAIN_JS = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "main.js");
+    const src = readFileSync(MAIN_JS, "utf8");
+
+    function load(room, packages) {
+        const body = src.slice(src.indexOf("    _decoyNames() {"));
+        const method = body.slice(0, body.search(/\n {4}\}/) + 6);
+        const host = new Function(`return { _decoys: undefined, client: null, ${method} };`)();
+        host.client = { room, package: { findPackage: (g) => packages[g] ?? null } };
+        return host;
+    }
+
+    const PACKAGES = {
+        "Stick Ranger": { item_name_to_id: { "Unlock Lake": 1, "Unlock Volcano": 2 } },
+        "Hollow Knight": { item_name_to_id: { "Mothwing Cloak": 3 } },
+    };
+
+    it("reads the game list off the room, not the data package", () => {
+        assert.match(src, /this\.client\.room\.games/, "the package has no game list");
+        assert.doesNotMatch(src, /this\.client\.package\.games/, "this is undefined and throws");
+    });
+
+    it("collects names from every game in the room", () => {
+        const host = load({ games: ["Stick Ranger", "Hollow Knight"] }, PACKAGES);
+        assert.deepEqual(host._decoyNames(), ["Mothwing Cloak", "Unlock Lake", "Unlock Volcano"]);
+    });
+
+    it("survives a room that has not told us its games yet", () => {
+        const host = load({}, PACKAGES);
+        assert.deepEqual(host._decoyNames(), [], "an empty list must not throw");
+    });
+
+    it("survives a game with no package", () => {
+        const host = load({ games: ["Some Game"] }, {});
+        assert.deepEqual(host._decoyNames(), []);
+    });
+
+    it("does not cache an empty result", () => {
+        // An empty array is truthy, so caching one before the data package
+        // arrived would leave every trap undisguised for the whole session.
+        const host = load({ games: [] }, PACKAGES);
+        assert.deepEqual(host._decoyNames(), []);
+        host.client.room = { games: ["Stick Ranger"] };
+        assert.deepEqual(host._decoyNames(), ["Unlock Lake", "Unlock Volcano"]);
+    });
+
+    it("caches once it has something", () => {
+        const host = load({ games: ["Stick Ranger"] }, PACKAGES);
+        const first = host._decoyNames();
+        host.client.room = { games: ["Hollow Knight"] };
+        assert.equal(host._decoyNames(), first, "it rebuilt the list unnecessarily");
+    });
+});
+
+describe("one bad hint does not cost the others", () => {
+    const MAIN_JS = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "main.js");
+    const src = readFileSync(MAIN_JS, "utf8");
+
+    it("builds each hint inside its own try", () => {
+        const handler = src.slice(src.indexOf('socket.on("locationInfo"'));
+        const body = handler.slice(0, handler.indexOf("});\n\n"));
+        assert.match(body, /try \{/, "a single throw still empties the rest of the packet");
+        assert.match(body, /catch \(error\)/);
+    });
+});
