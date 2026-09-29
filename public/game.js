@@ -3571,9 +3571,14 @@ function townScreens(){ // original name: wf()
                 } else {
                     centeredText(Large_Text,book_left+240,book_top+40,"Information Fee",0xFFFFFF,0x000000);
                 }
-                if (window.ArchipelagoMod.bookCostRandomizer >= 1) entry_cost = window.ArchipelagoMod.randomizedBookCosts[book_stage]; // book cost in AP
+                // Modes 1-3 roll their own price; mode 4 keeps the vanilla one
+                // and divides it, so it is applied after the price is settled.
+                if (window.ArchipelagoMod.bookCostRandomizer >= 1 && window.ArchipelagoMod.bookCostRandomizer <= 3)
+                     entry_cost = window.ArchipelagoMod.randomizedBookCosts[book_stage]; // book cost in AP
                 else if (Randomizer_Mode==1) entry_cost = 500*(Book_Page*rows_per_page+Book_Row+1);  // book cost in randomizer
                 else entry_cost = 1000*(Book_Page*rows_per_page+Book_Row+1); // book cost
+                if (window.ArchipelagoMod.bookCostRandomizer == 4)
+                    entry_cost = floor(entry_cost/10);
                 if (isMouseHoveredCenter(book_left+240,book_top+80,160,160)){
                     if (Team_Gold>=entry_cost && Clicked){
                         antiCheatCheck();
