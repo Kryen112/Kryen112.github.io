@@ -147,6 +147,15 @@ function apItemColor(flags){
     return 0xFFFFFF;
 }
 
+// Whether a shop check holds a Progressive Shop item, which earns the arrow
+// badge over the logo. Like the sprite, this only reads once Shop Hints have
+// told us what is in there.
+function shopCheckIsProgressive(itemId){
+    if (!window.ArchipelagoMod.shopHints) return false;
+    var hint = (window.ArchipelagoMod.shopHintSpoiler || {})[itemId];
+    return !!hint && !!hint.progressiveShop;
+}
+
 // A shop check holding a Stick Ranger item can be drawn as that item rather
 // than the Archipelago logo, so a shelf reads at a glance. Only with Shop Hints
 // on: without them the cell is meant to be a mystery, and the sprite would give
@@ -268,6 +277,10 @@ var AP_Img = new SR_Image;                  // AP IMG
 var AP_Img_Grey = new SR_Image;             // AP IMG Grey
 var AP_Icon = new SR_Image;                 // AP Icon
 var AP_Icon_Grey = new SR_Image;            // AP Icon Grey
+// The tile a shop check wears when it holds a Progressive Shop item: the
+// Archipelago logo with an arrow beside it. Swap data/AP_arrow.gif for your own
+// 24x24 and it is picked up as-is -- nothing here needs changing.
+var AP_Arrow = new SR_Image;                // AP progressive badge
 var Enemy_Head_Img = new SR_Image;          // enemy head images               original name: Va
 var Sign_Img = new SR_Image;                // blank sign icon                 original name: Wa
 var Projectiles_Img = new SR_Image;         // images for all projectiles      original name: Za
@@ -2223,6 +2236,7 @@ function gameStartup(usr_id,lang,cookie,mode,e,g,k,r,m,n,F,H,M){ // original nam
         AP_Img_Grey.IGset("AP_grey.gif");
         AP_Icon.IGset("AP_icon.gif");
         AP_Icon_Grey.IGset("AP_icon_grey.gif");
+        AP_Arrow.IGset("AP_arrow.gif");
         Enemy_Head_Img.IGset("en.gif");
         Sign_Img.IGset("next.gif");
         Projectiles_Img.IGset("mag.gif");
@@ -2253,6 +2267,7 @@ function gameStartup(usr_id,lang,cookie,mode,e,g,k,r,m,n,F,H,M){ // original nam
         imgToArray(AP_Img_Grey);
         imgToArray(AP_Icon);
         imgToArray(AP_Icon_Grey);
+        imgToArray(AP_Arrow);
         imgToArray(Enemy_Head_Img);
         imgToArray(Sign_Img);
         imgToArray(Projectiles_Img);
@@ -3217,9 +3232,16 @@ function townScreens(){ // original name: wf()
                 // (Item_Ico_Big) is 0, so drawing it from Item_Img rendered a
                 // blank cell instead of the Archipelago logo.
                 var cell_sprite = cell_is_check? shopCheckSprite(cell_item) :cell_item;
-                if (cell_is_check && cell_sprite<0)
-                     dispItem(cell_blocked? AP_Img_Grey :AP_Img,cell_x,cell_y,24,24,0,0,24,24,0xFFFFFFFF);
-                else dispItem(Item_Img,cell_x,cell_y,24,24,24*getVal(cell_sprite,Item_Ico_Big),0,24,24,cell_blocked? 0xFF606060 :getVal(cell_sprite,Item_Color)); // icon of item in shop
+                if (cell_is_check && cell_sprite<0){
+                    // The logo tiles are opaque 24x24, so a Progressive Shop
+                    // check takes its own tile -- the logo with an arrow beside
+                    // it -- rather than having one drawn over the plain logo.
+                    var cell_progressive = shopCheckIsProgressive(cell_item);
+                    dispItem(
+                        cell_progressive? AP_Arrow :(cell_blocked? AP_Img_Grey :AP_Img),
+                        cell_x,cell_y,24,24,0,0,24,24,
+                        (cell_progressive && cell_blocked)? 0xFF606060 :0xFFFFFFFF);
+                } else dispItem(Item_Img,cell_x,cell_y,24,24,24*getVal(cell_sprite,Item_Ico_Big),0,24,24,cell_blocked? 0xFF606060 :getVal(cell_sprite,Item_Color)); // icon of item in shop
                 Display_Mode2 = 0;
 
                 if (!cell_is_check && Item_Catalogue[cell_item][Item_LV])

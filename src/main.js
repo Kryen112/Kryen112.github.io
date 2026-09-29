@@ -957,6 +957,7 @@ class APIntegration {
             item: this.client.package.lookupItemName(owner.game, networkItem.item),
             itemClassification: networkItem.flags,
             sprite: this._stickRangerSprite(owner.game, networkItem.item),
+            progressiveShop: this._isOurProgressiveShopItem(owner.game, networkItem.item),
         };
 
         const isTrap = (networkItem.flags & 0b100) !== 0;
@@ -967,7 +968,15 @@ class APIntegration {
         // A disguised trap keeps the logo: its own sprite would give it away,
         // and wearing the sprite of the item it is pretending to be would be a
         // lie the shelf cannot take back.
-        return { ...hint, item: disguise, itemClassification: 0b001, sprite: null };
+        return { ...hint, item: disguise, itemClassification: 0b001, sprite: null, progressiveShop: false };
+    }
+
+    /**
+     * Whether a hinted item is one of our own Progressive Shop items, which
+     * earns the arrow badge over the logo in the shop.
+     */
+    _isOurProgressiveShopItem(game, itemId) {
+        return game === "Stick Ranger" && this._isProgressiveShopItem(itemId);
     }
 
     /**

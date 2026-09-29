@@ -221,7 +221,7 @@ describe("shop check presentation", () => {
         const cell = block.slice(0, block.indexOf("Display_Mode2 = 0;"));
         assert.match(
             cell,
-            /if \(cell_is_check && cell_sprite<0\)\s*\n\s*dispItem\(cell_blocked\? AP_Img_Grey :AP_Img/,
+            /cell_progressive\? AP_Arrow :\(cell_blocked\? AP_Img_Grey :AP_Img\)/,
             "the cell renders blank",
         );
     });
