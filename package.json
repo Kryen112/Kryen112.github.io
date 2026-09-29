@@ -1,7 +1,7 @@
 {
     "name": "stickranger-ap",
     "private": true,
-    "version": "1.8.8",
+    "version": "1.8.9",
     "type": "module",
     "engines": {
         "node": ">=20.19"

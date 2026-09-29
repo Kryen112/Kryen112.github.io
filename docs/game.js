@@ -92,7 +92,8 @@ const AP_DROP_ICON = 564;
  * Every organic change to the team's gold goes through here.
  *
  * One seam means Ring Link has exactly one place to observe and nothing that
- * moves gold can forget to be counted. What is recorded is the change that
+ * moves gold can forget to be counted. Returns the change that actually
+ * happened, so a caller showing a number shows the true one. What is recorded is the change that
  * actually happened, after the cap, so a purchase that could not be afforded or
  * a pickup at the ceiling does not send rings for gold that never moved.
  *
@@ -101,11 +102,13 @@ const AP_DROP_ICON = 564;
  * those blocks would validate a half-mutated state.
  */
 function gainGold(amount){
-    if (!amount) return;
+    if (!amount) return 0;
     var before = Team_Gold;
     Team_Gold = clamp(Team_Gold+amount,0,9999999);
+    var moved = Team_Gold-before;
     window.ArchipelagoMod.pendingRingLinkGold =
-        (window.ArchipelagoMod.pendingRingLinkGold || 0) + (Team_Gold-before);
+        (window.ArchipelagoMod.pendingRingLinkGold || 0) + moved;
+    return moved; // what actually landed, which is not always what was asked for
 }
 
 /**
@@ -142,6 +145,26 @@ function apItemColor(flags){
     if (window.ArchipelagoMod.itemColor)
         return window.ArchipelagoMod.itemColor(flags);
     return 0xFFFFFF;
+}
+
+// Whether a shop check holds a Progressive Shop item, which earns the arrow
+// badge over the logo. Like the sprite, this only reads once Shop Hints have
+// told us what is in there.
+function shopCheckIsProgressive(itemId){
+    if (!window.ArchipelagoMod.shopHints) return false;
+    var hint = (window.ArchipelagoMod.shopHintSpoiler || {})[itemId];
+    return !!hint && !!hint.progressiveShop;
+}
+
+// A shop check holding a Stick Ranger item can be drawn as that item rather
+// than the Archipelago logo, so a shelf reads at a glance. Only with Shop Hints
+// on: without them the cell is meant to be a mystery, and the sprite would give
+// it away. Returns -1 when there is nothing better than the logo to draw.
+function shopCheckSprite(itemId){
+    if (!window.ArchipelagoMod.shopHints) return -1;
+    var hint = (window.ArchipelagoMod.shopHintSpoiler || {})[itemId];
+    if (!hint || hint.sprite == null) return -1;
+    return hint.sprite;
 }
 
 // Whether a cell is in stock, which is the only thing Progressive Shop changes.
@@ -254,6 +277,10 @@ var AP_Img = new SR_Image;                  // AP IMG
 var AP_Img_Grey = new SR_Image;             // AP IMG Grey
 var AP_Icon = new SR_Image;                 // AP Icon
 var AP_Icon_Grey = new SR_Image;            // AP Icon Grey
+// The tile a shop check wears when it holds a Progressive Shop item: the
+// Archipelago logo with an arrow beside it. Swap data/AP_arrow.gif for your own
+// 24x24 and it is picked up as-is -- nothing here needs changing.
+var AP_Arrow = new SR_Image;                // AP progressive badge
 var Enemy_Head_Img = new SR_Image;          // enemy head images               original name: Va
 var Sign_Img = new SR_Image;                // blank sign icon                 original name: Wa
 var Projectiles_Img = new SR_Image;         // images for all projectiles      original name: Za
@@ -2209,6 +2236,7 @@ function gameStartup(usr_id,lang,cookie,mode,e,g,k,r,m,n,F,H,M){ // original nam
         AP_Img_Grey.IGset("AP_grey.gif");
         AP_Icon.IGset("AP_icon.gif");
         AP_Icon_Grey.IGset("AP_icon_grey.gif");
+        AP_Arrow.IGset("AP_arrow.gif");
         Enemy_Head_Img.IGset("en.gif");
         Sign_Img.IGset("next.gif");
         Projectiles_Img.IGset("mag.gif");
@@ -2239,6 +2267,7 @@ function gameStartup(usr_id,lang,cookie,mode,e,g,k,r,m,n,F,H,M){ // original nam
         imgToArray(AP_Img_Grey);
         imgToArray(AP_Icon);
         imgToArray(AP_Icon_Grey);
+        imgToArray(AP_Arrow);
         imgToArray(Enemy_Head_Img);
         imgToArray(Sign_Img);
         imgToArray(Projectiles_Img);
@@ -3202,9 +3231,17 @@ function townScreens(){ // original name: wf()
                 // carries a drop icon (Item_Ico_Sm) but its inventory icon
                 // (Item_Ico_Big) is 0, so drawing it from Item_Img rendered a
                 // blank cell instead of the Archipelago logo.
-                if (cell_is_check)
-                     dispItem(cell_blocked? AP_Img_Grey :AP_Img,cell_x,cell_y,24,24,0,0,24,24,0xFFFFFFFF);
-                else dispItem(Item_Img,cell_x,cell_y,24,24,24*getVal(cell_item,Item_Ico_Big),0,24,24,cell_blocked? 0xFF606060 :getVal(cell_item,Item_Color)); // icon of item in shop
+                var cell_sprite = cell_is_check? shopCheckSprite(cell_item) :cell_item;
+                if (cell_is_check && cell_sprite<0){
+                    // The logo tiles are opaque 24x24, so a Progressive Shop
+                    // check takes its own tile -- the logo with an arrow beside
+                    // it -- rather than having one drawn over the plain logo.
+                    var cell_progressive = shopCheckIsProgressive(cell_item);
+                    dispItem(
+                        cell_progressive? AP_Arrow :(cell_blocked? AP_Img_Grey :AP_Img),
+                        cell_x,cell_y,24,24,0,0,24,24,
+                        (cell_progressive && cell_blocked)? 0xFF606060 :0xFFFFFFFF);
+                } else dispItem(Item_Img,cell_x,cell_y,24,24,24*getVal(cell_sprite,Item_Ico_Big),0,24,24,cell_blocked? 0xFF606060 :getVal(cell_sprite,Item_Color)); // icon of item in shop
                 Display_Mode2 = 0;
 
                 if (!cell_is_check && Item_Catalogue[cell_item][Item_LV])
@@ -4653,7 +4690,7 @@ function rangerSPupIndicators(ranger,stat){
 window.fff = drawUI;
 function drawUI(UI_mode){ // original name: Jf()
     Inv_Height = 128; // used to adjust tile drawing to fit above the inventory
-    var column,row,L,T,xp_for_prev_LV,xp_for_next_LV,ring_count,revive_data,revival_cost,lp_data,str_data,dex_data,mag_data,displayed_equipment,item_class,type,type_param,MP_price,bat_MIN,bat_MAX,mini_ui_compo1,mini_ui_compo2,r,b,color,mouse_slot_pos,proxy,sold_item,sell_price;
+    var column,row,L,T,xp_for_prev_LV,xp_for_next_LV,ring_count,revive_data,revival_cost,lp_data,str_data,dex_data,mag_data,displayed_equipment,item_class,type,type_param,MP_price,bat_MIN,bat_MAX,mini_ui_compo1,mini_ui_compo2,r,b,color,mouse_slot_pos,proxy,sold_item,sell_price,compo_weapon;
     var inventory_colors = [0xCC9449,0x90A8B0,0x6E8038,0x747016,0xAC7754,0xCF8138,0xA7BFC9,0x607890,0x1D50AB,0x996600,0x667373,0x605550,0x605550];
 
     if (Left_Click_Is_Up && Mouse_Ypos>=Inv_Top)
@@ -5000,16 +5037,24 @@ function drawUI(UI_mode){ // original name: Jf()
             Players.PL_gladr_resid_count[mouse_slot_pos-4] = 0;
         }
     } else if ((Stickmen_Slots<<1)<=mouse_slot_pos && mouse_slot_pos<Stickmen_Slots*3 && Clicked){ // compo row 1
-        if (getVal(Item_Inv[Inv_Last],Item_Class_ID)==Class_Compo && restrictSlots(mouse_slot_pos-8,0)){
-            Comp1_Inv[Stickmen_Slots+mouse_slot_pos-(Stickmen_Slots<<1)] = Item_Inv[Inv_Last];
+        compo_weapon = Stickmen_Slots+mouse_slot_pos-(Stickmen_Slots<<1);
+        if (compoCanBeRemoved(Comp1_Inv[compo_weapon])){
+            liftCompo(compo_weapon,0);
+            MP_Bar[mouse_slot_pos-(Stickmen_Slots<<1)] = 0;
+        } else if (getVal(Item_Inv[Inv_Last],Item_Class_ID)==Class_Compo && restrictSlots(mouse_slot_pos-8,0)){
+            Comp1_Inv[compo_weapon] = Item_Inv[Inv_Last];
             Item_Inv[Inv_Last] = 0;
             Comp1_Inv[Inv_Last] = 0;
             Comp2_Inv[Inv_Last] = 0;
             MP_Bar[mouse_slot_pos-(Stickmen_Slots<<1)] = 0;
         }
     } else if (Stickmen_Slots*3<=mouse_slot_pos && mouse_slot_pos<Stickmen_Slots*4 && Clicked){ // compo row 2
-        if (getVal(Item_Inv[Inv_Last],Item_Class_ID)==Class_Compo && restrictSlots(mouse_slot_pos-12,1)){
-            Comp2_Inv[Stickmen_Slots+mouse_slot_pos-Stickmen_Slots*3] = Item_Inv[Inv_Last];
+        compo_weapon = Stickmen_Slots+mouse_slot_pos-Stickmen_Slots*3;
+        if (compoCanBeRemoved(Comp2_Inv[compo_weapon])){
+            liftCompo(compo_weapon,1);
+            MP_Bar[mouse_slot_pos-Stickmen_Slots*3] = 0;
+        } else if (getVal(Item_Inv[Inv_Last],Item_Class_ID)==Class_Compo && restrictSlots(mouse_slot_pos-12,1)){
+            Comp2_Inv[compo_weapon] = Item_Inv[Inv_Last];
             Item_Inv[Inv_Last] = 0;
             Comp1_Inv[Inv_Last] = 0;
             Comp2_Inv[Inv_Last] = 0;
@@ -5063,6 +5108,31 @@ function drawUI(UI_mode){ // original name: Jf()
 }
 
 // hides slots
+// Taking a compo back out is not a thing in the base game: once it is in, it is
+// in for good. With Removable Compos on, clicking a filled slot with an empty
+// hand lifts it back onto the cursor instead. The cross that blocks a
+// store-bought slot is not a compo and stays put -- Remove Null Compo is the
+// option for that one.
+function compoCanBeRemoved(compo){
+    return !!window.ArchipelagoMod.removableCompos
+        && compo!=0
+        && compo!=Null_Slot
+        && Item_Inv[Inv_Last]==0; // only with an empty hand, or a swap would eat it
+}
+
+// Move a compo out of a weapon and onto the cursor.
+function liftCompo(weapon,compo_slot){
+    if (compo_slot==0){
+        Item_Inv[Inv_Last] = Comp1_Inv[weapon];
+        Comp1_Inv[weapon] = 0;
+    } else {
+        Item_Inv[Inv_Last] = Comp2_Inv[weapon];
+        Comp2_Inv[weapon] = 0;
+    }
+    Comp1_Inv[Inv_Last] = 0;
+    Comp2_Inv[Inv_Last] = 0;
+}
+
 function restrictSlots(item_pos,compo_slot){ // original name: Ng()
     var held_item_eff_ID = getVal(Item_Inv[Inv_Last],Eff_ID);
     var held_item_class_ID = getVal(Item_Inv[Inv_Last],Item_Class_ID);
@@ -7158,7 +7228,7 @@ SR_Player.prototype.Whipper = function(current_char){
 // angel class      original name: xa
 window.fff = SR_Player.prototype.Angel;
 SR_Player.prototype.Angel = function(current_char){
-    var ang_target,ang_is_controlled,ang_range2,ang_splash,ang_combatant,ring_MP,ang_heal_crd;
+    var ang_target,ang_is_controlled,ang_range2,ang_splash,ang_combatant,ring_MP,ang_heal_crd,ring_pay;
     var ring_vector = new Vector2D;
     var ang_ATin = AT_Min[current_char]; // set base stats
     var ang_ATax = AT_Max[current_char];
@@ -7217,8 +7287,13 @@ SR_Player.prototype.Angel = function(current_char){
                 // nulls Game_Canvas the moment the ring lands.
                 if (window.ArchipelagoMod.ringGold > 0){
                     antiCheatCheck();
-                    gainGold(window.ArchipelagoMod.ringGold);
+                    ring_pay = gainGold(window.ArchipelagoMod.ringGold);
                     antiCheatSet();
+                    // The same yellow number a gold pickup throws up, over the
+                    // angel that earned it. Uses what actually landed, so
+                    // nothing floats up once the gold cap is reached.
+                    if (ring_pay > 0)
+                        Indicators.INadd(this.PL_joint[current_char][0].x,this.PL_joint[current_char][0].y,0,ring_pay,0xFFFF00);
                 }
                 this.PL_ring_distance_to_travel[current_char][current_ring] = (ang_range>>1)+20; // set destination as 20 pixels past enemy
                 this.PL_ring_ticks_until_active[current_char][current_ring] = 0;                 // set ring hitbox as active
