@@ -13,12 +13,15 @@ import { fileURLToPath } from "node:url";
 const MAIN_JS = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "main.js");
 const src = readFileSync(MAIN_JS, "utf8");
 
-describe("saving on a stage transition", () => {
+describe("saving on a transition", () => {
     // _tick is defined above _doTickWork, so this runs to the end of the file.
     const tick = src.slice(src.indexOf("async _doTickWork() {"));
 
-    it("saves when play ends", () => {
-        assert.match(tick, /this\.lastSequence === 12 && Sequence_Step !== 12/);
+    it("saves when you leave somewhere your game can change", () => {
+        assert.match(
+            tick,
+            /_isSomewhereThatChanges\(this\.lastSequence\) && !this\._isSomewhereThatChanges\(Sequence_Step\)/,
+        );
     });
 
     it("saves when the stage changes", () => {
@@ -26,7 +29,7 @@ describe("saving on a stage transition", () => {
     });
 
     it("remembers the stage it saved at, so it fires once", () => {
-        const block = tick.slice(tick.indexOf("const leftPlay"));
+        const block = tick.slice(tick.indexOf("const left ="));
         assert.ok(
             block.indexOf("this.lastStage = Current_Stage;") < block.indexOf("await this.saveAPData()"),
             "the stage is recorded after saving, so every frame would save again",
@@ -35,6 +38,51 @@ describe("saving on a stage transition", () => {
 
     it("starts from a stage that cannot match, so the first one saves", () => {
         assert.match(src, /this\.lastStage = -1;/);
+    });
+});
+
+describe("what counts as somewhere your game can change", () => {
+    const body = src.slice(src.indexOf("    _isSomewhereThatChanges(step) {"));
+    const inside = new Function("step", body.slice(body.indexOf("{") + 1, body.search(/\n {4}\}/)));
+
+    it("counts a stage", () => assert.equal(inside(12), true));
+
+    for (const [step, what] of [
+        [51, "walking in"],
+        [52, "standing in it"],
+        [53, "the shop"],
+        [54, "the book"],
+        [55, "the Forget Tree"],
+        [59, "walking out"],
+    ]) {
+        it(`counts the town: ${what}`, () => {
+            // Gold, items and levels all move in a town, and leaving one used
+            // not to save a thing.
+            assert.equal(inside(step), true, `step ${step} is treated as outside`);
+        });
+    }
+
+    for (const [step, what] of [
+        [6, "the world map"],
+        [13, "the fade out of a stage"],
+        [20, "the pause screen"],
+        [30, "game over"],
+        [3, "class select"],
+    ]) {
+        it(`does not count ${what}`, () => assert.equal(inside(step), false));
+    }
+
+    it("does not save while you browse a town", () => {
+        // Moving between the town's own screens stays inside it, so shopping
+        // does not write on every click.
+        for (const [from, to] of [
+            [52, 53],
+            [53, 52],
+            [52, 54],
+            [53, 55],
+        ]) {
+            assert.ok(inside(from) && inside(to), `${from} -> ${to} would save`);
+        }
     });
 });
 

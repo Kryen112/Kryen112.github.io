@@ -1438,16 +1438,32 @@ class APIntegration {
             // Saving used to happen only when something crossed the network: a
             // check sent, an item received, a shop scouted. A run of stages
             // with none of those never saved at all, so a refresh threw away
-            // every level and item earned since the last one. Leaving a stage,
-            // or moving to a different one, now saves as well.
-            const leftPlay = this.lastSequence === 12 && Sequence_Step !== 12;
-            if (leftPlay || this.lastStage !== Current_Stage) {
+            // everything earned since the last one. Leaving somewhere you can
+            // change your game -- a stage or a town -- now saves as well, as
+            // does moving to a different one.
+            const left =
+                this._isSomewhereThatChanges(this.lastSequence) && !this._isSomewhereThatChanges(Sequence_Step);
+            if (left || this.lastStage !== Current_Stage) {
                 this.lastStage = Current_Stage;
                 await this.saveAPData();
             }
         }
 
         this.lastSequence = Sequence_Step;
+    }
+
+    /**
+     * Whether this sequence step is somewhere the game can change under you.
+     *
+     * 12 is a stage, 51-59 the town and everything reached from it: the shop,
+     * the book, the Forget Tree. Town counts because gold, items and levels all
+     * move in there, and leaving it used not to save a thing.
+     *
+     * Walking between the town's own screens stays inside it, so shopping does
+     * not write on every click.
+     */
+    _isSomewhereThatChanges(step) {
+        return step === 12 || (step >= 51 && step <= 59);
     }
 
     randomRangeInt(min, max) {
