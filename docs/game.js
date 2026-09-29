@@ -147,6 +147,23 @@ function apItemColor(flags){
     return 0xFFFFFF;
 }
 
+// Resort sells each weapon twice in the same column: cheap with its compo slot
+// blocked, and ten times the price with it open. Both cells are the same
+// catalogue item and so the same check, so only the first wears the logo --
+// otherwise buying either would quietly settle the other and the second cell
+// would look like a check that stopped being one for no visible reason.
+function shopCellIsFirstOf(town_stage, column, row){
+    var town = Shop_Items[town_stage];
+    var id = town[column][row];
+    for (var c=0; c<town.length; c++){
+        for (var r=0; r<town[c].length; r++){
+            if (town[c][r] === id)
+                return c === column && r === row;
+        }
+    }
+    return true;
+}
+
 // Whether a shop check holds something worth marking: progression or a trap,
 // from any game in the room. Those wear their own Archipelago tile instead of
 // the plain logo. Like the sprite, this only reads once Shop Hints have told us
@@ -3129,7 +3146,7 @@ function townScreens(){ // original name: wf()
         // An uncollected check hides behind the Archipelago logo. Shop Hints
         // reveals what it really is, exactly as it does for books; without it
         // you still see the price, so you can decide whether to buy.
-        var shop_is_check = shopItemIsCheck(shop_item);
+        var shop_is_check = shopItemIsCheck(shop_item) && shopCellIsFirstOf(town_stage,Menu_Column,item_cell);
         var shop_blocked = shop_item!=0 && shopCellBlocked(town_stage,Menu_Column,item_cell);
         var shop_hide = shop_is_check && !window.ArchipelagoMod.shopHints;
         var shop_label = shop_hide
@@ -3223,7 +3240,7 @@ function townScreens(){ // original name: wf()
             r = (3*Menu_Row+i) % Shop_Items[town_stage][Menu_Column].length;
             if (shopCellUnlocked(town_stage,Menu_Column,r,latest_unlock)){
                 var cell_item = Shop_Items[town_stage][Menu_Column][r];
-                var cell_is_check = shopItemIsCheck(cell_item);
+                var cell_is_check = shopItemIsCheck(cell_item) && shopCellIsFirstOf(town_stage,Menu_Column,r);
                 var cell_blocked = shopCellBlocked(town_stage,Menu_Column,r);
                 var cell_x = shop_left+120+i%3*28;
                 var cell_y = shop_top+24+28*floor(i/3);

@@ -217,7 +217,7 @@ describe("shop check presentation", () => {
     const src = readFileSync(GAME_JS, "utf8");
 
     it("draws the logo from AP_Img, not a sprite index", () => {
-        const block = src.slice(src.indexOf("var cell_is_check = shopItemIsCheck(cell_item);"));
+        const block = src.slice(src.indexOf("var cell_is_check = shopItemIsCheck(cell_item)"));
         const cell = block.slice(0, block.indexOf("Display_Mode2 = 0;"));
         assert.match(cell, /cell_marked\? AP_Arrow :\(cell_blocked\? AP_Img_Grey :AP_Img\)/, "the cell renders blank");
     });
@@ -399,5 +399,69 @@ describe("the sprite on the hint record", () => {
         // Its own sprite would give it away, and wearing the sprite of what it
         // pretends to be is a lie the shelf cannot take back.
         assert.match(src, /hint\.sprite = null;/);
+    });
+});
+
+// Resort sells each weapon twice in one column: cheap with its compo slot
+// blocked, and ten times the price with it open. Both cells are the same
+// catalogue item, so they are the same check -- and buying either settled the
+// other, leaving the second cell looking like a check that stopped being one.
+describe("a shop that sells the same item twice", () => {
+    function load(shopItems) {
+        const src = readFileSync(GAME_JS, "utf8");
+        const start = src.indexOf("function shopCellIsFirstOf(town_stage, column, row){");
+        const end = src.indexOf("\n}", start) + 2;
+        return new Function("Shop_Items", `${src.slice(start, end)} return shopCellIsFirstOf;`)(shopItems);
+    }
+
+    // One town, one column, the same item on both rows.
+    const TWICE = [[[270, 270, 0]]];
+
+    it("gives the check to the first cell", () => {
+        assert.equal(load(TWICE)(0, 0, 0), true);
+    });
+
+    it("does not give it to the second", () => {
+        assert.equal(load(TWICE)(0, 0, 1), false, "both cells would claim the same check");
+    });
+
+    it("leaves a shop with no duplicates entirely alone", () => {
+        const once = [
+            [
+                [10, 11, 12],
+                [13, 14, 15],
+            ],
+        ];
+        for (const [c, r] of [
+            [0, 0],
+            [0, 2],
+            [1, 1],
+        ]) {
+            assert.equal(load(once)(0, c, r), true, `column ${c} row ${r} was demoted`);
+        }
+    });
+
+    it("finds the first across columns, not only within one", () => {
+        const across = [
+            [
+                [10, 11],
+                [10, 12],
+            ],
+        ];
+        assert.equal(load(across)(0, 0, 0), true);
+        assert.equal(load(across)(0, 1, 0), false, "the same item claimed two checks");
+    });
+
+    it("is what the cell and the buy button both ask", () => {
+        const src = readFileSync(GAME_JS, "utf8");
+        assert.match(
+            src,
+            /cell_is_check = shopItemIsCheck\(cell_item\) && shopCellIsFirstOf\(town_stage,Menu_Column,r\)/,
+        );
+        assert.match(
+            src,
+            /shop_is_check = shopItemIsCheck\(shop_item\) && shopCellIsFirstOf\(town_stage,Menu_Column,item_cell\)/,
+            "the buy path would still treat the duplicate as a check",
+        );
     });
 });
