@@ -562,6 +562,10 @@ class APIntegration {
             // How each shop opens, straight from the seed. Absent on a seed
             // from before the shops had a track each.
             window.ArchipelagoMod.shopProgression = this.slotData.shop_progression ?? null;
+            // The whole payload, for the console. An option missing here rather
+            // than being 0 means the seed was generated before that option
+            // existed, and no yaml setting can bring it back without a regen.
+            window.ArchipelagoMod.slotData = this.slotData;
             // Seeds generated before 1.8.1 never shipped this option, which left
             // the feature dead: the locations existed, so they showed up in the
             // tracker, but the client read the absent key as off and never sent

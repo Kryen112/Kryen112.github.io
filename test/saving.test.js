@@ -54,3 +54,17 @@ describe("the other reasons to save are still there", () => {
         });
     }
 });
+
+// Half this project's confusing bug reports have been "is the option reaching
+// the client?", and the answer has never been readable without a code change.
+describe("the slot data is readable from the console", () => {
+    it("is handed over whole", () => {
+        assert.match(src, /window\.ArchipelagoMod\.slotData = this\.slotData;/);
+    });
+
+    it("is not defaulted, so a missing option stays missing", () => {
+        // `?? {}` would hide the difference between "off" and "not in the seed",
+        // which is the distinction worth reading.
+        assert.doesNotMatch(src, /window\.ArchipelagoMod\.slotData = this\.slotData \?\?/);
+    });
+});
