@@ -147,13 +147,14 @@ function apItemColor(flags){
     return 0xFFFFFF;
 }
 
-// Whether a shop check holds a Progressive Shop item, which earns the arrow
-// badge over the logo. Like the sprite, this only reads once Shop Hints have
-// told us what is in there.
-function shopCheckIsProgressive(itemId){
+// Whether a shop check holds something worth marking: progression or a trap,
+// from any game in the room. Those wear their own Archipelago tile instead of
+// the plain logo. Like the sprite, this only reads once Shop Hints have told us
+// what is in there.
+function shopCheckIsMarked(itemId){
     if (!window.ArchipelagoMod.shopHints) return false;
     var hint = (window.ArchipelagoMod.shopHintSpoiler || {})[itemId];
-    return !!hint && !!hint.progressiveShop;
+    return !!hint && !!hint.marked;
 }
 
 // A shop check holding a Stick Ranger item can be drawn as that item rather
@@ -277,7 +278,7 @@ var AP_Img = new SR_Image;                  // AP IMG
 var AP_Img_Grey = new SR_Image;             // AP IMG Grey
 var AP_Icon = new SR_Image;                 // AP Icon
 var AP_Icon_Grey = new SR_Image;            // AP Icon Grey
-// The tile a shop check wears when it holds a Progressive Shop item: the
+// The tile a shop check wears when it holds progression or a trap: the
 // Archipelago logo with an arrow beside it. Swap data/AP_arrow.gif for your own
 // 24x24 and it is picked up as-is -- nothing here needs changing.
 var AP_Arrow = new SR_Image;                // AP progressive badge
@@ -3233,14 +3234,14 @@ function townScreens(){ // original name: wf()
                 // blank cell instead of the Archipelago logo.
                 var cell_sprite = cell_is_check? shopCheckSprite(cell_item) :cell_item;
                 if (cell_is_check && cell_sprite<0){
-                    // The logo tiles are opaque 24x24, so a Progressive Shop
-                    // check takes its own tile -- the logo with an arrow beside
-                    // it -- rather than having one drawn over the plain logo.
-                    var cell_progressive = shopCheckIsProgressive(cell_item);
+                    // The logo tiles are opaque 24x24, so a marked check takes
+                    // its own tile -- the logo with an arrow beside it --
+                    // rather than having one drawn over the plain logo.
+                    var cell_marked = shopCheckIsMarked(cell_item);
                     dispItem(
-                        cell_progressive? AP_Arrow :(cell_blocked? AP_Img_Grey :AP_Img),
+                        cell_marked? AP_Arrow :(cell_blocked? AP_Img_Grey :AP_Img),
                         cell_x,cell_y,24,24,0,0,24,24,
-                        (cell_progressive && cell_blocked)? 0xFF606060 :0xFFFFFFFF);
+                        (cell_marked && cell_blocked)? 0xFF606060 :0xFFFFFFFF);
                 } else dispItem(Item_Img,cell_x,cell_y,24,24,24*getVal(cell_sprite,Item_Ico_Big),0,24,24,cell_blocked? 0xFF606060 :getVal(cell_sprite,Item_Color)); // icon of item in shop
                 Display_Mode2 = 0;
 

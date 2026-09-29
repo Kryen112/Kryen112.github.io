@@ -113,14 +113,14 @@ describe("the hint record", () => {
 
     it("only disguises traps", () => {
         assert.match(method, /networkItem\.flags & 0b100/, "the trap flag is not what is tested");
-        assert.match(method, /if \(!isTrap \|\| !this\.slotData\.trap_disguise\) return hint;/);
+        assert.match(method, /if \(isTrap && this\.slotData\.trap_disguise\)/);
     });
 
     it("recolours the disguise, or the red name gives it away", () => {
-        assert.match(method, /itemClassification: 0b001/, "a disguised trap still reads as a trap");
+        assert.match(method, /hint\.itemClassification = 0b001;/, "a disguised trap still reads as a trap");
     });
 
     it("falls back to the real name when no disguise could be made", () => {
-        assert.match(method, /if \(disguise === null\) return hint;/);
+        assert.match(method, /if \(disguise !== null\)/);
     });
 });

@@ -219,11 +219,7 @@ describe("shop check presentation", () => {
     it("draws the logo from AP_Img, not a sprite index", () => {
         const block = src.slice(src.indexOf("var cell_is_check = shopItemIsCheck(cell_item);"));
         const cell = block.slice(0, block.indexOf("Display_Mode2 = 0;"));
-        assert.match(
-            cell,
-            /cell_progressive\? AP_Arrow :\(cell_blocked\? AP_Img_Grey :AP_Img\)/,
-            "the cell renders blank",
-        );
+        assert.match(cell, /cell_marked\? AP_Arrow :\(cell_blocked\? AP_Img_Grey :AP_Img\)/, "the cell renders blank");
     });
 
     it("the AP logo has no inventory icon, which is why AP_Img is needed", () => {
@@ -402,6 +398,6 @@ describe("the sprite on the hint record", () => {
     it("a disguised trap keeps the logo", () => {
         // Its own sprite would give it away, and wearing the sprite of what it
         // pretends to be is a lie the shelf cannot take back.
-        assert.match(src, /itemClassification: 0b001, sprite: null/);
+        assert.match(src, /hint\.sprite = null;/);
     });
 });

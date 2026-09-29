@@ -1,9 +1,12 @@
-// The arrow badge over a Progressive Shop check.
+// The marked tile: a shop check holding progression or a trap, from any game.
 //
 // data/AP_arrow.gif is the tile such a check wears: the Archipelago logo with
 // an arrow beside it, drawn in place of the plain logo. The logo tiles are
 // opaque, so this replaces rather than overlays. Swapping that one file is the
 // whole job -- nothing here names anything but the 24x24 the shop already uses.
+//
+// Progression and traps share the tile on purpose: a disguised trap poses as
+// progression, so one tile for both keeps the disguise intact.
 import assert from "node:assert/strict";
 import { readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -15,7 +18,7 @@ const GAME_JS = join(here, "..", "public", "game.js");
 const MAIN_JS = join(here, "..", "src", "main.js");
 const ARROW = join(here, "..", "public", "data", "AP_arrow.gif");
 
-describe("the badge art", () => {
+describe("the marked tile art", () => {
     it("ships, so a fresh checkout draws something", () => {
         assert.ok(statSync(ARROW).size > 0, "AP_arrow.gif is missing or empty");
     });
@@ -24,7 +27,7 @@ describe("the badge art", () => {
         assert.equal(readFileSync(ARROW).subarray(0, 3).toString("latin1"), "GIF");
     });
 
-    it("is 24x24, matching the logo it sits on", () => {
+    it("is 24x24, matching the logo it replaces", () => {
         // GIF header carries width and height as little-endian shorts at 6..9.
         const head = readFileSync(ARROW);
         assert.deepEqual([head.readUInt16LE(6), head.readUInt16LE(8)], [24, 24]);
@@ -41,30 +44,31 @@ describe("loading it", () => {
     });
 
     it("is drawn in place of the plain logo", () => {
-        assert.match(src, /cell_progressive\? AP_Arrow :\(cell_blocked\? AP_Img_Grey :AP_Img\)/);
+        assert.match(src, /cell_marked\? AP_Arrow :\(cell_blocked\? AP_Img_Grey :AP_Img\)/);
     });
 
     it("dims with the cell when the check is out of logic", () => {
-        assert.match(src, /\(cell_progressive && cell_blocked\)\? 0xFF606060 :0xFFFFFFFF/);
+        assert.match(src, /\(cell_marked && cell_blocked\)\? 0xFF606060 :0xFFFFFFFF/);
     });
 });
 
-describe("shopCheckIsProgressive", () => {
+describe("shopCheckIsMarked", () => {
     function load(mod) {
         const src = readFileSync(GAME_JS, "utf8");
-        const start = src.indexOf("function shopCheckIsProgressive(itemId){");
+        const start = src.indexOf("function shopCheckIsMarked(itemId){");
         const end = src.indexOf("\n}", start) + 2;
-        return new Function("window", `${src.slice(start, end)} return shopCheckIsProgressive;`)({
+        return new Function("window", `${src.slice(start, end)} return shopCheckIsMarked;`)({
             ArchipelagoMod: mod,
         });
     }
+    const withHint = (marked) => ({ shopHints: 1, shopHintSpoiler: { 7: { marked } } });
 
-    it("badges a Progressive Shop check", () => {
-        assert.equal(load({ shopHints: 1, shopHintSpoiler: { 7: { progressiveShop: true } } })(7), true);
+    it("marks a check the seed called important", () => {
+        assert.equal(load(withHint(true))(7), true);
     });
 
     it("leaves an ordinary check alone", () => {
-        assert.equal(load({ shopHints: 1, shopHintSpoiler: { 7: { progressiveShop: false } } })(7), false);
+        assert.equal(load(withHint(false))(7), false);
     });
 
     it("leaves an unscouted cell alone", () => {
@@ -72,19 +76,39 @@ describe("shopCheckIsProgressive", () => {
     });
 
     it("keeps the mystery when Shop Hints are off", () => {
-        assert.equal(load({ shopHints: 0, shopHintSpoiler: { 7: { progressiveShop: true } } })(7), false);
+        assert.equal(load({ shopHints: 0, shopHintSpoiler: { 7: { marked: true } } })(7), false);
     });
 });
 
-describe("what earns the badge", () => {
+describe("what earns the tile", () => {
     const src = readFileSync(MAIN_JS, "utf8");
+    const body = src.slice(src.indexOf("    _hintFor(networkItem) {"));
+    const method = body.slice(0, body.search(/\n {4}\}/));
 
-    it("is our own Progressive Shop items, from any Stick Ranger slot", () => {
-        const body = src.slice(src.indexOf("    _isOurProgressiveShopItem(game, itemId) {"));
-        assert.match(body.slice(0, body.search(/\n {4}\}/)), /game === "Stick Ranger" && this\._isProgressiveShopItem/);
+    it("is progression or a trap, whatever game it belongs to", () => {
+        assert.match(src, /hint\.marked = \(hint\.itemClassification & 0b101\) !== 0;/);
     });
 
-    it("is never worn by a disguised trap", () => {
-        assert.match(src, /sprite: null, progressiveShop: false/);
+    it("is read after any disguise, so a disguised trap still matches", () => {
+        assert.ok(
+            method.indexOf("hint.itemClassification = 0b001;") < method.indexOf("hint.marked ="),
+            "the tile is decided before the disguise, so a disguised trap could stand out",
+        );
     });
+
+    it("no longer singles out Progressive Shop items", () => {
+        assert.doesNotMatch(src, /_isOurProgressiveShopItem/);
+    });
+});
+
+describe("the classifications that miss out", () => {
+    // Useful and filler keep the plain logo: the tile is there to say "this
+    // matters", and marking everything would say nothing.
+    const marked = (flags) => (flags & 0b101) !== 0;
+
+    it("marks progression", () => assert.equal(marked(0b001), true));
+    it("marks traps", () => assert.equal(marked(0b100), true));
+    it("marks progression that is also useful", () => assert.equal(marked(0b011), true));
+    it("skips useful", () => assert.equal(marked(0b010), false));
+    it("skips filler", () => assert.equal(marked(0b000), false));
 });

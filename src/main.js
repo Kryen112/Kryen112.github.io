@@ -957,26 +957,26 @@ class APIntegration {
             item: this.client.package.lookupItemName(owner.game, networkItem.item),
             itemClassification: networkItem.flags,
             sprite: this._stickRangerSprite(owner.game, networkItem.item),
-            progressiveShop: this._isOurProgressiveShopItem(owner.game, networkItem.item),
         };
 
         const isTrap = (networkItem.flags & 0b100) !== 0;
-        if (!isTrap || !this.slotData.trap_disguise) return hint;
+        if (isTrap && this.slotData.trap_disguise) {
+            const disguise = disguiseFor(networkItem.location, this._decoyNames());
+            if (disguise !== null) {
+                // Its own sprite would give it away, and wearing the sprite of
+                // what it pretends to be is a lie the shelf cannot take back.
+                hint.item = disguise;
+                hint.itemClassification = 0b001;
+                hint.sprite = null;
+            }
+        }
 
-        const disguise = disguiseFor(networkItem.location, this._decoyNames());
-        if (disguise === null) return hint;
-        // A disguised trap keeps the logo: its own sprite would give it away,
-        // and wearing the sprite of the item it is pretending to be would be a
-        // lie the shelf cannot take back.
-        return { ...hint, item: disguise, itemClassification: 0b001, sprite: null, progressiveShop: false };
-    }
-
-    /**
-     * Whether a hinted item is one of our own Progressive Shop items, which
-     * earns the arrow badge over the logo in the shop.
-     */
-    _isOurProgressiveShopItem(game, itemId) {
-        return game === "Stick Ranger" && this._isProgressiveShopItem(itemId);
+        // Progression and traps both wear the marked tile, from any game in the
+        // room. Reading it off the classification we ended up with rather than
+        // the one that arrived means a disguised trap still looks like the
+        // progression item it is pretending to be.
+        hint.marked = (hint.itemClassification & 0b101) !== 0;
+        return hint;
     }
 
     /**
