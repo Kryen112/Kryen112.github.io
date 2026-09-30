@@ -76,7 +76,7 @@ describe("shopCellUnlocked", () => {
     it("still reads a seed from before the shops had a track each", () => {
         // Those seeds send one count for all shops and charge nothing for row 0.
         api.mod.progressiveShop = 1;
-        api.mod.progressiveShopItems = 32;
+        api.mod.progressiveShopItems = [32];
         for (const row of [0, 40, 77]) {
             assert.equal(api.shopCellUnlocked(1, 0, row, 33), true, `row ${row} still locked`);
         }

@@ -200,8 +200,6 @@ function shopReq(town_stage, row, columnLength){
 // single count covering all of them.
 function shopProgressiveCount(town_stage){
     var held = window.ArchipelagoMod.progressiveShopItems;
-    if (typeof held == "number")
-        return held; // a client from before the count became per shop
     // A seed from before the shops split sends one item covering all four, so
     // its single count opens every town. Reading that per town found nothing
     // for Village, Resort and Island and left them shut however many you held.
