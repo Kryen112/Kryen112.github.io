@@ -1308,40 +1308,6 @@ class APIntegration {
     }
 
     /**
-     * Counters for Ring Link, readable from the console as
-     * window.ArchipelagoMod.ringLinkStats.
-     *
-     * Every way a bounce can be discarded is counted separately, because when
-     * the link goes quiet the useful question is which guard ate it -- the
-     * packet arriving and being dropped looks identical from the outside to the
-     * packet never arriving.
-     */
-    _ringLinkStats() {
-        window.ArchipelagoMod.ringLinkStats ??= {
-            // Compare this between the two clients: identical means every
-            // packet from the other player is discarded as your own echo.
-            source: null,
-            sent: 0,
-            sentGold: 0,
-            received: 0,
-            receivedGold: 0,
-            droppedDisabled: 0,
-            droppedWrongTag: 0,
-            droppedOwnEcho: 0,
-            droppedZero: 0,
-            lastSentAt: null,
-            lastReceivedAt: null,
-            // Why a flush sent nothing.
-            skippedOffline: 0,
-            skippedDisabled: 0,
-            skippedThrottled: 0,
-            skippedEmpty: 0,
-            skippedNoSource: 0,
-        };
-        return window.ArchipelagoMod.ringLinkStats;
-    }
-
-    /**
      * Inbound Ring Link: someone else's rings become gold here.
      *
      * Applied through applyRingLinkGold, which does not add to the pending
@@ -1349,35 +1315,19 @@ class APIntegration {
      * otherwise amplify each other without limit.
      */
     _onRingLinkBounce(packet) {
-        const stats = this._ringLinkStats();
-        if (!window.ArchipelagoMod.ringLink) {
-            stats.droppedDisabled++;
-            return;
-        }
-        if (!(packet.tags || []).includes("RingLink")) {
-            stats.droppedWrongTag++;
-            return;
-        }
+        if (!window.ArchipelagoMod.ringLink) return;
+        if (!(packet.tags || []).includes("RingLink")) return;
 
         const data = packet.data || {};
         // The server echoes our own Bounce back to us, so drop it. Comparing an
         // unset source would match every other player's packet, which is what a
         // stray reset did: both clients went null and threw each other away.
-        if (this.ringSource !== null && data.source === this.ringSource) {
-            stats.droppedOwnEcho++;
-            return;
-        }
+        if (this.ringSource !== null && data.source === this.ringSource) return;
 
         const rings = Number(data.amount);
         const gold = Number.isFinite(rings) ? Math.trunc(rings * (window.ArchipelagoMod.ringLinkRatio || 100)) : 0;
-        if (gold === 0) {
-            stats.droppedZero++;
-            return;
-        }
+        if (gold === 0) return;
 
-        stats.received++;
-        stats.receivedGold += gold;
-        stats.lastReceivedAt = new Date().toISOString();
         window.ArchipelagoMod.applyRingLinkGold(gold);
         this.log(`RingLink: ${rings > 0 ? "+" : ""}${rings} rings (${gold > 0 ? "+" : ""}$${gold})`, "info");
     }
@@ -1392,45 +1342,27 @@ class APIntegration {
      * remainder is kept for next time.
      */
     async _flushRingLink() {
-        const stats = this._ringLinkStats();
-        stats.source = this.ringSource;
-        if (!this._connected || !this.client?.authenticated) {
-            stats.skippedOffline++;
-            return;
-        }
+        if (!this._connected || !this.client?.authenticated) return;
         if (!window.ArchipelagoMod.ringLink) {
             // Nothing will ever send it, so do not let it accumulate all session.
             window.ArchipelagoMod.pendingRingLinkGold = 0;
-            stats.skippedDisabled++;
             return;
         }
         // Without an id the other end cannot tell our packets from its own, so
-        // stay quiet and be countable rather than poison the room.
-        if (this.ringSource === null) {
-            stats.skippedNoSource++;
-            return;
-        }
-        if (Date.now() - this.lastRingFlush < RING_LINK_FLUSH_MS) {
-            stats.skippedThrottled++;
-            return;
-        }
+        // stay quiet rather than poison the room.
+        if (this.ringSource === null) return;
+        if (Date.now() - this.lastRingFlush < RING_LINK_FLUSH_MS) return;
 
         const ratio = window.ArchipelagoMod.ringLinkRatio || 100;
         const pending = window.ArchipelagoMod.pendingRingLinkGold || 0;
         const rings = Math.trunc(pending / ratio);
         // Nothing to send yet: leave the timer alone so the next gold movement
         // goes out at once instead of waiting for the following window.
-        if (rings === 0) {
-            stats.skippedEmpty++;
-            return;
-        }
+        if (rings === 0) return;
 
         // Both of these land before the await, so an overlapping tick sees them.
         this.lastRingFlush = Date.now();
         window.ArchipelagoMod.pendingRingLinkGold = pending - rings * ratio;
-        stats.sent++;
-        stats.sentGold += rings * ratio;
-        stats.lastSentAt = new Date().toISOString();
         await this.client.socket.send({
             cmd: "Bounce",
             tags: ["RingLink"],

@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { beforeEach, describe, it } from "node:test";
+import { afterEach, beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const GAME_JS = join(dirname(fileURLToPath(import.meta.url)), "..", "public", "game.js");
@@ -42,13 +42,63 @@ function loadGold() {
     return { mod: fakeWindow.ArchipelagoMod, state, ...api };
 }
 
-// What _flushRingLink does with the pending total.
-function flush(mod, ratio) {
-    const pending = mod.pendingRingLinkGold || 0;
-    const rings = Math.trunc(pending / ratio);
-    if (rings === 0) return 0;
-    mod.pendingRingLinkGold = pending - rings * ratio;
-    return rings;
+const MAIN_JS = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "main.js");
+
+/** Pull a method out of main.js by its signature, up to its closing brace. */
+function methodSource(src, signature) {
+    const start = src.indexOf(`    ${signature} {`);
+    assert.ok(start !== -1, `could not find ${signature} in main.js`);
+    const rest = src.slice(start);
+    const end = rest.search(/\n {4}\}/);
+    assert.ok(end !== -1, `could not find the end of ${signature}`);
+    return rest.slice(0, end + 6);
+}
+
+/** The real flush and bounce handlers, on a stub client that records what goes out. */
+function loadLink({ ratio = 100, source = 7, connected = true, ringLink = 1 } = {}) {
+    const src = readFileSync(MAIN_JS, "utf8");
+    const methods = ["async _flushRingLink()", "_onRingLinkBounce(packet)"].map((sig) => methodSource(src, sig));
+    const sent = [];
+    const applied = [];
+    const win = {
+        ArchipelagoMod: {
+            ringLink,
+            ringLinkRatio: ratio,
+            pendingRingLinkGold: 0,
+            applyRingLinkGold: (g) => applied.push(g),
+        },
+    };
+    const host = new Function(
+        "window",
+        "RING_LINK_FLUSH_MS",
+        `return {
+            _connected: ${connected},
+            ringSource: ${source},
+            lastRingFlush: 0,
+            client: null,
+            logged: [],
+            log(msg) { this.logged.push(msg); },
+            ${methods.join(",\n")}
+        };`,
+    )(win, 5000);
+    host.client = {
+        authenticated: true,
+        socket: {
+            async send(packet) {
+                sent.push(packet);
+            },
+        },
+    };
+    return { host, mod: win.ArchipelagoMod, sent, applied };
+}
+
+/** What the real _flushRingLink sends for a pending total, in rings. */
+async function flush(mod, ratio) {
+    const link = loadLink({ ratio });
+    link.mod.pendingRingLinkGold = mod.pendingRingLinkGold || 0;
+    await link.host._flushRingLink();
+    mod.pendingRingLinkGold = link.mod.pendingRingLinkGold;
+    return link.sent[0]?.data.amount ?? 0;
 }
 
 describe("gainGold", () => {
@@ -116,41 +166,140 @@ describe("ring link flushing", () => {
         gold = loadGold();
     });
 
-    it("accumulates before flooring", () => {
+    it("accumulates before flooring", async () => {
         gold.state.Team_Gold = 10000; // you cannot spend gold you do not have
         gold.mod.pendingRingLinkGold = 0;
         for (let i = 0; i < 10; i++) gold.gainGold(-40); // ten gun shots
-        assert.equal(flush(gold.mod, 100), -4, "each shot floored alone would send nothing");
+        assert.equal(await flush(gold.mod, 100), -4, "each shot floored alone would send nothing");
     });
 
-    it("carries the remainder to the next flush", () => {
+    it("carries the remainder to the next flush", async () => {
         gold.gainGold(250);
-        assert.equal(flush(gold.mod, 100), 2);
+        assert.equal(await flush(gold.mod, 100), 2);
         assert.equal(gold.mod.pendingRingLinkGold, 50);
         gold.gainGold(50);
-        assert.equal(flush(gold.mod, 100), 1, "the carried 50 plus 50 is another ring");
+        assert.equal(await flush(gold.mod, 100), 1, "the carried 50 plus 50 is another ring");
         assert.equal(gold.mod.pendingRingLinkGold, 0);
     });
 
-    it("sends nothing when the total is below the ratio", () => {
+    it("sends nothing when the total is below the ratio", async () => {
         gold.gainGold(99);
-        assert.equal(flush(gold.mod, 100), 0);
+        assert.equal(await flush(gold.mod, 100), 0);
         assert.equal(gold.mod.pendingRingLinkGold, 99, "the remainder must survive");
     });
 
-    it("loses nothing over a long run of small changes", () => {
+    it("loses nothing over a long run of small changes", async () => {
         let sent = 0;
         for (let i = 0; i < 1000; i++) {
             gold.gainGold(37);
-            sent += flush(gold.mod, 100);
+            sent += await flush(gold.mod, 100);
         }
         assert.equal(sent * 100 + gold.mod.pendingRingLinkGold, 37000, "gold went missing");
     });
 
-    it("nets gains against spends inside one window", () => {
+    it("nets gains against spends inside one window", async () => {
         gold.gainGold(500);
         gold.gainGold(-300);
-        assert.equal(flush(gold.mod, 100), 2);
+        assert.equal(await flush(gold.mod, 100), 2);
+    });
+});
+
+// The flush and the bounce handler, end to end on a stub socket.
+describe("the flush on the wire", () => {
+    let now;
+    const realNow = Date.now;
+    beforeEach(() => {
+        now = 100000;
+        Date.now = () => now;
+    });
+    afterEach(() => {
+        Date.now = realNow;
+    });
+
+    it("sends the rings, tagged, with our source id", async () => {
+        const { host, mod, sent } = loadLink({ source: 42 });
+        mod.pendingRingLinkGold = 250;
+        await host._flushRingLink();
+        assert.equal(sent.length, 1);
+        assert.deepEqual(sent[0].tags, ["RingLink"]);
+        assert.equal(sent[0].cmd, "Bounce");
+        assert.deepEqual([sent[0].data.amount, sent[0].data.source], [2, 42]);
+        assert.equal(mod.pendingRingLinkGold, 50, "the remainder was lost");
+    });
+
+    it("throttles to one send per window", async () => {
+        const { host, mod, sent } = loadLink();
+        mod.pendingRingLinkGold = 200;
+        await host._flushRingLink();
+        mod.pendingRingLinkGold = 200;
+        await host._flushRingLink();
+        assert.equal(sent.length, 1, "two sends inside one window");
+        now += 5001;
+        await host._flushRingLink();
+        assert.equal(sent.length, 2);
+    });
+
+    it("stays quiet without a source id", async () => {
+        const { host, mod, sent } = loadLink({ source: null });
+        mod.pendingRingLinkGold = 1000;
+        await host._flushRingLink();
+        assert.deepEqual(sent, [], "an unidentified packet would be dropped by every other client as its own");
+    });
+
+    it("stays quiet while disconnected", async () => {
+        const { host, mod, sent } = loadLink({ connected: false });
+        mod.pendingRingLinkGold = 1000;
+        await host._flushRingLink();
+        assert.deepEqual(sent, []);
+    });
+
+    it("drains the pending total when Ring Link is off", async () => {
+        const { host, mod, sent } = loadLink({ ringLink: 0 });
+        mod.pendingRingLinkGold = 1000;
+        await host._flushRingLink();
+        assert.deepEqual(sent, []);
+        assert.equal(mod.pendingRingLinkGold, 0, "it would grow all session");
+    });
+});
+
+describe("the bounce off the wire", () => {
+    const packet = (amount, source, tags = ["RingLink"]) => ({ tags, data: { amount, source, time: 0 } });
+
+    it("turns another player's rings into gold at the ratio", () => {
+        const { host, applied } = loadLink({ ratio: 100, source: 7 });
+        host._onRingLinkBounce(packet(3, 99));
+        assert.deepEqual(applied, [300]);
+    });
+
+    it("drops the server's echo of our own packet", () => {
+        const { host, applied } = loadLink({ source: 7 });
+        host._onRingLinkBounce(packet(3, 7));
+        assert.deepEqual(applied, [], "our own rings came back as gold");
+    });
+
+    it("does not treat an unset source as matching everyone", () => {
+        const { host, applied } = loadLink({ source: null });
+        host._onRingLinkBounce(packet(3, null));
+        assert.deepEqual(applied, [300], "a null source swallowed the room");
+    });
+
+    it("ignores other links' bounces", () => {
+        const { host, applied } = loadLink();
+        host._onRingLinkBounce(packet(3, 99, ["DeathLink"]));
+        assert.deepEqual(applied, []);
+    });
+
+    it("ignores amounts that come to nothing", () => {
+        const { host, applied } = loadLink();
+        host._onRingLinkBounce(packet(0, 99));
+        host._onRingLinkBounce(packet("abc", 99));
+        assert.deepEqual(applied, []);
+    });
+
+    it("does nothing with Ring Link off", () => {
+        const { host, applied } = loadLink({ ringLink: 0 });
+        host._onRingLinkBounce(packet(3, 99));
+        assert.deepEqual(applied, []);
     });
 });
 
@@ -292,7 +441,7 @@ describe("the ring source survives play", () => {
     });
 
     it("nothing unidentified goes on the wire", () => {
-        assert.match(src, /this\.ringSource === null\)\s*\{\s*\n\s*stats\.skippedNoSource/);
+        assert.match(src, /if \(this\.ringSource === null\) return;/);
     });
 });
 
