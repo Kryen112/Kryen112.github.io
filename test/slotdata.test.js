@@ -6,12 +6,13 @@
 // by hand. The client now falls back to the one thing the seed does carry: only
 // Shop Checks creates locations in the shop range.
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { resolveShopChecks as resolve } from "../src/options.js";
+import { SLOT_DATA_OPTIONS, missingSlotDataKeys } from "../src/slotdata.js";
 
 const MAIN_JS = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "main.js");
 const SHOP_OFFSET = 20000;
@@ -92,6 +93,65 @@ describe("resolving shop checks from slot data", () => {
     it("is what _connect uses", () => {
         const src = readFileSync(MAIN_JS, "utf8");
         assert.match(src, /window\.ArchipelagoMod\.shopChecks = resolveShopChecks\(this\.slotData/);
+    });
+});
+
+// The list of options the apworld ships. Both repos keep one, and this pins
+// ours against the apworld's whenever that checkout sits beside this one.
+describe("the slot data option list", () => {
+    it("has no duplicates", () => {
+        assert.equal(new Set(SLOT_DATA_OPTIONS).size, SLOT_DATA_OPTIONS.length);
+    });
+
+    it("reports what a seed is missing", () => {
+        const seed = Object.fromEntries(SLOT_DATA_OPTIONS.map((k) => [k, 0]));
+        assert.deepEqual(missingSlotDataKeys(seed), []);
+        delete seed.shop_checks;
+        assert.deepEqual(missingSlotDataKeys(seed), ["shop_checks"]);
+        assert.deepEqual(missingSlotDataKeys(null), SLOT_DATA_OPTIONS);
+    });
+
+    it("matches the apworld's when it is checked out", (t) => {
+        const constants = join(
+            dirname(fileURLToPath(import.meta.url)),
+            "..",
+            "..",
+            "AP_Stick_Ranger",
+            "stick_ranger",
+            "constants.py",
+        );
+        if (!existsSync(constants)) return t.skip("no AP_Stick_Ranger checkout beside this repo");
+        const py = readFileSync(constants, "utf8");
+        const block = (name) => {
+            const start = py.indexOf(name);
+            assert.ok(start !== -1, `${name} not found in constants.py`);
+            return py.slice(
+                start,
+                py.indexOf("\n)", start) === -1
+                    ? undefined
+                    : py.indexOf("\n]", start) === -1
+                      ? py.indexOf("\n)", start)
+                      : Math.min(...[py.indexOf("\n)", start), py.indexOf("\n]", start)].filter((i) => i !== -1)),
+            );
+        };
+        const strings = (text) => [...text.matchAll(/"([a-z_]+)"/g)].map((m) => m[1]);
+        const classes = strings(block("CLASS_REQ_OPTIONS: list[str] = ["));
+        const stages = strings(block("STAGE_SETTINGS: list[tuple[str, str, str, str]] = [")).filter((s) =>
+            s.startsWith("stages_req_for_"),
+        );
+        const listed = block("SLOT_DATA_OPTIONS: tuple[str, ...] = (");
+        const expected = [];
+        for (const line of listed.split("\n").slice(1)) {
+            if (line.includes("*CLASS_REQ_OPTIONS")) expected.push(...classes);
+            else if (line.includes("STAGE_SETTINGS")) expected.push(...stages);
+            else expected.push(...strings(line));
+        }
+        assert.deepEqual(SLOT_DATA_OPTIONS, expected, "the two repos disagree on what slot_data carries");
+    });
+
+    it("is checked at connect for a seed that says its version", () => {
+        const src = readFileSync(MAIN_JS, "utf8");
+        assert.match(src, /if \(!legacy\) \{\s*\n\s*for \(const key of missingSlotDataKeys\(this\.slotData\)\)/);
     });
 });
 

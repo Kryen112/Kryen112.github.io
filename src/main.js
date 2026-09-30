@@ -3,6 +3,7 @@ import { itemColor, itemColorValue } from "./colors.js";
 import { connectionFromQuery } from "./connection.js";
 import { disguiseFor } from "./disguise.js";
 import { resolveShopChecks } from "./options.js";
+import { missingSlotDataKeys } from "./slotdata.js";
 import { legacySeed, logicNotice, versionNotice } from "./version.js";
 
 const CONNECTION_KEY = "StickRangerConnection";
@@ -675,6 +676,14 @@ class APIntegration {
             window.ArchipelagoMod.worldVersion = this.slotData.world_version ?? null;
             const notice = versionNotice(this.slotData.world_version, SITE_VERSION);
             if (notice) this.log(notice.text, notice.level);
+            // An option wired through generation but never shipped runs at its
+            // default here without a trace, which is how Shop Checks did
+            // nothing for a week in 1.7.0. Say so instead.
+            if (!legacy) {
+                for (const key of missingSlotDataKeys(this.slotData)) {
+                    this.log(`This seed does not carry "${key}"; that option runs at its default here.`, "error");
+                }
+            }
 
             this.setStagesToWinFromGoal();
             window.ArchipelagoMod.rangerClassRandomizer = this.slotData.ranger_class_randomizer ?? 0;
