@@ -6,9 +6,10 @@
  * Shoppe". It reads as a real item at a glance and gives itself away only if
  * you look properly.
  *
- * Everything here is derived from the location id, so a given trap always wears
- * the same face: across a reconnect, a reload, or a second look at the same
- * shelf. Nothing is stored.
+ * Everything here is derived from the seed and the location id, so a given
+ * trap always wears the same face: across a reconnect, a reload, or a second
+ * look at the same shelf. Nothing is stored -- and a different seed gives the
+ * same shelf a different face, so a face cannot be learned across games.
  */
 
 /** FNV-1a. Small, fast, and stable across browsers, which Math.random is not. */
@@ -138,15 +139,15 @@ export function misspell(name, rng) {
 }
 
 /**
- * The face a trap wears at one location.
+ * The face a trap wears at one location in one seed.
  *
  * `names` is every item name in the room, so a Stick Ranger trap can turn up
  * wearing a misspelled Hollow Knight item. Returns null when there is nothing
  * to dress it in, and the caller keeps the real name.
  */
-export function disguiseFor(locationId, names) {
+export function disguiseFor(locationId, names, seedName = "") {
     if (!names || names.length === 0) return null;
-    const rng = seededRandom(hashString(`stick-ranger-trap:${locationId}`));
+    const rng = seededRandom(hashString(`stick-ranger-trap:${seedName}:${locationId}`));
     const chosen = names[Math.floor(rng() * names.length)];
     const disguised = misspell(chosen, rng);
     return disguised === chosen ? null : disguised;

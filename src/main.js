@@ -1135,13 +1135,20 @@ class APIntegration {
 
         const isTrap = (networkItem.flags & 0b100) !== 0;
         if (isTrap && this.slotData.trap_disguise) {
-            const disguise = disguiseFor(networkItem.location, this._decoyNames());
-            if (disguise !== null) {
-                // Its own sprite would give it away, and wearing the sprite of
-                // what it pretends to be is a lie the shelf cannot take back.
-                hint.item = disguise;
-                hint.itemClassification = 0b001;
-                hint.sprite = null;
+            // The base record is already built, so a disguise that cannot be
+            // made costs the trap its cover and nothing else.
+            try {
+                const disguise = disguiseFor(networkItem.location, this._decoyNames(), this.client.room.seedName);
+                if (disguise !== null) {
+                    // Its own sprite would give it away, and wearing the sprite
+                    // of what it pretends to be is a lie the shelf cannot take
+                    // back.
+                    hint.item = disguise;
+                    hint.itemClassification = 0b001;
+                    hint.sprite = null;
+                }
+            } catch (error) {
+                console.error("Could not disguise the trap at", networkItem.location, error);
             }
         }
 
@@ -1182,7 +1189,10 @@ class APIntegration {
         // which threw and took the whole hint out with it.
         for (const game of this.client.room.games ?? []) {
             const pkg = this.client.package.findPackage(game);
-            for (const name of Object.keys(pkg?.item_name_to_id ?? {})) {
+            for (const [name, id] of Object.entries(pkg?.item_name_to_id ?? {})) {
+                // Our own traps stay out of it: a trap wearing a misspelled
+                // trap name, coloured as progression, contradicts itself.
+                if (game === "Stick Ranger" && id >= this.TRAPS_OFFSET && id < this.TRAPS_OFFSET + 1000) continue;
                 names.add(name);
             }
         }

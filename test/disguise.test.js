@@ -1,9 +1,10 @@
 // Trap disguises. A trap in a shop or book wears some other item's name with
 // its spelling knocked askew, so it reads as real at a glance.
 //
-// The whole thing is derived from the location id and nothing is stored, so the
-// property that matters most is stability: the same shelf must show the same
-// name after a reconnect, a reload, or a second look.
+// The whole thing is derived from the seed and the location id and nothing is
+// stored, so the property that matters most is stability: the same shelf must
+// show the same name after a reconnect, a reload, or a second look -- and a
+// different seed must not show the same one, or a face could be learned.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -30,6 +31,18 @@ describe("disguiseFor", () => {
             const first = disguiseFor(location, NAMES);
             assert.equal(first, disguiseFor(location, NAMES), `location ${location} drifted`);
         }
+    });
+
+    it("gives the same location a different face in a different seed", () => {
+        const faces = new Set();
+        for (const seed of ["seed-a", "seed-b", "seed-c", "seed-d", "seed-e"]) {
+            faces.add(disguiseFor(20003, NAMES, seed));
+        }
+        assert.ok(faces.size > 1, "the face could be learned across seeds");
+    });
+
+    it("keeps the face within a seed", () => {
+        assert.equal(disguiseFor(20003, NAMES, "seed-a"), disguiseFor(20003, NAMES, "seed-a"));
     });
 
     it("does not give every location the same face", () => {
@@ -123,6 +136,20 @@ describe("the hint record", () => {
     it("falls back to the real name when no disguise could be made", () => {
         assert.match(method, /if \(disguise !== null\)/);
     });
+
+    it("is seeded by the room, so a face cannot be learned across games", () => {
+        assert.match(
+            method,
+            /disguiseFor\(networkItem\.location, this\._decoyNames\(\), this\.client\.room\.seedName\)/,
+        );
+    });
+
+    it("keeps the base record when the disguise throws", () => {
+        // The try sits around the disguise alone, so an undisguised trap is
+        // the worst a failure can do -- not a shelf with nothing to say.
+        assert.ok(method.indexOf("const hint = {") < method.indexOf("try {"), "the try covers the base record too");
+        assert.match(method, /catch \(error\) \{\s*\n\s*console\.error\("Could not disguise/);
+    });
 });
 
 // Where the decoy names come from.
@@ -138,13 +165,13 @@ describe("_decoyNames", () => {
     function load(room, packages) {
         const body = src.slice(src.indexOf("    _decoyNames() {"));
         const method = body.slice(0, body.search(/\n {4}\}/) + 6);
-        const host = new Function(`return { _decoys: undefined, client: null, ${method} };`)();
+        const host = new Function(`return { _decoys: undefined, client: null, TRAPS_OFFSET: 13000, ${method} };`)();
         host.client = { room, package: { findPackage: (g) => packages[g] ?? null } };
         return host;
     }
 
     const PACKAGES = {
-        "Stick Ranger": { item_name_to_id: { "Unlock Lake": 1, "Unlock Volcano": 2 } },
+        "Stick Ranger": { item_name_to_id: { "Unlock Lake": 1, "Unlock Volcano": 2, "Kill a Ranger": 13002 } },
         "Hollow Knight": { item_name_to_id: { "Mothwing Cloak": 3 } },
     };
 
@@ -156,6 +183,13 @@ describe("_decoyNames", () => {
     it("collects names from every game in the room", () => {
         const host = load({ games: ["Stick Ranger", "Hollow Knight"] }, PACKAGES);
         assert.deepEqual(host._decoyNames(), ["Mothwing Cloak", "Unlock Lake", "Unlock Volcano"]);
+    });
+
+    it("leaves our own traps out of the pool", () => {
+        // A trap wearing a misspelled trap name, coloured as progression,
+        // contradicts itself.
+        const host = load({ games: ["Stick Ranger"] }, PACKAGES);
+        assert.ok(!host._decoyNames().includes("Kill a Ranger"), "a trap can wear another trap's name");
     });
 
     it("survives a room that has not told us its games yet", () => {
