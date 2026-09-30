@@ -33,7 +33,7 @@ function loadLogic() {
         "window",
         "isTownStage",
         `${source.slice(start, end)}
-         return { in_logic, unlocked, unlockedInRegion, openGates, stageIsBlocked };`,
+         return { in_logic, unlocked, unlockedInRegion, openGates, stageIsBlocked, forgetOpenGates };`,
     );
     const api = build(stageStatus, Unlocked, fakeWindow, (s) => townIds.has(s));
     return { stageStatus, mod: fakeWindow.ArchipelagoMod, ...api };
@@ -67,7 +67,10 @@ function description({ stages = 0, classes = 0 } = {}) {
 
 describe("in_logic", () => {
     let logic;
-    const unlock = (...stages) => stages.forEach((s) => (logic.stageStatus[s] |= Unlocked));
+    const unlock = (...stages) => {
+        stages.forEach((s) => (logic.stageStatus[s] |= Unlocked));
+        logic.forgetOpenGates(); // as the client does when it hands the game an unlock
+    };
 
     beforeEach(() => {
         logic = loadLogic();
@@ -124,6 +127,7 @@ describe("in_logic", () => {
             unlock(bossRush);
             assert.equal(logic.in_logic(bossRush), true);
             logic.stageStatus[88] = 0;
+            logic.forgetOpenGates();
             assert.equal(logic.in_logic(bossRush), false, "opened without the last gate");
         }
     });
@@ -133,6 +137,7 @@ describe("in_logic", () => {
         unlock(10);
         assert.equal(logic.in_logic(10), false, "one class should not satisfy two");
         logic.mod.rangerClassesUnlocked.add("Boxer");
+        logic.forgetOpenGates();
         assert.equal(logic.in_logic(10), true, "start + 1 unlock is 2");
     });
 
@@ -151,6 +156,44 @@ describe("in_logic", () => {
     it("puts Grassland stages in logic on their own unlock alone", () => {
         unlock(3);
         assert.equal(logic.in_logic(3), true, "Grassland sits behind no gate");
+    });
+});
+
+describe("openGates is kept for the rest of the frame", () => {
+    // It is asked once per stage dot per frame. mainSequence forgets it each
+    // frame, and the client forgets it when an item arrives.
+    let logic;
+    beforeEach(() => {
+        logic = loadLogic();
+        logic.mod.rangerClassesUnlocked = new Set(["Sniper"]);
+        logic.mod.logic = description();
+    });
+
+    it("returns the same answer until told to forget", () => {
+        logic.stageStatus[10] |= Unlocked;
+        assert.equal(logic.openGates(logic.mod.logic)[10], true);
+        logic.stageStatus[10] = 0;
+        assert.equal(logic.openGates(logic.mod.logic)[10], true, "recomputed mid-frame");
+        logic.forgetOpenGates();
+        assert.equal(logic.openGates(logic.mod.logic)[10], false);
+    });
+
+    it("does not carry one description's answer over to another", () => {
+        logic.stageStatus[10] |= Unlocked;
+        assert.equal(logic.openGates(logic.mod.logic)[10], true);
+        const stricter = description({ stages: 4 });
+        assert.equal(logic.openGates(stricter)[10], false, "a new seed read the old seed's gates");
+    });
+
+    it("tolerates a gate whose region the description does not list", () => {
+        // A throw here lands inside the map's draw loop.
+        const desc = description();
+        delete desc.regions.Sea;
+        logic.mod.logic = desc;
+        logic.stageStatus[10] |= Unlocked;
+        logic.stageStatus[29] |= Unlocked;
+        assert.doesNotThrow(() => logic.in_logic(29));
+        assert.equal(logic.in_logic(29), true, "an empty region still satisfies a zero count");
     });
 });
 

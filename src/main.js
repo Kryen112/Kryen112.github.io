@@ -264,6 +264,7 @@ class APIntegration {
             window.ArchipelagoMod.pendingClassSwapItems = data.pendingClassSwapItems ?? [];
             GameLoad(data.save.replace(/\r\n|\r|\n/g, ""));
             this.restoreStagesBeaten(data.stages);
+            window.ArchipelagoMod.forgetOpenGates?.();
         } else {
             console.log("No data found");
         }
@@ -908,6 +909,8 @@ class APIntegration {
             }
         }
 
+        // The map keeps its gate answers for a frame; an item can move them.
+        window.ArchipelagoMod.forgetOpenGates?.();
         await this.saveAPData(); //TODO maybe only save if firsttime? it seems to save a lot of times on reconnect
     }
 

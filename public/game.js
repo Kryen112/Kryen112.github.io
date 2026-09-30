@@ -13219,7 +13219,17 @@ function unlockedInRegion(stage_ids){
 
 // Which boss gates are open, keyed by boss stage id. Gates are listed in chain
 // order, so one pass is enough.
+//
+// Asked once per stage dot per frame, and the answer only changes when an
+// unlock or a class arrives, so it is kept for the rest of the frame:
+// mainSequence forgets it every frame, and the client forgets it whenever it
+// hands the game an item.
+var open_gates_cache = null;
+function forgetOpenGates(){ open_gates_cache = null; }
+window.ArchipelagoMod.forgetOpenGates = forgetOpenGates;
 function openGates(logic){
+    if (open_gates_cache !== null && open_gates_cache.logic === logic)
+        return open_gates_cache.open;
     // The starting class counts, matching class_count() in the apworld's rules.
     var classes = window.ArchipelagoMod.rangerClassesUnlocked.size;
     var open = {};
@@ -13228,9 +13238,12 @@ function openGates(logic){
         open[gate.stage] =
             (gate.after === null || open[gate.after])
             && unlocked(gate.stage)
-            && unlockedInRegion(logic.regions[gate.region]) >= gate.stages
+            // A region the description does not list counts as empty rather
+            // than throwing inside the map's draw loop.
+            && unlockedInRegion(logic.regions[gate.region] || []) >= gate.stages
             && classes >= gate.classes;
     }
+    open_gates_cache = { logic: logic, open: open };
     return open;
 }
 
@@ -13619,6 +13632,7 @@ var Layer6 = new Float32Array(Win_Height);              // original name: oh
 function mainSequence(){ // original name: rf()
     var game_ticks_passed,area,b;
     var ticks_per_second = 60;
+    forgetOpenGates(); // an unlock or a class may have arrived since the last frame
     if (Animation_Frame){
         Animation_Frame(mainSequence);
         Animation_Frame_Counter++;
