@@ -54,6 +54,7 @@ class APIntegration {
         this.winReported = false;
         this.lastSequence = -1;
         this.lastStage = -1;
+        this._tickBusy = false;
         this.sendShopHints = false;
         this.shopHintsMode = SHOP_HINTS_OFF;
         this.isScouting = false;
@@ -1393,9 +1394,19 @@ class APIntegration {
 
     _tick() {
         if (!this._disconnected) {
-            this._doTickWork().catch((err) => {
-                console.error("Tick error:", err);
-            });
+            // One tick body at a time. A body that awaits a scout or a save
+            // spans frames, and a second one starting underneath it sees the
+            // same "the sequence step just changed" and fires it again.
+            if (!this._tickBusy) {
+                this._tickBusy = true;
+                this._doTickWork()
+                    .catch((err) => {
+                        console.error("Tick error:", err);
+                    })
+                    .finally(() => {
+                        this._tickBusy = false;
+                    });
+            }
             // Ring Link is time-gated and self-contained, so it runs on its own
             // rather than last in _doTickWork. It used to sit behind four saves
             // and two location sends in a single promise: one slow save and the

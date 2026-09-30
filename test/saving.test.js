@@ -86,6 +86,25 @@ describe("what counts as somewhere your game can change", () => {
     });
 });
 
+describe("tick bodies never overlap", () => {
+    // A body that awaits a scout or a save spans frames; a second body under
+    // it would see the same transition and save, scout or send twice.
+    const tick = src.slice(src.indexOf("    _tick() {"), src.indexOf("\n    }", src.indexOf("    _tick() {")));
+
+    it("skips the frame while the last body is still running", () => {
+        assert.match(tick, /if \(!this\._tickBusy\) \{/);
+        assert.match(tick, /this\._tickBusy = true;/);
+    });
+
+    it("frees the next frame whether the body resolved or threw", () => {
+        assert.match(tick, /\.finally\(\(\) => \{\s*\n\s*this\._tickBusy = false;/);
+    });
+
+    it("starts free", () => {
+        assert.match(src, /this\._tickBusy = false;\n/);
+    });
+});
+
 describe("the other reasons to save are still there", () => {
     // These were the only ones, and the point is to add to them, not replace.
     for (const [what, needle] of [
