@@ -14628,9 +14628,14 @@ document.onkeyup = function(event){ // vh.onkeyup
 
 // A keyup never arrives if the window loses focus mid-press, so the key would
 // stay held. Alt-tabbing while walking used to leave a ranger walking.
-window.addEventListener("blur", function(){
+function releaseAllKeys(){
     for (var k=0; k<256; k++)
         Is_Key_Held[k] = false;
+}
+window.addEventListener("blur", releaseAllKeys);
+// A tab switch does not always blur the window, but it does hide the document.
+document.addEventListener("visibilitychange", function(){
+    if (document.hidden) releaseAllKeys();
 });
 
 var Mouse_In_Window = false; // original name: bi

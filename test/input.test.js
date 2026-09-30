@@ -26,7 +26,13 @@ function loadInput() {
     const Is_Key_Held = Array(256).fill(false);
     const Arr256_4 = Array(256).fill(0);
     const Arr256_5 = Array(256).fill(0);
-    const doc = {};
+    const doc = {
+        hidden: false,
+        handlers: {},
+        addEventListener(type, fn) {
+            this.handlers[type] = fn;
+        },
+    };
     const win = {
         handlers: {},
         addEventListener(type, fn) {
@@ -87,6 +93,24 @@ describe("losing focus drops every held key", () => {
             [false, false],
             "alt-tabbing mid-walk would leave the ranger walking",
         );
+    });
+
+    it("clears the array when the tab is hidden", () => {
+        // A tab switch does not always blur the window, but it hides the document.
+        const env = loadInput();
+        env.Is_Key_Held[97] = true;
+        assert.ok(env.doc.handlers.visibilitychange, "nothing listens for the tab being hidden");
+        env.doc.hidden = true;
+        env.doc.handlers.visibilitychange();
+        assert.equal(env.Is_Key_Held[97], false, "switching tabs mid-walk would leave the ranger walking");
+    });
+
+    it("leaves keys alone when the tab becomes visible again", () => {
+        const env = loadInput();
+        env.Is_Key_Held[97] = true;
+        env.doc.hidden = false;
+        env.doc.handlers.visibilitychange();
+        assert.equal(env.Is_Key_Held[97], true);
     });
 });
 
