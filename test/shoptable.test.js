@@ -18,6 +18,8 @@ import {
     parseShopPy,
     readShopItems,
     readShopReqs,
+    renderShopReqs,
+    renderShopTable,
     shopTable,
     shopTier,
 } from "../scripts/shoptable.js";
@@ -76,6 +78,23 @@ describe("shop.py against Shop_Items", () => {
         for (const [id, entry] of derived) {
             assert.equal(listed.get(id).name, entry.name, `location ${id}`);
         }
+    });
+
+    it("is what the generator would write", () => {
+        // The generator splices the table body and SHOP_REQS into shop.py and
+        // leaves the rest; if this fails, run scripts/generate_shop_table.js.
+        const shopPy = readFileSync(SHOP_PY, "utf8");
+        const body = shopPy.slice(
+            shopPy.indexOf("shop_table: dict[int, ShopLocationDict] = {\n") +
+                "shop_table: dict[int, ShopLocationDict] = {\n".length,
+            shopPy.indexOf("\n}", shopPy.indexOf("shop_table: dict[int, ShopLocationDict] = {\n")),
+        );
+        assert.equal(body, renderShopTable(derived));
+        const reqs = shopPy.slice(
+            shopPy.indexOf("SHOP_REQS: tuple[int, ...] = (\n") + "SHOP_REQS: tuple[int, ...] = (\n".length,
+            shopPy.indexOf("\n)", shopPy.indexOf("SHOP_REQS: tuple[int, ...] = (\n")),
+        );
+        assert.equal(reqs, renderShopReqs(readShopReqs(src)));
     });
 
     it("never sells a check from a cell at a looser gate than it is listed at", () => {
