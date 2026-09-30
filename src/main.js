@@ -759,10 +759,11 @@ class APIntegration {
             // LEGACY (remove after 2026-11): absent on a seed from before the
             // shops had a track each.
             window.ArchipelagoMod.shopProgression = this.slotData.shop_progression ?? null;
-            // The whole payload, for the console. An option missing here rather
-            // than being 0 means the seed was generated before that option
-            // existed, and no yaml setting can bring it back without a regen.
-            window.ArchipelagoMod.slotData = this.slotData;
+            // The whole payload, for the console, frozen so a poke there cannot
+            // change the client mid-session. An option missing here rather than
+            // being 0 means the seed was generated before that option existed,
+            // and no yaml setting can bring it back without a regen.
+            window.ArchipelagoMod.slotData = Object.freeze({ ...this.slotData });
             // LEGACY (remove after 2026-11): seeds generated before 1.8.1 never
             // shipped this option, which left the feature dead: the locations
             // existed, so they showed up in the tracker, but the client read

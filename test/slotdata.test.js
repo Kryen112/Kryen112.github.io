@@ -155,6 +155,24 @@ describe("the slot data option list", () => {
     });
 });
 
+// Half this project's confusing bug reports have been "is the option reaching
+// the client?", and the answer has never been readable without a code change.
+describe("the slot data is readable from the console", () => {
+    const src = readFileSync(MAIN_JS, "utf8");
+
+    it("is handed over whole, as a frozen copy", () => {
+        // A live reference would let a poke from the console change the
+        // client's behaviour mid-session.
+        assert.match(src, /window\.ArchipelagoMod\.slotData = Object\.freeze\(\{ \.\.\.this\.slotData \}\);/);
+    });
+
+    it("is not defaulted, so a missing option stays missing", () => {
+        // `?? {}` would hide the difference between "off" and "not in the seed",
+        // which is the distinction worth reading.
+        assert.doesNotMatch(src, /window\.ArchipelagoMod\.slotData = [^;]*\?\?/);
+    });
+});
+
 describe("adoptCheckedShopLocations", () => {
     function adopt(checked) {
         const host = loadDetector([], checked);
