@@ -45,7 +45,7 @@ run("git push");
 let runId = "";
 for (let attempt = 0; attempt < 6 && runId === ""; attempt++) {
     try {
-        runId = read("gh run list --branch main --limit 1 --json databaseId --jq \".[0].databaseId\"");
+        runId = read('gh run list --branch main --limit 1 --json databaseId --jq ".[0].databaseId"');
     } catch {
         runId = "";
     }

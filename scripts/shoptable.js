@@ -75,12 +75,22 @@ export function shopTable(src, progression) {
                 const req = shopReq(row, column.length, progression.steps[townIndex], progression.first[townIndex]);
                 const current = table.get(id);
                 // First town wins; within a town, the lowest tier, then the lowest req.
-                if (current && (current.townIndex < townIndex || (current.townIndex === townIndex && current.tier <= tier && current.req <= req)))
+                if (
+                    current &&
+                    (current.townIndex < townIndex ||
+                        (current.townIndex === townIndex && current.tier <= tier && current.req <= req))
+                )
                     return;
                 if (current && current.townIndex === townIndex && current.tier < tier) return;
                 const item = catalogue.get(id);
                 if (!item) throw new Error(`catalogue has no item ${id}`);
-                table.set(id, { name: `${town} Shop: ${displayName(item.name, item.level)}`, region: town, tier, req, townIndex });
+                table.set(id, {
+                    name: `${town} Shop: ${displayName(item.name, item.level)}`,
+                    region: town,
+                    tier,
+                    req,
+                    townIndex,
+                });
             });
         });
     });
@@ -96,7 +106,12 @@ export function parseShopPy(text) {
     const entries = new Map();
     const pattern = /(\d+): \{"name": "([^"]+)", "region": "(\w+)", "tier": (\d+), "req": (\d+)\}/g;
     for (const match of text.matchAll(pattern)) {
-        entries.set(Number(match[1]), { name: match[2], region: match[3], tier: Number(match[4]), req: Number(match[5]) });
+        entries.set(Number(match[1]), {
+            name: match[2],
+            region: match[3],
+            tier: Number(match[4]),
+            req: Number(match[5]),
+        });
     }
     return entries;
 }

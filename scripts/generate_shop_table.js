@@ -19,7 +19,8 @@ import { parseProgression, readGameJs, readShopReqs, renderShopReqs, renderShopT
 const here = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
 const check = args.includes("--check");
-const shopPy = args.find((a) => !a.startsWith("--")) ?? join(here, "..", "..", "AP_Stick_Ranger", "stick_ranger", "shop.py");
+const shopPy =
+    args.find((a) => !a.startsWith("--")) ?? join(here, "..", "..", "AP_Stick_Ranger", "stick_ranger", "shop.py");
 const itemsPy = join(dirname(shopPy), "items.py");
 
 const src = readGameJs(join(here, "..", "public", "game.js"));
@@ -34,7 +35,12 @@ function splice(text, startMarker, endMarker, body) {
     return text.slice(0, bodyStart) + body + text.slice(end);
 }
 
-let next = splice(current, "shop_table: dict[int, ShopLocationDict] = {\n", "\n}", renderShopTable(shopTable(src, progression)));
+let next = splice(
+    current,
+    "shop_table: dict[int, ShopLocationDict] = {\n",
+    "\n}",
+    renderShopTable(shopTable(src, progression)),
+);
 next = splice(next, "SHOP_REQS: tuple[int, ...] = (\n", "\n)", renderShopReqs(readShopReqs(src)));
 
 if (next === current) {
