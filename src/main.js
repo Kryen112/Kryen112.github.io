@@ -2,7 +2,7 @@ import { Client, itemsHandlingFlags } from "archipelago.js";
 import { itemColor, itemColorValue } from "./colors.js";
 import { connectionFromQuery } from "./connection.js";
 import { disguiseFor } from "./disguise.js";
-import { resolveShopChecks } from "./options.js";
+import { SHOP_HINTS_ALL, SHOP_HINTS_OFF, resolveShopChecks, resolveShopHints } from "./options.js";
 import { missingSlotDataKeys } from "./slotdata.js";
 import { legacySeed, logicNotice, versionNotice } from "./version.js";
 
@@ -47,6 +47,7 @@ class APIntegration {
         this.lastSequence = -1;
         this.lastStage = -1;
         this.sendShopHints = false;
+        this.shopHintsMode = SHOP_HINTS_OFF;
         this.isScouting = false;
         this.isScoutingShop = false;
         this.shopStockKey = "";
@@ -694,7 +695,8 @@ class APIntegration {
             window.ArchipelagoMod.goldMultiplier = this.slotData.gold_multiplier ?? 1;
             window.ArchipelagoMod.xpMultiplier = this.slotData.xp_multiplier ?? 1;
             window.ArchipelagoMod.dropMultiplier = this.slotData.drop_multiplier ?? 1;
-            this.sendShopHints = this.slotData.shop_hints ?? false;
+            this.shopHintsMode = resolveShopHints(this.slotData);
+            this.sendShopHints = this.shopHintsMode !== SHOP_HINTS_OFF;
             window.ArchipelagoMod.itemColor = itemColorValue;
             window.ArchipelagoMod.bookHintSpoiler = this.bookHints ?? {};
             const bookCostRandomizer = this.slotData.randomize_book_costs ?? 0;
@@ -1082,15 +1084,15 @@ class APIntegration {
      * Scout locations, hinting the room only about what is worth hearing.
      *
      * An item's classification is not known until it has been scouted, so with
-     * Important Hints Only on this looks first with create_as_hint 0 -- which
-     * still fills our own display through the locationInfo handler -- and then
-     * scouts the progression and trap ones again to create the hints. A seed
-     * with Shop Checks has 462 shop items, and hinting every one of them buries
-     * everybody else's hints.
+     * Shop Hints on important only this looks first with create_as_hint 0 --
+     * which still fills our own display through the locationInfo handler --
+     * and then scouts the progression and trap ones again to create the
+     * hints. A seed with Shop Checks has 462 shop items, and hinting every one
+     * of them buries everybody else's hints.
      */
     async _scoutAndHint(locations) {
         if (locations.length === 0) return;
-        if (!this.slotData.important_hints_only) {
+        if (this.shopHintsMode === SHOP_HINTS_ALL) {
             await this.client.scout(locations, 2);
             return;
         }
