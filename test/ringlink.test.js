@@ -13,7 +13,7 @@ const GAME_JS = join(dirname(fileURLToPath(import.meta.url)), "..", "public", "g
 function loadGold() {
     const source = readFileSync(GAME_JS, "utf8");
     const start = source.indexOf("function gainGold(amount){");
-    const end = source.indexOf("window.ArchipelagoMod.applyRingLinkGold = applyRingLinkGold;");
+    const end = source.indexOf("window.ArchipelagoMod.applyTrapGold = applyTrapGold;");
     assert.ok(start !== -1 && end > start, "could not find the gold seam in game.js");
 
     const fakeWindow = { ArchipelagoMod: { pendingRingLinkGold: 0 } };
@@ -28,6 +28,7 @@ function loadGold() {
          return {
              gainGold: (n) => { Team_Gold = state.Team_Gold; const moved = gainGold(n); state.Team_Gold = Team_Gold; return moved; },
              applyRingLinkGold: (n) => { Team_Gold = state.Team_Gold; applyRingLinkGold(n); state.Team_Gold = Team_Gold; },
+             applyTrapGold: (n) => { Team_Gold = state.Team_Gold; applyTrapGold(n); state.Team_Gold = Team_Gold; },
          };
          var Team_Gold;`,
     );
@@ -85,6 +86,27 @@ describe("applyRingLinkGold", () => {
         gold.applyRingLinkGold(1000);
         assert.equal(gold.state.Team_Gold, 1000);
         assert.equal(gold.mod.pendingRingLinkGold, 0, "inbound gold would loop back out");
+    });
+});
+
+describe("applyTrapGold", () => {
+    it("takes gold without queueing the loss for Ring Link", () => {
+        // The trap is Archipelago's doing; broadcasting it would halve every
+        // linked player's gold along with this one's.
+        const gold = loadGold();
+        gold.state.Team_Gold = 1000;
+        gold.applyTrapGold(-500);
+        assert.equal(gold.state.Team_Gold, 500);
+        assert.equal(gold.mod.pendingRingLinkGold, 0, "the trap would drain the room");
+    });
+
+    it("is what the gold trap uses", () => {
+        const MAIN_JS = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "main.js");
+        const src = readFileSync(MAIN_JS, "utf8");
+        const body = src.slice(src.indexOf("    loseHalfGold() {"));
+        const method = body.slice(0, body.search(/\n {4}\}/));
+        assert.match(method, /window\.ArchipelagoMod\.applyTrapGold\(-lostGold\)/);
+        assert.doesNotMatch(method, /gainGold\(/, "the trap went back through the Ring Link seam");
     });
 });
 
@@ -171,8 +193,9 @@ describe("every gold mutation is anti-cheat bracketed", () => {
 });
 
 // The one-seam invariant: every gold movement the mod causes has to go through
-// gainGold, or Ring Link silently misses it. The -50% gold trap wrote Team_Gold
-// directly, so a trap that took half your money broadcast nothing.
+// gainGold or one of the two deliberate bypasses (inbound Ring Link gold and
+// trap gold), never Team_Gold directly -- or the anti-cheat and Ring Link both
+// miss it.
 describe("the gold seam has no bypasses", () => {
     const MAIN_JS = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "main.js");
 

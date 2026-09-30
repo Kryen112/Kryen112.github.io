@@ -129,6 +129,19 @@ function applyRingLinkGold(amount){
     antiCheatSet();
 }
 window.ArchipelagoMod.applyRingLinkGold = applyRingLinkGold;
+
+/**
+ * Gold a trap takes away. Applied without touching the pending total: the trap
+ * came from Archipelago, and echoing it as negative rings would take the gold
+ * off every linked player as well as this one.
+ */
+function applyTrapGold(amount){
+    if (!amount) return;
+    antiCheatCheck();
+    Team_Gold = clamp(Team_Gold+amount,0,9999999);
+    antiCheatSet();
+}
+window.ArchipelagoMod.applyTrapGold = applyTrapGold;
 const AP_DROP_FROM_SHOP = 1;
 
 window.ArchipelagoMod.shopIdsSent = window.ArchipelagoMod.shopIdsSent || new Set();

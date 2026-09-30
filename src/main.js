@@ -1008,8 +1008,9 @@ class APIntegration {
 
     loseHalfGold() {
         const lostGold = Math.floor(Team_Gold / 2);
-        // Through the seam, so Ring Link sees the loss like any other spend.
-        gainGold(-lostGold);
+        // Not through the Ring Link seam: the trap is Archipelago's doing, and
+        // broadcasting it would halve every linked player's gold too.
+        window.ArchipelagoMod.applyTrapGold(-lostGold);
         this.log("You lost $" + lostGold + "!", "error");
         Indicators.INadd(
             Players.PL_joint[Selected_Player][0].x,
