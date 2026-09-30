@@ -14,6 +14,24 @@ export function resolveShopChecks(slotData, seedHasShopLocations) {
     return legacySeed(slotData) && seedHasShopLocations() ? 1 : 0;
 }
 
+/**
+ * Progressive Shop and Enforce Shop Logic only mean something once the shop
+ * holds checks. Current seeds ship them zeroed then; for older ones the same
+ * rule is applied here.
+ */
+export function resolveProgressiveShop(slotData, shopChecks) {
+    return shopChecks ? (slotData.progressive_shop ?? 0) : 0;
+}
+
+export function resolveEnforceShopLogic(slotData, shopChecks) {
+    return shopChecks ? (slotData.enforce_shop_logic ?? 0) : 0;
+}
+
+/** Gold per Thrown Ring is Ring Link's payout, so it is nothing without Ring Link. */
+export function resolveRingGold(slotData) {
+    return (slotData.ring_link ?? 0) ? (slotData.ring_gold ?? 0) : 0;
+}
+
 export const SHOP_HINTS_OFF = 0;
 export const SHOP_HINTS_IMPORTANT_ONLY = 1;
 export const SHOP_HINTS_ALL = 2;

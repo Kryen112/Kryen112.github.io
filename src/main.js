@@ -2,7 +2,15 @@ import { Client, itemsHandlingFlags } from "archipelago.js";
 import { itemColor, itemColorValue } from "./colors.js";
 import { connectionFromQuery } from "./connection.js";
 import { disguiseFor } from "./disguise.js";
-import { SHOP_HINTS_ALL, SHOP_HINTS_OFF, resolveShopChecks, resolveShopHints } from "./options.js";
+import {
+    SHOP_HINTS_ALL,
+    SHOP_HINTS_OFF,
+    resolveEnforceShopLogic,
+    resolveProgressiveShop,
+    resolveRingGold,
+    resolveShopChecks,
+    resolveShopHints,
+} from "./options.js";
 import { missingSlotDataKeys } from "./slotdata.js";
 import { legacySeed, logicNotice, versionNotice } from "./version.js";
 
@@ -708,7 +716,6 @@ class APIntegration {
             window.ArchipelagoMod.removeNullCompo = this.slotData.remove_null_compo ?? 1;
             window.ArchipelagoMod.removableCompos = this.slotData.removable_compos ?? 0;
             window.ArchipelagoMod.freeRespec = this.slotData.free_respec ?? 0;
-            window.ArchipelagoMod.progressiveShop = this.slotData.progressive_shop ?? 0;
             // How each shop opens, straight from the seed.
             // LEGACY (remove after 2026-11): absent on a seed from before the
             // shops had a track each.
@@ -728,6 +735,16 @@ class APIntegration {
                 this.log("Shop Checks recovered from this seed's locations; buying sends checks again.", "info");
             }
             this.adoptCheckedShopLocations();
+            // Neither means anything without shop checks: nothing in logic sits
+            // behind a row then, so the shop is neither gated nor greyed.
+            window.ArchipelagoMod.progressiveShop = resolveProgressiveShop(
+                this.slotData,
+                window.ArchipelagoMod.shopChecks,
+            );
+            window.ArchipelagoMod.enforceShopLogic = resolveEnforceShopLogic(
+                this.slotData,
+                window.ArchipelagoMod.shopChecks,
+            );
             // The seed's own logic. LEGACY (remove after 2026-11): absent on a
             // seed generated before 1.8.0, in which case the map falls back to
             // plain unlocked/done colouring. A block in a shape this site does
@@ -737,8 +754,8 @@ class APIntegration {
             if (logicProblem) this.log(logicProblem, "error");
             window.ArchipelagoMod.logic = logicProblem ? null : logic;
             window.ArchipelagoMod.enforceLogic = this.slotData.enforce_logic ?? 0;
-            window.ArchipelagoMod.enforceShopLogic = this.slotData.enforce_shop_logic ?? 0;
-            window.ArchipelagoMod.ringGold = this.slotData.ring_gold ?? 0;
+            // Ring Link's payout, so nothing without Ring Link.
+            window.ArchipelagoMod.ringGold = resolveRingGold(this.slotData);
             window.ArchipelagoMod.ringLink = this.slotData.ring_link ?? 0;
             window.ArchipelagoMod.ringLinkRatio = this.slotData.ring_link_ratio ?? 100;
             window.ArchipelagoMod.pendingRingLinkGold = 0;
