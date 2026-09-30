@@ -21,13 +21,16 @@ function loadScout({ mode, disguise = 0 }, catalogue = {}) {
     assert.ok(start !== -1, "could not find _scoutAndHint in main.js");
     const rest = src.slice(start);
     const body = rest.slice(0, rest.search(/\n {4}\}/) + 6);
+    const worthStart = src.indexOf("    _worthHinting(item) {");
+    assert.ok(worthStart !== -1, "could not find _worthHinting in main.js");
+    const worthRest = src.slice(worthStart);
+    const worth = worthRest.slice(0, worthRest.search(/\n {4}\}/) + 6);
 
     const calls = [];
     const host = new Function(
         "SHOP_HINTS_ALL",
-        "SHOP_HINTS_IMPORTANT_ONLY",
-        `return { slotData: null, client: null, shopHintsMode: null, ${body} };`,
-    )(SHOP_HINTS_ALL, SHOP_HINTS_IMPORTANT_ONLY);
+        `return { slotData: null, client: null, shopHintsMode: null, ${body}, ${worth} };`,
+    )(SHOP_HINTS_ALL);
     host.shopHintsMode = mode;
     host.slotData = { trap_disguise: disguise };
     host.client = {
@@ -81,6 +84,30 @@ describe("hinting important only", () => {
         const { host, calls } = loadScout({ mode: SHOP_HINTS_IMPORTANT_ONLY }, { 101: { trap: true } });
         await host._scoutAndHint([101]);
         assert.deepEqual(calls[1].locations, [101]);
+    });
+});
+
+// A disguised trap must never be hinted: the hint would carry its real name
+// into the room feed and this client's own log, which undoes the disguise.
+describe("with Trap Disguise on", () => {
+    it("hints everything but the traps when hinting all", async () => {
+        const { host, calls } = loadScout({ mode: SHOP_HINTS_ALL, disguise: 1 }, CATALOGUE);
+        await host._scoutAndHint(ALL);
+        assert.equal(calls.length, 2, "hinting all in one pass would name the trap");
+        assert.deepEqual(calls[0], { locations: ALL, createHint: 0 });
+        assert.deepEqual(calls[1], { locations: [100, 102, 103], createHint: 2 }, "the trap was hinted");
+    });
+
+    it("hints only progression when important only", async () => {
+        const { host, calls } = loadScout({ mode: SHOP_HINTS_IMPORTANT_ONLY, disguise: 1 }, CATALOGUE);
+        await host._scoutAndHint(ALL);
+        assert.deepEqual(calls[1], { locations: [100], createHint: 2 });
+    });
+
+    it("says nothing when only traps were scouted", async () => {
+        const { host, calls } = loadScout({ mode: SHOP_HINTS_ALL, disguise: 1 }, { 101: { trap: true } });
+        await host._scoutAndHint([101]);
+        assert.equal(calls.length, 1);
     });
 });
 

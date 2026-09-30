@@ -1092,16 +1092,29 @@ class APIntegration {
      */
     async _scoutAndHint(locations) {
         if (locations.length === 0) return;
-        if (this.shopHintsMode === SHOP_HINTS_ALL) {
+        // Everything at once when the room may hear about all of it. A
+        // disguised trap must never be hinted -- the hint carries its real
+        // name -- so with Trap Disguise on even "all" has to look first.
+        if (this.shopHintsMode === SHOP_HINTS_ALL && !this.slotData.trap_disguise) {
             await this.client.scout(locations, 2);
             return;
         }
 
         const scouted = await this.client.scout(locations, 0);
-        const worthHinting = scouted.filter((item) => item.progression || item.trap).map((item) => item.locationId);
+        const worthHinting = scouted.filter((item) => this._worthHinting(item)).map((item) => item.locationId);
         if (worthHinting.length > 0) {
             await this.client.scout(worthHinting, 2);
         }
+    }
+
+    /**
+     * Whether the room is told about a scouted item: everything when Shop
+     * Hints is on all, progression and traps when important only -- and never
+     * a trap while Trap Disguise is on, since that hint would name it.
+     */
+    _worthHinting(item) {
+        if (item.trap) return !this.slotData.trap_disguise;
+        return this.shopHintsMode === SHOP_HINTS_ALL || item.progression;
     }
 
     /**
