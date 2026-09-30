@@ -185,10 +185,10 @@ function shopCheckSprite(itemId){
     return hint.sprite;
 }
 
-// Whether a cell is in stock, which is the only thing Progressive Shop changes.
 // How many of that shop's own Progressive items a row costs. The seed ships the
-// numbers, so the stock the player sees is the stock the fill assumed. Town,
-// Resort and Island charge for their first row as well; Village does not.
+// numbers, so the stock the player sees is the stock the fill assumed. Town
+// starts with its first row stocked; Village, Resort and Island charge one item
+// for theirs.
 function shopReq(town_stage, row, columnLength){
     var progression = window.ArchipelagoMod.shopProgression;
     if (!progression)
@@ -210,6 +210,7 @@ function shopProgressiveCount(town_stage){
     return (held || [])[town_stage] || 0;
 }
 
+// Whether a cell is in stock, which is the only thing Progressive Shop changes.
 function shopCellUnlocked(town_stage, column, row, latest_unlock){
     if (window.ArchipelagoMod.progressiveShop)
         return shopReq(town_stage,row,Shop_Items[town_stage][column].length)
@@ -3226,7 +3227,7 @@ function townScreens(){ // original name: wf()
                 Large_Text.TXoutputB(shop_left+8,shop_top+116,"Slow "+type_para+"%",type_color,0x000000); // display slow %
             }
         }
-        // Town, Resort and Island start with nothing in stock, so say so rather
+        // Village, Resort and Island start with nothing in stock, so say so rather
         // than showing an empty grid the player cannot explain.
         var stocked_rows = 0;
         for (var sr=0; sr<Shop_Items[town_stage][Menu_Column].length; sr++){
