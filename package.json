@@ -13,7 +13,9 @@
         "test": "node --test \"test/**/*.test.js\"",
         "lint": "eslint src test scripts",
         "format": "prettier --write src test scripts *.js *.json",
-        "format:check": "prettier --check src test scripts *.js *.json"
+        "format:check": "prettier --check src test scripts *.js *.json",
+        "release": "node scripts/release.js",
+        "shop-table": "node scripts/generate_shop_table.js"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",

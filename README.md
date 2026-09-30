@@ -28,26 +28,37 @@ npm run format:check  # Prettier
 npm test              # the Archipelago logic block in public/game.js
 ```
 
-`test/logic.test.js` pins `in_logic()` against the same stage ids the apworld
-uses for its "stages required for <boss>" gates. The apworld has the matching
-test in `stick_ranger/test/test_data.py`, so if either side's region lists drift
-one of the two repos goes red instead of the world map quietly telling players a
-stage is in logic when Archipelago disagrees.
+The client carries no logic tables of its own: it evaluates the description
+the apworld ships in slot_data, and `test/logic.test.js` covers that evaluator.
+Two things are pinned across the repos when
+[AP_Stick_Ranger](https://github.com/Kryen112/AP_Stick_Ranger) is checked out
+beside this one (they skip otherwise): the list of options slot_data carries
+(`test/slotdata.test.js`) and the shop table (`test/shoptable.test.js`, which
+also checks that `scripts/generate_shop_table.js` would write the apworld's
+`shop.py` exactly as it is).
+
+Anything that touches archipelago.js gets a behaviour test against a stub
+client; a regex over the source is only ever a tripwire for something a test
+cannot reach, never a stand-in for a feature.
 
 `public/game.js` is deliberately excluded from ESLint and Prettier: it is
 ha55ii's Stick Ranger with the Archipelago hooks grafted in, and reformatting it
 would bury every future change in whitespace noise.
 
-## Building for Production
+## Releasing
 
-To generate a production build (for GitHub Pages deployment):
+`docs/` is the built site and is served by GitHub Pages straight from `main`, so
+committing a rebuilt `docs/` is the deployment. It is rebuilt once per release,
+not per feature commit, by the release script:
 
 ```bash
-npm run build
+npm run release -- 1.8.12
 ```
 
-This will regenerate the /docs folder, which is served as the live site at:
-[https://kryen112.github.io/](https://kryen112.github.io/)
+That bumps `package.json`, formats, lints, tests, rebuilds `docs/`, commits
+"Release version 1.8.12", pushes, waits for CI to go green, and tags. It stops at
+the first failure. The apworld is released separately and only when it changes;
+the site tells a player when a seed was made by an apworld newer than the site.
 
 ## Contributing
 
