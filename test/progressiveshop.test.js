@@ -11,7 +11,7 @@ import { beforeEach, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const MAIN_JS = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "main.js");
-const PROGRESSION = { ids: [15000, 15001, 15002, 15003], steps: [33, 15, 9, 33], first: [0, 1, 1, 1] };
+const PROGRESSION = { ids: [15000, 15001, 15002, 15003], steps: [33, 15, 1, 33], first: [0, 1, 1, 1] };
 
 /** Pull a method out of main.js by its signature, up to its closing brace. */
 function methodSource(src, signature) {

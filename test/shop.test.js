@@ -91,7 +91,9 @@ const FOUR_TOWNS = [
     [Array.from({ length: 9 }, (_, i) => 300 + i)], // Resort
     [Array.from({ length: 78 }, (_, i) => 400 + i)], // Island
 ];
-const PROGRESSION = { ids: [15000, 15001, 15002, 15003], steps: [33, 15, 9, 33], first: [0, 1, 1, 1] };
+// Resort's columns are nine deep but the grid shows both of its items per
+// column on one row, so it has a single stock level.
+const PROGRESSION = { ids: [15000, 15001, 15002, 15003], steps: [33, 15, 1, 33], first: [0, 1, 1, 1] };
 
 describe("per-shop progressive stock", () => {
     let api;
@@ -124,7 +126,7 @@ describe("per-shop progressive stock", () => {
     });
 
     it("opens each shop fully at its own count", () => {
-        held([32, 15, 9, 33]);
+        held([32, 15, 1, 33]);
         for (const [town, row] of [
             [0, 32],
             [1, 14],
@@ -140,7 +142,7 @@ describe("per-shop progressive stock", () => {
             [0, 32, 32],
             [1, 0, 1],
             [1, 14, 15],
-            [2, 8, 9],
+            [2, 8, 1],
             [3, 77, 33],
         ]) {
             const counts = [0, 0, 0, 0];
