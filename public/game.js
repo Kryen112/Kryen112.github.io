@@ -13255,9 +13255,12 @@ function shopTierInLogic(tier){
 }
 
 // Enforcement: with Enforce Shop Logic on, a row the seed does not consider
-// reachable yet is greyed out and cannot be bought.
+// reachable yet is greyed out and cannot be bought. Only with Progressive Shop
+// on: without it the shop stocks by the game's own table, which is exactly
+// what logic counts, so a row you can see is a row you can buy.
 function shopCellBlocked(town_stage, column, row){
     return !!window.ArchipelagoMod.enforceShopLogic
+        && !!window.ArchipelagoMod.progressiveShop
         && !shopTierInLogic(shopTier(row,Shop_Items[town_stage][column].length));
 }
 

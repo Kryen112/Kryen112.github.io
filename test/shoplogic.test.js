@@ -19,7 +19,7 @@ function loadShopLogic(openGatesResult) {
     const end = src.indexOf("\n}", src.indexOf("function shopCellBlocked")) + 2;
     assert.ok(start !== -1 && end > start, "could not find the shop logic helpers");
 
-    const mod = { enforceShopLogic: 0 };
+    const mod = { enforceShopLogic: 0, progressiveShop: 1 };
     const api = new Function(
         "window",
         "logicDescription",
@@ -100,6 +100,15 @@ describe("shopCellBlocked", () => {
         const api = loadShopLogic({});
         api.mod.enforceShopLogic = 1;
         assert.equal(api.shopCellBlocked(0, 0, 32), true);
+    });
+
+    it("blocks nothing with Progressive Shop off", () => {
+        // The shop then stocks by the game's own table, which is what logic
+        // counts, so a row you can see is a row you can buy.
+        const api = loadShopLogic({});
+        api.mod.enforceShopLogic = 1;
+        api.mod.progressiveShop = 0;
+        assert.equal(api.shopCellBlocked(0, 0, 32), false, "a stocked row was greyed with nothing to enforce");
     });
 
     it("leaves the opening rows buyable with the option on", () => {
