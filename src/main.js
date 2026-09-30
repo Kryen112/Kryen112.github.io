@@ -332,13 +332,13 @@ class APIntegration {
      * short. The seed's logic knows both, so these ask it and then hint the
      * answer through Archipelago in the ordinary way, hint points and all.
      *
-     * Anything else beginning with !hint is left alone and goes to the server
-     * untouched, so "!hint Unlock Lake" still means what it always did.
+     * Anything else beginning with !hint -- a bare "!hint", "!hint Unlock
+     * Lake" -- goes to the server untouched and means what it always did.
      *
      * Returns true when the message was handled here.
      */
     _handleHintCommand(text) {
-        const match = /^!hint(?:\s+(stage|class))?$/i.exec(text);
+        const match = /^!hint\s+(stage|class)$/i.exec(text);
         if (!match) return false;
 
         const needs = window.ArchipelagoMod.nextGateNeeds?.();
@@ -352,58 +352,71 @@ class APIntegration {
             return true;
         }
 
-        const what = (match[1] || "").toLowerCase();
-        if (what === "stage") return this._hintNextStage(needs);
-        if (what === "class") return this._hintNextClass(needs);
-        return this._describeNextGate(needs);
+        return match[1].toLowerCase() === "stage" ? this._hintNextStage(needs) : this._hintNextClass(needs);
     }
 
-    /** A plain summary, costing nothing. Bare "!hint" would only print usage. */
-    _describeNextGate(needs) {
-        const name = Stage_Names[needs.stage];
-        this.log(`Next gate: ${name}.`, "info");
-        if (needs.needsOwnUnlock) this.log(`  still needs its own Unlock ${name}`, "info");
-        if (needs.heldInRegion < needs.requiredInRegion) {
-            this.log(
-                `  ${needs.heldInRegion}/${needs.requiredInRegion} ${needs.region} stages unlocked` +
-                    ` -- "!hint stage" to ask where another one is`,
-                "info",
-            );
-        }
-        if (needs.classesHeld < needs.classesRequired) {
-            this.log(
-                `  ${needs.classesHeld}/${needs.classesRequired} ranger classes` +
-                    ` -- "!hint class" to ask where another one is`,
-                "info",
-            );
-        }
-        return true;
+    /**
+     * Names of our own items the room has already hinted and not yet found,
+     * so a hint is never bought twice.
+     */
+    _hintedItemNames() {
+        const mine = this.client.players.self.slot;
+        return new Set(
+            (this.client.items.hints ?? [])
+                .filter((hint) => !hint.found && hint.item.receiver.slot === mine)
+                .map((hint) => hint.item.name),
+        );
     }
 
     _hintNextStage(needs) {
+        const hinted = this._hintedItemNames();
+        const gate = Stage_Names[needs.stage];
         // Its own unlock first: without that the region count does not matter.
-        if (needs.needsOwnUnlock) return this._askServerToHint(`Unlock ${Stage_Names[needs.stage]}`);
+        if (needs.needsOwnUnlock) {
+            if (hinted.has(`Unlock ${gate}`)) {
+                this.log(`Unlock ${gate} is already hinted; nothing else to ask for until it is found.`, "info");
+                return true;
+            }
+            return this._askServerToHint(`Unlock ${gate}`);
+        }
         if (needs.heldInRegion >= needs.requiredInRegion) {
-            this.log(`${needs.region} is already unlocked enough for ${Stage_Names[needs.stage]}.`, "info");
+            this.log(`${needs.region} is already unlocked enough for ${gate}.`, "info");
             return true;
         }
-        // Lowest id first, so it reads in progression order.
-        const next = [...needs.missingStages].sort((a, b) => a - b)[0];
+        // Lowest id first, so it reads in progression order, skipping what the
+        // room has already been told.
+        const next = [...needs.missingStages]
+            .sort((a, b) => a - b)
+            .find((stage) => !hinted.has(`Unlock ${Stage_Names[stage]}`));
+        if (next === undefined) {
+            this.log(`Every missing ${needs.region} stage is already hinted.`, "info");
+            return true;
+        }
         return this._askServerToHint(`Unlock ${Stage_Names[next]}`);
     }
 
     _hintNextClass(needs) {
+        if (!this.slotData.ranger_class_randomizer) {
+            this.log("Class Randomizer is off, so there are no class unlocks to hint.", "info");
+            return true;
+        }
         if (needs.classesHeld >= needs.classesRequired) {
             this.log(`You already have the ${needs.classesRequired} classes that gate wants.`, "info");
             return true;
         }
         const held = window.ArchipelagoMod.rangerClassesUnlocked;
+        const hinted = this._hintedItemNames();
         const missing = Object.values(this.RANGER_CLASSES).filter((name) => !held.has(name));
         if (missing.length === 0) {
             this.log("You already hold every ranger class.", "info");
             return true;
         }
-        return this._askServerToHint(`Unlock ${missing[0]} Class`);
+        const next = missing.find((name) => !hinted.has(`Unlock ${name} Class`));
+        if (!next) {
+            this.log("Every missing ranger class is already hinted.", "info");
+            return true;
+        }
+        return this._askServerToHint(`Unlock ${next} Class`);
     }
 
     /**

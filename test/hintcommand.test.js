@@ -14,6 +14,16 @@ const here = dirname(fileURLToPath(import.meta.url));
 const GAME_JS = join(here, "..", "public", "game.js");
 const MAIN_JS = join(here, "..", "src", "main.js");
 
+/** Pull a method out of main.js by its signature, up to its closing brace. */
+function methodSource(src, signature) {
+    const start = src.indexOf(`    ${signature} {`);
+    assert.ok(start !== -1, `could not find ${signature} in main.js`);
+    const rest = src.slice(start);
+    const end = rest.search(/\n {4}\}/);
+    assert.ok(end !== -1, `could not find the end of ${signature}`);
+    return rest.slice(0, end + 6);
+}
+
 // Castle wants 3 Grassland unlocks and 2 classes; Submarine Shrine follows it.
 // Sea stages sit behind Castle, Grassland stages behind nothing, and Volcano
 // (89) is a boss rush stage behind Submarine Shrine.
@@ -178,20 +188,16 @@ describe("the refused click says why", () => {
 });
 
 describe("which messages the command takes", () => {
-    const pattern = /^!hint(?:\s+(stage|class))?$/i;
+    const src = readFileSync(MAIN_JS, "utf8");
+    const pattern = new RegExp(src.match(/const match = (\/\^!hint[^/]+\/i)\.exec\(text\);/)[1].slice(1, -2), "i");
 
-    for (const [text, taken] of [
-        ["!hint", true],
-        ["!hint stage", true],
-        ["!hint class", true],
-        ["!HINT Stage", true],
-        ["!hint  stage", true],
-    ]) {
-        it(`takes ${JSON.stringify(text)}`, () => assert.equal(pattern.test(text), taken));
+    for (const text of ["!hint stage", "!hint class", "!HINT Stage", "!hint  stage"]) {
+        it(`takes ${JSON.stringify(text)}`, () => assert.equal(pattern.test(text), true));
     }
 
-    for (const text of ["!hint Unlock Lake", "!hint_location 1", "!hints", "hello !hint", "!release"]) {
+    for (const text of ["!hint", "!hint Unlock Lake", "!hint_location 1", "!hints", "hello !hint", "!release"]) {
         it(`leaves ${JSON.stringify(text)} for the server`, () => {
+            // A bare !hint is the server's own listing of your hints and points.
             assert.equal(pattern.test(text), false, "this would stop reaching Archipelago");
         });
     }
@@ -200,27 +206,117 @@ describe("which messages the command takes", () => {
 describe("what it asks for", () => {
     const src = readFileSync(MAIN_JS, "utf8");
 
+    /** The real hint pickers, on a stub client that records what it says. */
+    function loadHinter({ hinted = [], classRandomizer = 1, held = ["Boxer"] } = {}) {
+        const methods = [
+            "_hintNextStage(needs)",
+            "_hintNextClass(needs)",
+            "_hintedItemNames()",
+            "_askServerToHint(itemName)",
+        ].map((sig) => methodSource(src, sig));
+        globalThis.Stage_Names = [];
+        globalThis.Stage_Names[10] = "Castle";
+        for (const [id, name] of [
+            [2, "Grassland 1"],
+            [3, "Grassland 2"],
+            [4, "Grassland 3"],
+        ]) {
+            globalThis.Stage_Names[id] = name;
+        }
+        globalThis.window = { ArchipelagoMod: { rangerClassesUnlocked: new Set(held) } };
+        const host = new Function(`return {
+            RANGER_CLASSES: { 14000: "Boxer", 14001: "Gladiator", 14002: "Sniper" },
+            slotData: null,
+            client: null,
+            said: [],
+            logged: [],
+            log(msg) { this.logged.push(msg); },
+            ${methods.join(",\n")}
+        };`)();
+        host.slotData = { ranger_class_randomizer: classRandomizer };
+        host.client = {
+            players: { self: { slot: 1 } },
+            items: {
+                hints: hinted.map((name) => ({ found: false, item: { name, receiver: { slot: 1 } } })),
+            },
+            messages: { say: (text) => host.said.push(text) },
+        };
+        return host;
+    }
+
+    const NEEDS = {
+        stage: 10,
+        region: "Grassland",
+        needsOwnUnlock: false,
+        heldInRegion: 1,
+        requiredInRegion: 3,
+        missingStages: [4, 2, 3],
+        classesHeld: 1,
+        classesRequired: 2,
+    };
+
     it("asks for the gate's own unlock before any region stage", () => {
-        // Without that one, the region count does not matter.
-        const body = src.slice(src.indexOf("    _hintNextStage(needs) {"));
-        const method = body.slice(0, body.search(/\n {4}\}/));
-        assert.ok(
-            method.indexOf("needs.needsOwnUnlock") < method.indexOf("needs.missingStages"),
-            "it would hint a region stage while the boss unlock is still missing",
-        );
+        const host = loadHinter();
+        host._hintNextStage({ ...NEEDS, needsOwnUnlock: true });
+        assert.deepEqual(host.said, ["!hint Unlock Castle"]);
     });
 
     it("takes the lowest missing stage, so it reads in progression order", () => {
-        assert.match(src, /\[\.\.\.needs\.missingStages\]\.sort\(\(a, b\) => a - b\)\[0\]/);
+        const host = loadHinter();
+        host._hintNextStage(NEEDS);
+        assert.deepEqual(host.said, ["!hint Unlock Grassland 1"]);
+    });
+
+    it("skips a stage the room has already been told about", () => {
+        const host = loadHinter({ hinted: ["Unlock Grassland 1", "Unlock Grassland 2"] });
+        host._hintNextStage(NEEDS);
+        assert.deepEqual(host.said, ["!hint Unlock Grassland 3"], "a hint was bought twice");
+    });
+
+    it("says so when every missing stage is already hinted", () => {
+        const host = loadHinter({ hinted: ["Unlock Grassland 1", "Unlock Grassland 2", "Unlock Grassland 3"] });
+        host._hintNextStage(NEEDS);
+        assert.deepEqual(host.said, []);
+        assert.match(host.logged[0], /already hinted/);
+    });
+
+    it("does not buy the gate's own unlock twice either", () => {
+        const host = loadHinter({ hinted: ["Unlock Castle"] });
+        host._hintNextStage({ ...NEEDS, needsOwnUnlock: true });
+        assert.deepEqual(host.said, []);
+    });
+
+    it("only counts our own unfound hints", () => {
+        const host = loadHinter();
+        host.client.items.hints = [
+            { found: true, item: { name: "Unlock Grassland 1", receiver: { slot: 1 } } },
+            { found: false, item: { name: "Unlock Grassland 2", receiver: { slot: 2 } } },
+        ];
+        assert.deepEqual([...host._hintedItemNames()], []);
+    });
+
+    it("hints the first missing class in table order", () => {
+        const host = loadHinter();
+        host._hintNextClass(NEEDS);
+        assert.deepEqual(host.said, ["!hint Unlock Gladiator Class"]);
+    });
+
+    it("skips a class already hinted", () => {
+        const host = loadHinter({ hinted: ["Unlock Gladiator Class"] });
+        host._hintNextClass(NEEDS);
+        assert.deepEqual(host.said, ["!hint Unlock Sniper Class"]);
+    });
+
+    it("does not ask for a class item that is not in the pool", () => {
+        // With Class Randomizer off there are none, and the server would only
+        // reject the hint.
+        const host = loadHinter({ classRandomizer: 0 });
+        host._hintNextClass(NEEDS);
+        assert.deepEqual(host.said, []);
+        assert.match(host.logged[0], /Class Randomizer is off/);
     });
 
     it("goes through Archipelago, so it costs and shows like any hint", () => {
         assert.match(src, /this\.client\.messages\.say\(`!hint \$\{itemName\}`\)/);
-    });
-
-    it("bare !hint only reports, and spends nothing", () => {
-        const body = src.slice(src.indexOf("    _describeNextGate(needs) {"));
-        const method = body.slice(0, body.search(/\n {4}\}/));
-        assert.doesNotMatch(method, /_askServerToHint/, "the summary should not spend hint points");
     });
 });
