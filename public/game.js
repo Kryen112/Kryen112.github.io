@@ -1685,12 +1685,11 @@ function antiCheatCheck(){ // original name: Ne()
         }
     }
     if (Game_Mode==0 || Game_Mode==2){
-        xp_for_prev_LV = 4753000;
-        xp_for_next_LV = 9999999;
-        if (LV[0] < 98){
-            xp_for_prev_LV = xpForLevel(LV[0]);
-            xp_for_next_LV = xpForLevel(LV[0]+1);
-        }
+        // Level 99 is the cap, so it is measured against the last level up
+        // rather than a 100th level that does not exist.
+        var xp_LV = minOf(LV[0],98);
+        xp_for_prev_LV = xpForLevel(xp_LV);
+        xp_for_next_LV = xpForLevel(xp_LV+1);
         if (Team_EXP<xp_for_prev_LV || xp_for_next_LV<Team_EXP){
             console.log("Error: experience is below/above current level");
             if (Randomizer_Mode==0)
@@ -4724,14 +4723,11 @@ function drawUI(UI_mode){ // original name: Jf()
     L = 10; // left margin
     T = Inv_Top+4;
 
-    xp_for_prev_LV = 4753000;
-    xp_for_next_LV = 9999999;
-    if (LV[0] < 98){
-        xp_for_prev_LV = 0;
-        for (var l=1; l<LV[0]; l++)
-            xp_for_prev_LV += 1000*l;
-        xp_for_next_LV = xp_for_prev_LV+1000*l;
-    }
+    // Level 99 is the cap, so it is measured against the last level up rather
+    // than a 100th level that does not exist; the bar reads full there.
+    var xp_LV = minOf(LV[0],98);
+    xp_for_prev_LV = xpForLevel(xp_LV);
+    xp_for_next_LV = xpForLevel(xp_LV+1);
     setRangersUI();
     if (UI_mode==2){
         antiCheatCheck();
@@ -8987,13 +8983,9 @@ function enemyDeath(enemy,en_ID,xp_is_given){ // original name: Jg()
     // leveling up
     antiCheatCheck();
     Team_EXP = clamp(Team_EXP+xp_earned,0,9999999);
-    xp_for_prev_LV = 4753000;
-    xp_for_next_LV = 9999999;
-
-    if (LV[0]<98){
-        xp_for_prev_LV = xpForLevel(LV[0]);
-        xp_for_next_LV = xpForLevel(LV[0]+1);
-    }
+    var xp_LV = minOf(LV[0],98);
+    xp_for_prev_LV = xpForLevel(xp_LV);
+    xp_for_next_LV = xpForLevel(xp_LV+1);
     if (xp_for_next_LV<=Team_EXP && LV[0]<99){
         LV[0]++;
         for (var s=0; s<Stickmen_Slots; s++)
