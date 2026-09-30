@@ -8914,6 +8914,13 @@ function xpForLevel(level){
     return 1000*(level-1)*level/2;
 }
 
+// A yaml multiplier with the medal bonuses on top of it. The bonuses sum across
+// the four rangers and multiply rather than add: 5x with +100% of medals is
+// 10x, not 6x. Gold, loot and XP all stack this way.
+function stackMedal(yaml_mult,bonus_percent){
+    return 100 * (yaml_mult || 1) * (1 + bonus_percent/100);
+}
+
 function enemyDeath(enemy,en_ID,xp_is_given){ // original name: Jg()
     var en_ID2,next_stage_enemy,lvl_diff,xp_earned,exp_mult,anger_crown,spirit_target,gold_value,gold_value_mult,onigiri_rate_mult,drop_rate_mult,direction;
     var highest_en_lvl = 0;
@@ -8950,11 +8957,12 @@ function enemyDeath(enemy,en_ID,xp_is_given){ // original name: Jg()
             xp_earned = 1;
     }
 
-    exp_mult = 100 * (window.ArchipelagoMod.xpMultiplier || 1);
+    var iron_medal_bonus = 0;
     for (var s=0; s<Stickmen_Slots; s++){
         if (checkEff(Stickmen_Slots+s,Medal_Iron))
-            exp_mult += getEff(Stickmen_Slots+s,Eff1);
+            iron_medal_bonus += getEff(Stickmen_Slots+s,Eff1);
     }
+    exp_mult = stackMedal(window.ArchipelagoMod.xpMultiplier,iron_medal_bonus);
     xp_earned = floor(xp_earned*exp_mult/100);
 
     if (xp_is_given==1)
@@ -9023,23 +9031,18 @@ function enemyDeath(enemy,en_ID,xp_is_given){ // original name: Jg()
     //*/
     gold_value = EN_Info[enemy.EN_array_ID[en_ID]][En_Gold];
     onigiri_rate_mult = 100;
-    drop_rate_mult = 100 * (window.ArchipelagoMod.dropMultiplier || 1);
-    // Medal bonuses sum across all four rangers, then multiply the yaml's
-    // multiplier rather than being added to it -- 5x gold with a +100% Gold
-    // Medal is 10x, not 6x.
     var gold_medal_bonus = 0;
     var bronze_medal_bonus = 0;
     for (var s=0; s<Stickmen_Slots; s++){
-        if (checkEff(Stickmen_Slots+s,Medal_Bronze)){
-            drop_rate_mult += getEff(Stickmen_Slots+s,Eff1);
+        if (checkEff(Stickmen_Slots+s,Medal_Bronze))
             bronze_medal_bonus += getEff(Stickmen_Slots+s,Eff1);
-        }
         if (checkEff(Stickmen_Slots+s,Medal_Silver))
             onigiri_rate_mult += getEff(Stickmen_Slots+s,Eff1);
         if (checkEff(Stickmen_Slots+s,Medal_Gold))
             gold_medal_bonus += getEff(Stickmen_Slots+s,Eff1);
     }
-    gold_value_mult = 100 * (window.ArchipelagoMod.goldMultiplier || 1) * (1 + gold_medal_bonus/100);
+    drop_rate_mult = stackMedal(window.ArchipelagoMod.dropMultiplier,bronze_medal_bonus);
+    gold_value_mult = stackMedal(window.ArchipelagoMod.goldMultiplier,gold_medal_bonus);
     direction = 0;
     if (enemy.EN_species_ID[en_ID]==17)
         direction = enemy.EN_state[en_ID]-1;
