@@ -50,6 +50,8 @@ export default [
                 genSaveCode: "readonly",
                 antiCheatSet: "readonly",
                 fiftyfifty: "readonly",
+                // Supplied by vite.config.js at build time.
+                __SITE_VERSION__: "readonly",
             },
         },
         rules: {

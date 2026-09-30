@@ -2,8 +2,12 @@ import { Client, itemsHandlingFlags } from "archipelago.js";
 import { itemColor, itemColorValue } from "./colors.js";
 import { connectionFromQuery } from "./connection.js";
 import { disguiseFor } from "./disguise.js";
+import { resolveShopChecks } from "./options.js";
+import { legacySeed, logicNotice, versionNotice } from "./version.js";
 
 const CONNECTION_KEY = "StickRangerConnection";
+// Set by vite.config.js from package.json; absent when main.js runs unbundled.
+const SITE_VERSION = typeof __SITE_VERSION__ === "undefined" ? "0.0.0" : __SITE_VERSION__;
 // Ring Link sends at most one Bounce this often, however much gold moved.
 const RING_LINK_FLUSH_MS = 5000;
 
@@ -663,6 +667,15 @@ class APIntegration {
             this._connected = true;
             this._saveConnectionInfo();
 
+            // Which apworld made the seed. LEGACY (remove after 2026-11): a seed
+            // from before 1.8.12 carries no version, and every branch that
+            // exists only for those checks this flag.
+            const legacy = legacySeed(this.slotData);
+            window.ArchipelagoMod.legacySeed = legacy;
+            window.ArchipelagoMod.worldVersion = this.slotData.world_version ?? null;
+            const notice = versionNotice(this.slotData.world_version, SITE_VERSION);
+            if (notice) this.log(notice.text, notice.level);
+
             this.setStagesToWinFromGoal();
             window.ArchipelagoMod.rangerClassRandomizer = this.slotData.ranger_class_randomizer ?? 0;
             window.ArchipelagoMod.rangerClassesUnlocked = this.getUnlockedClasses();
@@ -685,26 +698,33 @@ class APIntegration {
             window.ArchipelagoMod.removableCompos = this.slotData.removable_compos ?? 0;
             window.ArchipelagoMod.freeRespec = this.slotData.free_respec ?? 0;
             window.ArchipelagoMod.progressiveShop = this.slotData.progressive_shop ?? 0;
-            // How each shop opens, straight from the seed. Absent on a seed
-            // from before the shops had a track each.
+            // How each shop opens, straight from the seed.
+            // LEGACY (remove after 2026-11): absent on a seed from before the
+            // shops had a track each.
             window.ArchipelagoMod.shopProgression = this.slotData.shop_progression ?? null;
             // The whole payload, for the console. An option missing here rather
             // than being 0 means the seed was generated before that option
             // existed, and no yaml setting can bring it back without a regen.
             window.ArchipelagoMod.slotData = this.slotData;
-            // Seeds generated before 1.8.1 never shipped this option, which left
-            // the feature dead: the locations existed, so they showed up in the
-            // tracker, but the client read the absent key as off and never sent
-            // one. The seed's own location list says whether the shop is in
-            // play, so those runs recover without regenerating.
-            window.ArchipelagoMod.shopChecks = this.slotData.shop_checks ?? (this.seedHasShopLocations() ? 1 : 0);
-            if (this.slotData.shop_checks === undefined && window.ArchipelagoMod.shopChecks) {
+            // LEGACY (remove after 2026-11): seeds generated before 1.8.1 never
+            // shipped this option, which left the feature dead: the locations
+            // existed, so they showed up in the tracker, but the client read
+            // the absent key as off and never sent one. The seed's own location
+            // list says whether the shop is in play, so those runs recover
+            // without regenerating.
+            window.ArchipelagoMod.shopChecks = resolveShopChecks(this.slotData, () => this.seedHasShopLocations());
+            if (legacy && this.slotData.shop_checks === undefined && window.ArchipelagoMod.shopChecks) {
                 this.log("Shop Checks recovered from this seed's locations; buying sends checks again.", "info");
             }
             this.adoptCheckedShopLocations();
-            // The seed's own logic. Absent on a seed generated before 1.8.0, in
-            // which case the map falls back to plain unlocked/done colouring.
-            window.ArchipelagoMod.logic = this.slotData.logic ?? null;
+            // The seed's own logic. LEGACY (remove after 2026-11): absent on a
+            // seed generated before 1.8.0, in which case the map falls back to
+            // plain unlocked/done colouring. A block in a shape this site does
+            // not know is treated the same way, and said so.
+            const logic = this.slotData.logic ?? null;
+            const logicProblem = logicNotice(logic);
+            if (logicProblem) this.log(logicProblem, "error");
+            window.ArchipelagoMod.logic = logicProblem ? null : logic;
             window.ArchipelagoMod.enforceLogic = this.slotData.enforce_logic ?? 0;
             window.ArchipelagoMod.enforceShopLogic = this.slotData.enforce_shop_logic ?? 0;
             window.ArchipelagoMod.ringGold = this.slotData.ring_gold ?? 0;
@@ -713,7 +733,7 @@ class APIntegration {
             window.ArchipelagoMod.pendingRingLinkGold = 0;
             this.ringSource = Math.floor(Math.random() * 2 ** 31);
             this.lastRingFlush = Date.now();
-            if (!window.ArchipelagoMod.logic) {
+            if (legacy && !window.ArchipelagoMod.logic) {
                 this.log("This seed predates logic colouring; stages show as unlocked or done.", "info");
             }
             window.ArchipelagoMod.shopHints = this.sendShopHints;

@@ -11,6 +11,8 @@ import { dirname, join } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { resolveShopChecks as resolve } from "../src/options.js";
+
 const MAIN_JS = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "main.js");
 const SHOP_OFFSET = 20000;
 
@@ -33,14 +35,10 @@ function loadDetector(allLocations, checkedLocations = []) {
     return host;
 }
 
-/** The real resolution expression out of _connect, so `??` cannot quietly become `||`. */
+/** The resolver _connect uses, on the real location detector. */
 function resolveShopChecks(slotData, allLocations) {
-    const src = readFileSync(MAIN_JS, "utf8");
-    const line = src.match(/window\.ArchipelagoMod\.shopChecks = (this\.slotData[^;]+);/);
-    assert.ok(line, "could not find the shopChecks resolution in main.js");
     const host = loadDetector(allLocations);
-    host.slotData = slotData;
-    return new Function("host", `return ${line[1].replace(/this\./g, "host.")};`)(host);
+    return resolve(slotData, () => host.seedHasShopLocations());
 }
 
 describe("seedHasShopLocations", () => {
@@ -83,6 +81,17 @@ describe("resolving shop checks from slot data", () => {
 
     it("stays off for an old seed that genuinely has no shop checks", () => {
         assert.equal(resolveShopChecks({}, withoutShop), 0);
+    });
+
+    it("does not guess for a seed that says which apworld made it", () => {
+        // A modern seed always ships the key; a missing one is a bug to
+        // report, not a case to paper over.
+        assert.equal(resolveShopChecks({ world_version: "1.8.12" }, withShop), 0);
+    });
+
+    it("is what _connect uses", () => {
+        const src = readFileSync(MAIN_JS, "utf8");
+        assert.match(src, /window\.ArchipelagoMod\.shopChecks = resolveShopChecks\(this\.slotData/);
     });
 });
 

@@ -76,6 +76,12 @@ const BOSS_ATTACK_IDS = new Set([40, 115, 163, 244, 333, 334, 335, 336, 337, 339
 const TOWN_STAGE_IDS = new Set([0, 20, 47, 70, 77]); // Town, Village, Resort, Forget Tree, Island
 function isTownStage(stage){ return TOWN_STAGE_IDS.has(stage); }
 
+// Seeds from apworld 1.8.12 on say which apworld made them; older ones do not.
+// Every branch that exists only for those older seeds is marked LEGACY, and
+// main.js sets this flag from the seed, so they can all be found and removed
+// together after 2026-11.
+function legacySeed(){ return !!window.ArchipelagoMod.legacySeed; }
+
 // Shop rows normalised onto the 0..32 scale the Town shop uses, so one
 // Progressive Shop count means the same thing in every town regardless of how
 // deep that town's columns are. Mirrored by shop.py in the apworld.
@@ -191,8 +197,8 @@ function shopCheckSprite(itemId){
 // for theirs.
 function shopReq(town_stage, row, columnLength){
     var progression = window.ArchipelagoMod.shopProgression;
-    if (!progression)
-        return shopTier(row,columnLength); // a seed from before the shops split
+    if (!progression) // LEGACY (remove after 2026-11): a seed from before the shops split
+        return shopTier(row,columnLength);
     return Math.floor((row * progression.steps[town_stage]) / columnLength) + progression.first[town_stage];
 }
 
@@ -200,9 +206,10 @@ function shopReq(town_stage, row, columnLength){
 // single count covering all of them.
 function shopProgressiveCount(town_stage){
     var held = window.ArchipelagoMod.progressiveShopItems;
-    // A seed from before the shops split sends one item covering all four, so
-    // its single count opens every town. Reading that per town found nothing
-    // for Village, Resort and Island and left them shut however many you held.
+    // LEGACY (remove after 2026-11): a seed from before the shops split sends
+    // one item covering all four, so its single count opens every town.
+    // Reading that per town found nothing for Village, Resort and Island and
+    // left them shut however many you held.
     if (!window.ArchipelagoMod.shopProgression)
         return (held || [])[0] || 0;
     return (held || [])[town_stage] || 0;
@@ -13217,8 +13224,9 @@ function openGates(logic){
 // Does Archipelago consider this stage reachable right now?
 function in_logic(stage){
     var logic = logicDescription();
-    // An older seed carries no description. Everything unlocked reads as in
-    // logic, which is what the map showed before any of this existed.
+    // LEGACY (remove after 2026-11): an older seed carries no description, and
+    // main.js also drops one it cannot evaluate. Everything unlocked reads as
+    // in logic, which is what the map showed before any of this existed.
     if (!logic) return unlocked(stage);
 
     if (isTownStage(stage)) return true;
@@ -13245,7 +13253,7 @@ function in_logic(stage){
 // Enforce Shop Logic off the two simply disagree and the sale goes through.
 function shopTierInLogic(tier){
     var logic = logicDescription();
-    if (!logic || !logic.shop_gates) return true; // a seed from before shop gating
+    if (!logic || !logic.shop_gates) return true; // LEGACY (remove after 2026-11): a seed from before shop gating
     var open = openGates(logic);
     for (var i=0; i<logic.shop_gates.length; i++){
         if (tier >= logic.shop_gates[i][0])
