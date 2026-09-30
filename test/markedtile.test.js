@@ -1,7 +1,7 @@
 // The marked tile: a shop check holding progression or a trap, from any game.
 //
-// data/AP_arrow.gif is the tile such a check wears: the Archipelago logo with
-// an arrow beside it, drawn in place of the plain logo. The logo tiles are
+// data/AP_marked.gif is the tile such a check wears: the Archipelago logo with
+// a mark beside it, drawn in place of the plain logo. The logo tiles are
 // opaque, so this replaces rather than overlays. Swapping that one file is the
 // whole job -- nothing here names anything but the 24x24 the shop already uses.
 //
@@ -16,20 +16,20 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const GAME_JS = join(here, "..", "public", "game.js");
 const MAIN_JS = join(here, "..", "src", "main.js");
-const ARROW = join(here, "..", "public", "data", "AP_arrow.gif");
+const TILE = join(here, "..", "public", "data", "AP_marked.gif");
 
 describe("the marked tile art", () => {
     it("ships, so a fresh checkout draws something", () => {
-        assert.ok(statSync(ARROW).size > 0, "AP_arrow.gif is missing or empty");
+        assert.ok(statSync(TILE).size > 0, "AP_marked.gif is missing or empty");
     });
 
     it("is a GIF, like the other Archipelago tiles", () => {
-        assert.equal(readFileSync(ARROW).subarray(0, 3).toString("latin1"), "GIF");
+        assert.equal(readFileSync(TILE).subarray(0, 3).toString("latin1"), "GIF");
     });
 
     it("is 24x24, matching the logo it replaces", () => {
         // GIF header carries width and height as little-endian shorts at 6..9.
-        const head = readFileSync(ARROW);
+        const head = readFileSync(TILE);
         assert.deepEqual([head.readUInt16LE(6), head.readUInt16LE(8)], [24, 24]);
     });
 });
@@ -38,13 +38,13 @@ describe("loading it", () => {
     const src = readFileSync(GAME_JS, "utf8");
 
     it("is declared, fetched and decoded like the other tiles", () => {
-        assert.match(src, /var AP_Arrow = new SR_Image;/);
-        assert.match(src, /AP_Arrow\.IGset\("AP_arrow\.gif"\);/);
-        assert.match(src, /imgToArray\(AP_Arrow\);/);
+        assert.match(src, /var AP_Marked = new SR_Image;/);
+        assert.match(src, /AP_Marked\.IGset\("AP_marked\.gif"\);/);
+        assert.match(src, /imgToArray\(AP_Marked\);/);
     });
 
     it("is drawn in place of the plain logo", () => {
-        assert.match(src, /cell_marked\? AP_Arrow :\(cell_blocked\? AP_Img_Grey :AP_Img\)/);
+        assert.match(src, /cell_marked\? AP_Marked :\(cell_blocked\? AP_Img_Grey :AP_Img\)/);
     });
 
     it("dims with the cell when the check is out of logic", () => {
