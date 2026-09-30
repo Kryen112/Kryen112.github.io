@@ -13298,6 +13298,26 @@ function shopCellBlocked(town_stage, column, row){
         && !shopTierInLogic(shopTier(row,Shop_Items[town_stage][column].length));
 }
 
+// What one gate is still waiting for: its own unlock, the region count and
+// the class count, with the stage ids still missing from the region.
+function gateNeeds(logic, gate){
+    var region = logic.regions[gate.region] || [];
+    var missing = [];
+    for (var r=0; r<region.length; r++){
+        if (!unlocked(region[r])) missing.push(region[r]);
+    }
+    return {
+        stage: gate.stage,
+        region: gate.region,
+        needsOwnUnlock: !unlocked(gate.stage),
+        heldInRegion: region.length-missing.length,
+        requiredInRegion: gate.stages,
+        missingStages: missing,
+        classesHeld: window.ArchipelagoMod.rangerClassesUnlocked.size,
+        classesRequired: gate.classes,
+    };
+}
+
 // What the next locked boss gate is still waiting for.
 //
 // A player can see that Castle will not open, but not which of the twenty-odd
@@ -13311,32 +13331,58 @@ function nextGateNeeds(){
     if (!logic) return null;
 
     var open = openGates(logic);
-    var classes = window.ArchipelagoMod.rangerClassesUnlocked.size;
-
     for (var i=0; i<logic.gates.length; i++){
         var gate = logic.gates[i];
         if (open[gate.stage]) continue; // already through this one
-
         // The gates chain, so the first closed one is the one being worked on.
-        var region = logic.regions[gate.region] || [];
-        var missing = [];
-        for (var r=0; r<region.length; r++){
-            if (!unlocked(region[r])) missing.push(region[r]);
-        }
-        return {
-            stage: gate.stage,
-            region: gate.region,
-            needsOwnUnlock: !unlocked(gate.stage),
-            heldInRegion: region.length-missing.length,
-            requiredInRegion: gate.stages,
-            missingStages: missing,
-            classesHeld: classes,
-            classesRequired: gate.classes,
-        };
+        return gateNeeds(logic, gate);
     }
     return null; // every gate open
 }
 window.ArchipelagoMod.nextGateNeeds = nextGateNeeds;
+
+function gatesByStage(logic){
+    var byStage = {};
+    for (var i=0; i<logic.gates.length; i++) byStage[logic.gates[i].stage] = logic.gates[i];
+    return byStage;
+}
+
+// The gate a stage sits behind: itself for a boss stage, the last gate for a
+// boss rush stage, its region's gate for anything else, and null when it sits
+// behind no gate at all.
+function gateFor(logic, stage){
+    var byStage = gatesByStage(logic);
+    if (stage in byStage) return byStage[stage];
+    for (var b=0; b<(logic.boss_rush || []).length; b++){
+        if (logic.boss_rush[b].stage === stage) return byStage[logic.boss_rush[b].after] || null;
+    }
+    for (var region in logic.regions){
+        if (logic.regions[region].indexOf(stage) === -1) continue;
+        var gate = logic.region_gate[region];
+        return gate === null || gate === undefined ? null : byStage[gate] || null;
+    }
+    return null;
+}
+
+// Why a barred stage cannot be entered: the first shut gate on the way to it
+// and what that gate still lacks, so a refused click can say so rather than
+// nothing. A Desert stage waits on Submarine Shrine, but while Castle is still
+// shut that is the real blocker.
+function blockedStageNeeds(stage){
+    var logic = logicDescription();
+    if (!logic) return null;
+    var gate = gateFor(logic, stage);
+    if (!gate) return null;
+    var open = openGates(logic);
+    var byStage = gatesByStage(logic);
+    var earlier = byStage[gate.after];
+    while (earlier && !open[earlier.stage]){
+        gate = earlier;
+        earlier = byStage[gate.after];
+    }
+    return gateNeeds(logic, gate);
+}
+window.ArchipelagoMod.blockedStageNeeds = blockedStageNeeds;
 
 // Enforcement: with the option on, a stage out of logic cannot be entered at
 // all. Only meaningful when the seed described its logic.
@@ -13567,6 +13613,8 @@ SR_map.prototype.MAPmain = function(){ // uh.prototype.b
                         Current_Stage = s;
                         Current_Screen = 0;
                         Sequence_Step = 10;
+                    } else if (Clicked && stageIsBlocked(s) && window.ArchipelagoMod.explainBlockedStage){
+                        window.ArchipelagoMod.explainBlockedStage(s); // say why, rather than nothing
                     }
                 } else {
                    Current_Stage = s;

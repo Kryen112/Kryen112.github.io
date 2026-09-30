@@ -155,6 +155,7 @@ class APIntegration {
             this.message.addEventListener(type, (event) => event.stopPropagation());
         }
 
+        window.ArchipelagoMod.explainBlockedStage = (stage) => this._explainBlockedStage(stage);
         window.addEventListener("beforeunload", () => this._onUnload());
         this._tick = this._tick.bind(this);
         requestAnimationFrame(this._tick);
@@ -403,6 +404,29 @@ class APIntegration {
             return true;
         }
         return this._askServerToHint(`Unlock ${missing[0]} Class`);
+    }
+
+    /**
+     * Why a barred stage cannot be entered: the first shut gate on the way to
+     * it, and what that gate still lacks. Enforce Logic used to refuse the
+     * click in silence.
+     */
+    _explainBlockedStage(stage) {
+        const name = Stage_Names[stage];
+        const needs = window.ArchipelagoMod.blockedStageNeeds?.(stage);
+        if (!needs) {
+            this.log(`${name} is out of logic.`, "info");
+            return;
+        }
+        const gate = Stage_Names[needs.stage];
+        const wants = [];
+        if (needs.needsOwnUnlock) wants.push(`Unlock ${gate}`);
+        const stagesShort = needs.requiredInRegion - needs.heldInRegion;
+        if (stagesShort > 0) wants.push(`${stagesShort} more ${needs.region} stage${stagesShort === 1 ? "" : "s"}`);
+        const classesShort = needs.classesRequired - needs.classesHeld;
+        if (classesShort > 0) wants.push(`${classesShort} more ranger class${classesShort === 1 ? "" : "es"}`);
+        const reason = wants.length > 0 ? ` -- it still wants ${wants.join(", ")}.` : ".";
+        this.log(`${name} is barred: ${gate} is not open yet${reason}`, "info");
     }
 
     /** Hand it to Archipelago as an ordinary !hint, so it costs and shows as one. */
@@ -756,6 +780,12 @@ class APIntegration {
             if (logicProblem) this.log(logicProblem, "error");
             window.ArchipelagoMod.logic = logicProblem ? null : logic;
             window.ArchipelagoMod.enforceLogic = this.slotData.enforce_logic ?? 0;
+            if (window.ArchipelagoMod.enforceLogic && !window.ArchipelagoMod.logic) {
+                this.log(
+                    "Enforce Logic is on, but this seed carries no logic this site can evaluate, so nothing is barred.",
+                    "error",
+                );
+            }
             // Ring Link's payout, so nothing without Ring Link.
             window.ArchipelagoMod.ringGold = resolveRingGold(this.slotData);
             window.ArchipelagoMod.ringLink = this.slotData.ring_link ?? 0;

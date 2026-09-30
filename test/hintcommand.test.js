@@ -15,26 +15,31 @@ const GAME_JS = join(here, "..", "public", "game.js");
 const MAIN_JS = join(here, "..", "src", "main.js");
 
 // Castle wants 3 Grassland unlocks and 2 classes; Submarine Shrine follows it.
+// Sea stages sit behind Castle, Grassland stages behind nothing, and Volcano
+// (89) is a boss rush stage behind Submarine Shrine.
 const LOGIC = {
     regions: { Grassland: [2, 3, 4, 5, 6], Sea: [21, 22, 23] },
+    region_gate: { Grassland: null, Sea: 10 },
     gates: [
         { stage: 10, region: "Grassland", after: null, stages: 3, classes: 2 },
         { stage: 29, region: "Sea", after: 10, stages: 2, classes: 3 },
     ],
+    boss_rush: [{ stage: 89, after: 29 }],
 };
 
-/** The real nextGateNeeds, over a stubbed world. */
-function loadNeeds({ held = [], classes = 1, logic = LOGIC, open = {} } = {}) {
+/** The real gate helpers, over a stubbed world. */
+function loadGateHelpers({ held = [], classes = 1, logic = LOGIC, open = {} } = {}) {
     const src = readFileSync(GAME_JS, "utf8");
-    const start = src.indexOf("function nextGateNeeds(){");
-    const end = src.indexOf("\n}", start) + 2;
+    const start = src.indexOf("function gateNeeds(logic, gate){");
+    const end = src.indexOf("window.ArchipelagoMod.blockedStageNeeds = blockedStageNeeds;");
+    assert.ok(start !== -1 && end > start, "could not find the gate helpers in game.js");
     const mod = { rangerClassesUnlocked: new Set(Array.from({ length: classes }, (_, i) => `c${i}`)) };
     return new Function(
         "window",
         "logicDescription",
         "openGates",
         "unlocked",
-        `${src.slice(start, end)} return nextGateNeeds;`,
+        `${src.slice(start, end)} return { nextGateNeeds, blockedStageNeeds, gateFor };`,
     )(
         { ArchipelagoMod: mod },
         () => logic,
@@ -42,6 +47,8 @@ function loadNeeds({ held = [], classes = 1, logic = LOGIC, open = {} } = {}) {
         (stage) => held.includes(stage),
     );
 }
+
+const loadNeeds = (options) => loadGateHelpers(options).nextGateNeeds;
 
 describe("nextGateNeeds", () => {
     it("says nothing when the seed shipped no logic", () => {
@@ -81,6 +88,92 @@ describe("nextGateNeeds", () => {
 
     it("names the region, so the player is told where to look", () => {
         assert.equal(loadNeeds({ open: { 10: true } })().region, "Sea");
+    });
+});
+
+// Enforce Logic refuses a click on a barred stage. It used to do so in
+// silence; now it says which gate the stage waits on and what that gate lacks.
+describe("blockedStageNeeds", () => {
+    const blocked = (options) => loadGateHelpers(options).blockedStageNeeds;
+
+    it("names the region's gate for an ordinary stage", () => {
+        assert.equal(blocked({ held: [21] })(21).stage, 10);
+    });
+
+    it("names the gate itself for a boss stage", () => {
+        assert.equal(blocked({ open: { 10: true } })(29).stage, 29);
+    });
+
+    it("walks back to the first shut gate on the chain", () => {
+        // Submarine Shrine is shut, but so is Castle before it.
+        assert.equal(blocked({})(29).stage, 10, "the real blocker is further back");
+    });
+
+    it("sends a boss rush stage to the last gate", () => {
+        assert.equal(blocked({ open: { 10: true } })(89).stage, 29);
+    });
+
+    it("has nothing to say for a stage behind no gate", () => {
+        assert.equal(blocked({})(2), null);
+        assert.equal(blocked({})(999), null);
+    });
+
+    it("says nothing without a logic description", () => {
+        assert.equal(blocked({ logic: null })(21), null);
+    });
+
+    it("carries the same detail as the next-gate summary", () => {
+        const needs = blocked({ held: [2, 3, 21] })(21);
+        assert.deepEqual(
+            [needs.heldInRegion, needs.requiredInRegion, needs.missingStages, needs.needsOwnUnlock],
+            [2, 3, [4, 5, 6], true],
+        );
+    });
+});
+
+describe("the refused click says why", () => {
+    const src = readFileSync(MAIN_JS, "utf8");
+
+    function loadExplain(needs) {
+        const body = src.slice(src.indexOf("    _explainBlockedStage(stage) {"));
+        const method = body.slice(0, body.search(/\n {4}\}/) + 6);
+        globalThis.Stage_Names = [];
+        globalThis.Stage_Names[10] = "Castle";
+        globalThis.Stage_Names[21] = "Seaside 1";
+        globalThis.window = { ArchipelagoMod: { blockedStageNeeds: () => needs } };
+        const host = new Function(`return { logged: [], log(msg) { this.logged.push(msg); }, ${method} };`)();
+        return host;
+    }
+
+    it("names the gate and what it still wants", () => {
+        const host = loadExplain({
+            stage: 10,
+            region: "Grassland",
+            needsOwnUnlock: true,
+            heldInRegion: 1,
+            requiredInRegion: 3,
+            classesHeld: 1,
+            classesRequired: 2,
+        });
+        host._explainBlockedStage(21);
+        assert.equal(host.logged.length, 1);
+        assert.match(host.logged[0], /Seaside 1 is barred: Castle is not open yet/);
+        assert.match(host.logged[0], /Unlock Castle, 2 more Grassland stages, 1 more ranger class\./);
+    });
+
+    it("still says something when the seed gives no detail", () => {
+        const host = loadExplain(null);
+        host._explainBlockedStage(21);
+        assert.match(host.logged[0], /Seaside 1 is out of logic/);
+    });
+
+    it("is what the map calls on a refused click", () => {
+        const game = readFileSync(GAME_JS, "utf8");
+        assert.match(game, /else if \(Clicked && stageIsBlocked\(s\) && window\.ArchipelagoMod\.explainBlockedStage\)/);
+    });
+
+    it("warns at connect when there is nothing to enforce", () => {
+        assert.match(src, /Enforce Logic is on, but this seed carries no logic this site can evaluate/);
     });
 });
 
