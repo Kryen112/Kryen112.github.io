@@ -11,9 +11,9 @@
         "build": "vite build",
         "preview": "vite preview",
         "test": "node --test \"test/**/*.test.js\"",
-        "lint": "eslint src test",
-        "format": "prettier --write src test *.js *.json",
-        "format:check": "prettier --check src test *.js *.json"
+        "lint": "eslint src test scripts",
+        "format": "prettier --write src test scripts *.js *.json",
+        "format:check": "prettier --check src test scripts *.js *.json"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
