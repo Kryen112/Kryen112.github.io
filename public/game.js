@@ -5141,8 +5141,14 @@ function compoCanBeRemoved(compo){
         && Item_Inv[Inv_Last]==0; // only with an empty hand, or a swap would eat it
 }
 
-// Move a compo out of a weapon and onto the cursor.
+// Move a compo out of a weapon and onto the cursor. Bracketed with the
+// anti-cheat like every other change the mod makes to the inventory. The click
+// that calls this already sits inside the inventory screen's own bracket, and
+// nothing changes between that check and this one, so the nested pair is safe
+// -- and it keeps the lift committed on its own if it is ever called from
+// somewhere that is not.
 function liftCompo(weapon,compo_slot){
+    antiCheatCheck();
     if (compo_slot==0){
         Item_Inv[Inv_Last] = Comp1_Inv[weapon];
         Comp1_Inv[weapon] = 0;
@@ -5152,6 +5158,7 @@ function liftCompo(weapon,compo_slot){
     }
     Comp1_Inv[Inv_Last] = 0;
     Comp2_Inv[Inv_Last] = 0;
+    antiCheatSet();
 }
 
 function restrictSlots(item_pos,compo_slot){ // original name: Ng()

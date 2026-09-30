@@ -30,6 +30,7 @@ function loadCompos() {
         Comp2_Inv: Array(41).fill(0),
     };
     const mod = { removableCompos: 0 };
+    const cheat = { checks: 0, sets: 0 };
     const api = new Function(
         "window",
         "Item_Inv",
@@ -37,10 +38,21 @@ function loadCompos() {
         "Comp2_Inv",
         "Inv_Last",
         "Null_Slot",
+        "antiCheatCheck",
+        "antiCheatSet",
         `${src.slice(start, end)}
          return { compoCanBeRemoved, liftCompo };`,
-    )({ ArchipelagoMod: mod }, state.Item_Inv, state.Comp1_Inv, state.Comp2_Inv, MOUSE, NULL_SLOT);
-    return { state, mod, ...api };
+    )(
+        { ArchipelagoMod: mod },
+        state.Item_Inv,
+        state.Comp1_Inv,
+        state.Comp2_Inv,
+        MOUSE,
+        NULL_SLOT,
+        () => cheat.checks++,
+        () => cheat.sets++,
+    );
+    return { state, mod, cheat, ...api };
 }
 
 describe("compoCanBeRemoved", () => {
@@ -109,6 +121,14 @@ describe("liftCompo", () => {
         env.state.Comp2_Inv[MOUSE] = 998;
         env.liftCompo(WEAPON, 0);
         assert.deepEqual([env.state.Comp1_Inv[MOUSE], env.state.Comp2_Inv[MOUSE]], [0, 0]);
+    });
+
+    it("commits the lift to the anti-cheat", () => {
+        // An inventory change the anti-cheat did not see freezes the game on
+        // its next check.
+        env.state.Comp1_Inv[WEAPON] = 300;
+        env.liftCompo(WEAPON, 0);
+        assert.deepEqual([env.cheat.checks, env.cheat.sets], [1, 1], "the lift is not bracketed");
     });
 
     it("round-trips: what comes out is what went in", () => {
