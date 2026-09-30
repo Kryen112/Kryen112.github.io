@@ -4791,12 +4791,11 @@ function drawUI(UI_mode){ // original name: Jf()
             // already alive, leaving town requires a living ranger to walk to
             // the sign, and Game Over only restores LP inside a stage. The Kill
             // a Ranger trap fires in town, so four of them ended the save.
-            // Reviving now works with nobody standing, and costs nothing when
-            // the party cannot pay for it.
+            // Reviving now works with nobody standing, and is free then: the
+            // trap already cost the run its party, and a fee it may not be able
+            // to pay would only stall it.
             const party_wiped = LP_Current[0]+LP_Current[1]+LP_Current[2]+LP_Current[3] == 0;
-            revival_cost = maxOf(floor(Team_Gold/10),10*LV[0]);
-            if (party_wiped)
-                revival_cost = minOf(revival_cost,Team_Gold);
+            revival_cost = party_wiped? 0 :maxOf(floor(Team_Gold/10),10*LV[0]);
             revive_data = "Revival $"+revival_cost;
             Large_Text.TXoutputB(L,T+40,"Revival $"+revival_cost,0x808080,0x000000);
             if (isMouseHovered(L,T+40,8*revive_data.length,12)){
