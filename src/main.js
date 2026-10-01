@@ -91,6 +91,7 @@ class APIntegration {
         this.message = document.getElementById("message");
         this.send = document.getElementById("send");
         this.chatMessages = document.getElementById("chatMessages");
+        this.canvas = document.getElementById("cv");
         this.apDiv = document.getElementById("APConnection");
         this.leftPanel = document.getElementById("left-panel");
 
@@ -147,6 +148,8 @@ class APIntegration {
         this.message.addEventListener("keydown", (event) => {
             if (event.key === "Enter") {
                 this._onSendClick();
+            } else if (event.key === "Escape") {
+                this.message.blur(); // back to the game without reaching for the mouse
             }
         });
         // The game reads keys off document, so anything typed in chat also
@@ -154,6 +157,12 @@ class APIntegration {
         for (const type of ["keydown", "keyup", "keypress"]) {
             this.message.addEventListener(type, (event) => event.stopPropagation());
         }
+        // The game's own mousedown handler calls preventDefault inside the
+        // canvas to stop text selection, which also stops the click moving
+        // focus. So after chatting, the message box kept the keyboard: A, D
+        // and space went into it and nothing happened in the game. Capture
+        // phase, so this runs before the game's handler either way.
+        document.addEventListener("mousedown", (event) => this._leaveChatOnCanvasClick(event), true);
 
         window.ArchipelagoMod.explainBlockedStage = (stage) => this._explainBlockedStage(stage);
         window.addEventListener("beforeunload", () => this._onUnload());
@@ -457,16 +466,26 @@ class APIntegration {
 
         if (this._handleHintCommand(text)) {
             this.message.value = "";
-            return;
+        } else {
+            this.client.messages.say(text);
+            if (text[0] === "/") {
+                this.log(
+                    "Cannot issue command " + text.slice(1).split(" ")[0] + ". Client commands are not yet supported.",
+                );
+            }
+            this.message.value = "";
         }
+        // A clicked Send button kept the keyboard: a space then pressed the
+        // button again and still reached the game, which paused. Typing
+        // carries on in the message box, as it does after Enter.
+        this.message.focus();
+    }
 
-        this.client.messages.say(text);
-        if (text[0] === "/") {
-            this.log(
-                "Cannot issue command " + text.slice(1).split(" ")[0] + ". Client commands are not yet supported.",
-            );
-        }
-        this.message.value = "";
+    /** Clicking the game takes the keyboard back from whatever had it. */
+    _leaveChatOnCanvasClick(event) {
+        if (event.target !== this.canvas) return;
+        const active = document.activeElement;
+        if (active && active !== document.body && typeof active.blur === "function") active.blur();
     }
 
     log(msg, type = "info") {

@@ -114,6 +114,100 @@ describe("losing focus drops every held key", () => {
     });
 });
 
+// Focus has to move with the player: into the chat to type, back to the game to
+// play. The game's mousedown handler prevents the default inside the canvas,
+// which also stopped a click from moving focus, so the message box kept every
+// key; and a clicked Send button kept focus, so a space pressed it again and
+// still reached the game.
+describe("the chat gives the keyboard back", () => {
+    const src = readFileSync(MAIN_JS, "utf8");
+
+    function methodSource(signature) {
+        const start = src.indexOf(`    ${signature} {`);
+        assert.ok(start !== -1, `could not find ${signature} in main.js`);
+        const rest = src.slice(start);
+        return rest.slice(0, rest.search(/\n {4}\}/) + 6);
+    }
+
+    function loadChat() {
+        const methods = ["_onSendClick()", "_leaveChatOnCanvasClick(event)"].map(methodSource);
+        const message = {
+            value: "",
+            focused: false,
+            focus() {
+                this.focused = true;
+            },
+            blur() {
+                this.focused = false;
+            },
+        };
+        const said = [];
+        const host = new Function(`return {
+            message: null,
+            canvas: { id: "cv" },
+            client: { messages: { say: (t) => this.said.push(t) } },
+            said: [],
+            log() {},
+            _handleHintCommand() { return false; },
+            ${methods.join(",\n")}
+        };`)();
+        host.message = message;
+        host.client = { messages: { say: (t) => said.push(t) } };
+        return { host, message, said };
+    }
+
+    it("hands focus back to the message box after Send is clicked", () => {
+        const { host, message, said } = loadChat();
+        message.value = "hello";
+        host._onSendClick();
+        assert.deepEqual(said, ["hello"]);
+        assert.equal(message.value, "");
+        assert.equal(message.focused, true, "the Send button would keep the keyboard");
+    });
+
+    it("does the same after a hint command", () => {
+        const { host, message } = loadChat();
+        host._handleHintCommand = () => true;
+        message.value = "!hint stage";
+        host._onSendClick();
+        assert.equal(message.focused, true);
+    });
+
+    it("blurs the chat when the game canvas is clicked", () => {
+        const { host, message } = loadChat();
+        message.focused = true;
+        globalThis.document = { activeElement: message, body: {} };
+        host._leaveChatOnCanvasClick({ target: host.canvas });
+        assert.equal(message.focused, false, "keys would keep going into the chat");
+    });
+
+    it("leaves focus alone for a click elsewhere", () => {
+        const { host, message } = loadChat();
+        message.focused = true;
+        globalThis.document = { activeElement: message, body: {} };
+        host._leaveChatOnCanvasClick({ target: { id: "host" } });
+        assert.equal(message.focused, true);
+    });
+
+    it("survives nothing being focused", () => {
+        const { host } = loadChat();
+        globalThis.document = { activeElement: null, body: {} };
+        assert.doesNotThrow(() => host._leaveChatOnCanvasClick({ target: host.canvas }));
+    });
+
+    it("listens in the capture phase, ahead of the game's own handler", () => {
+        assert.match(
+            src,
+            /document\.addEventListener\("mousedown", \(event\) => this\._leaveChatOnCanvasClick\(event\), true\);/,
+        );
+    });
+
+    it("lets Escape leave the chat", () => {
+        const block = src.slice(src.indexOf('this.message.addEventListener("keydown"'), src.indexOf("mousedown"));
+        assert.match(block, /event\.key === "Escape"[\s\S]*this\.message\.blur\(\)/);
+    });
+});
+
 describe("chat keystrokes stay out of the game", () => {
     it("the chat input stops key events reaching document", () => {
         const src = readFileSync(MAIN_JS, "utf8");
