@@ -14,7 +14,15 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { parseProgression, readGameJs, readShopReqs, renderShopReqs, renderShopTable, shopTable } from "./shoptable.js";
+import {
+    normalizeEol,
+    parseProgression,
+    readGameJs,
+    readShopReqs,
+    renderShopReqs,
+    renderShopTable,
+    shopTable,
+} from "./shoptable.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -24,7 +32,11 @@ const shopPy =
 const itemsPy = join(dirname(shopPy), "items.py");
 
 const src = readGameJs(join(here, "..", "public", "game.js"));
-const current = readFileSync(shopPy, "utf8");
+// Work in LF whatever the checkout uses, and write back whatever it used: with
+// core.autocrlf on, the file on disk is CRLF while the repo stores LF.
+const onDisk = readFileSync(shopPy, "utf8");
+const eol = onDisk.includes("\r\n") ? "\r\n" : "\n";
+const current = normalizeEol(onDisk);
 const progression = parseProgression(readFileSync(itemsPy, "utf8"));
 
 function splice(text, startMarker, endMarker, body) {
@@ -32,6 +44,7 @@ function splice(text, startMarker, endMarker, body) {
     if (start === -1) throw new Error(`${startMarker.trim()} not found in ${shopPy}`);
     const bodyStart = start + startMarker.length;
     const end = text.indexOf(endMarker, bodyStart);
+    if (end === -1) throw new Error(`${endMarker.trim()} not found after ${startMarker.trim()} in ${shopPy}`);
     return text.slice(0, bodyStart) + body + text.slice(end);
 }
 
@@ -49,6 +62,6 @@ if (next === current) {
     console.error(`${shopPy} is out of date; run scripts/generate_shop_table.js`);
     process.exit(1);
 } else {
-    writeFileSync(shopPy, next, "utf8");
+    writeFileSync(shopPy, next.split("\n").join(eol), "utf8");
     console.log(`wrote ${shopPy}`);
 }

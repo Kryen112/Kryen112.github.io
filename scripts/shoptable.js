@@ -14,6 +14,9 @@ export const TOWNS = ["Town", "Village", "Resort", "Island"];
 export const SHOP_TIERS = 33;
 export const LOCATION_OFFSET = 20000;
 
+/** Line endings as the repo stores them. A checkout with core.autocrlf on hands us CRLF. */
+export const normalizeEol = (text) => text.replace(/\r\n/g, "\n");
+
 /** A block of game.js from a marker to the first line that is just `];`. */
 function arrayLiteral(src, marker) {
     const start = src.indexOf(marker);
@@ -38,7 +41,8 @@ export function readShopReqs(src) {
 /** Catalogue id -> { name, level } from the Item_Catalogue lines. */
 export function readCatalogue(src) {
     const items = new Map();
-    for (const match of src.matchAll(/Item_Catalogue\[(\d+)\] = \["([^"]*)"\s*,(\d+)\s*,/g)) {
+    // The catalogue lines pad around the `=` to line the columns up.
+    for (const match of src.matchAll(/Item_Catalogue\[(\d+)\]\s*=\s*\["([^"]*)"\s*,(\d+)\s*,/g)) {
         items.set(Number(match[1]), { name: match[2], level: Number(match[3]) });
     }
     return items;
@@ -49,11 +53,15 @@ export const shopTier = (row, columnLength) => Math.floor((row * SHOP_TIERS) / c
 /** Progressive items a row costs, as shopReq in game.js computes it. */
 export const shopReq = (row, columnLength, steps, first) => Math.floor((row * steps) / columnLength) + first;
 
-/** "mach punch" -> "Mach Punch"; "GreatSword" and "3-round" keep their own shape. */
+/**
+ * "mach punch" -> "Mach Punch", "staff of wood" -> "Staff of Wood"; "GreatSword"
+ * and "3-round" keep their own shape. The "of" stays small because that is how
+ * shop.py has always named those checks, and a check's name is its identity.
+ */
 export function displayName(name, level) {
     const words = name
         .split(" ")
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .map((word, i) => (i > 0 && word === "of" ? word : word.charAt(0).toUpperCase() + word.slice(1)))
         .join(" ");
     return level > 0 ? `${words} ${level}` : words;
 }
@@ -103,6 +111,7 @@ export function shopTable(src, progression) {
 
 /** The entries in stick_ranger/shop.py, keyed by location id. */
 export function parseShopPy(text) {
+    text = normalizeEol(text);
     const entries = new Map();
     const pattern = /(\d+): \{"name": "([^"]+)", "region": "(\w+)", "tier": (\d+), "req": (\d+)\}/g;
     for (const match of text.matchAll(pattern)) {
@@ -118,6 +127,7 @@ export function parseShopPy(text) {
 
 /** SHOP_PROGRESSION_STEPS and _FIRST out of items.py, in town order. */
 export function parseProgression(itemsPy) {
+    itemsPy = normalizeEol(itemsPy);
     const dict = (name) => {
         const start = itemsPy.indexOf(`${name}: dict[str, int] = {`);
         if (start === -1) throw new Error(`${name} not found in items.py`);
@@ -144,4 +154,4 @@ export function renderShopReqs(reqs) {
     return rows.join("\n");
 }
 
-export const readGameJs = (path) => readFileSync(path, "utf8");
+export const readGameJs = (path) => normalizeEol(readFileSync(path, "utf8"));

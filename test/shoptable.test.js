@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 
 import {
     TOWNS,
+    normalizeEol,
     parseProgression,
     parseShopPy,
     readShopItems,
@@ -54,13 +55,28 @@ describe("shop.py against Shop_Items", () => {
         it.skip("no AP_Stick_Ranger checkout beside this repo", () => {});
         return;
     }
-    const src = readFileSync(GAME_JS, "utf8");
-    const listed = parseShopPy(readFileSync(SHOP_PY, "utf8"));
-    const progression = parseProgression(readFileSync(ITEMS_PY, "utf8"));
-    const derived = shopTable(src, progression);
-    const shopItems = readShopItems(src);
+
+    // Built on first use rather than in the suite body, so a table that cannot
+    // be derived fails the test that asked for it instead of taking the whole
+    // file down as one opaque failure.
+    let built = null;
+    function fixture() {
+        if (built) return built;
+        const src = normalizeEol(readFileSync(GAME_JS, "utf8"));
+        const shopPy = normalizeEol(readFileSync(SHOP_PY, "utf8"));
+        const progression = parseProgression(readFileSync(ITEMS_PY, "utf8"));
+        built = {
+            src,
+            shopPy,
+            listed: parseShopPy(shopPy),
+            derived: shopTable(src, progression),
+            shopItems: readShopItems(src),
+        };
+        return built;
+    }
 
     it("lists every stocked item once, and nothing else", () => {
+        const { listed, derived } = fixture();
         assert.deepEqual(
             [...listed.keys()].sort((a, b) => a - b),
             [...derived.keys()],
@@ -68,6 +84,7 @@ describe("shop.py against Shop_Items", () => {
     });
 
     it("lists each item at the most accessible town and lowest row, with that row's cost", () => {
+        const { listed, derived } = fixture();
         for (const [id, entry] of derived) {
             const { region, tier, req } = listed.get(id);
             assert.deepEqual([region, tier, req], [entry.region, entry.tier, entry.req], `location ${id}`);
@@ -75,6 +92,7 @@ describe("shop.py against Shop_Items", () => {
     });
 
     it("names each check as the generator would", () => {
+        const { listed, derived } = fixture();
         for (const [id, entry] of derived) {
             assert.equal(listed.get(id).name, entry.name, `location ${id}`);
         }
@@ -83,7 +101,7 @@ describe("shop.py against Shop_Items", () => {
     it("is what the generator would write", () => {
         // The generator splices the table body and SHOP_REQS into shop.py and
         // leaves the rest; if this fails, run scripts/generate_shop_table.js.
-        const shopPy = readFileSync(SHOP_PY, "utf8");
+        const { src, shopPy, derived } = fixture();
         const body = shopPy.slice(
             shopPy.indexOf("shop_table: dict[int, ShopLocationDict] = {\n") +
                 "shop_table: dict[int, ShopLocationDict] = {\n".length,
@@ -100,6 +118,7 @@ describe("shop.py against Shop_Items", () => {
     it("never sells a check from a cell at a looser gate than it is listed at", () => {
         // Enforce Shop Logic greys cells by their own tier. A cell at a lower
         // gate than the listing would sell the check before logic counted it.
+        const { listed, shopItems } = fixture();
         for (const [id, { tier }] of listed) {
             const catalogueId = id - 20000;
             shopItems.forEach((columns) => {
