@@ -738,6 +738,7 @@ class APIntegration {
             console.log("Slot data: ", this.slotData);
 
             await this.loadAPData();
+            this._redisguiseSavedHints();
             this._connected = true;
             this._saveConnectionInfo();
 
@@ -1225,23 +1226,7 @@ class APIntegration {
         };
 
         const isTrap = (networkItem.flags & 0b100) !== 0;
-        if (isTrap && this.slotData.trap_disguise) {
-            // The base record is already built, so a disguise that cannot be
-            // made costs the trap its cover and nothing else.
-            try {
-                const disguise = disguiseFor(networkItem.location, this._decoyNames(), this.client.room.seedName);
-                if (disguise !== null) {
-                    // Its own sprite would give it away, and wearing the sprite
-                    // of what it pretends to be is a lie the shelf cannot take
-                    // back.
-                    hint.item = disguise;
-                    hint.itemClassification = 0b001;
-                    hint.sprite = null;
-                }
-            } catch (error) {
-                console.error("Could not disguise the trap at", networkItem.location, error);
-            }
-        }
+        if (isTrap && this.slotData.trap_disguise) this._disguise(hint, networkItem.location);
 
         // Progression and traps both wear the marked tile, from any game in the
         // room. Reading it off the classification we ended up with rather than
@@ -1249,6 +1234,51 @@ class APIntegration {
         // progression item it is pretending to be.
         hint.marked = (hint.itemClassification & 0b101) !== 0;
         return hint;
+    }
+
+    /**
+     * Dress a trap's hint record in another item's name.
+     *
+     * The record is already built, so a disguise that cannot be made costs the
+     * trap its cover and nothing else.
+     */
+    _disguise(hint, location) {
+        try {
+            const disguise = disguiseFor(location, this._decoyNames(), this.client.room.seedName);
+            if (disguise !== null) {
+                // Its own sprite would give it away, and wearing the sprite of
+                // what it pretends to be is a lie the shelf cannot take back.
+                hint.item = disguise;
+                hint.itemClassification = 0b001;
+                hint.sprite = null;
+            }
+        } catch (error) {
+            console.error("Could not disguise the trap at", location, error);
+        }
+    }
+
+    /**
+     * Saved hint records that still carry a trap's real name, disguised now.
+     *
+     * Records live in the server's data storage and a scouted cell is never
+     * scouted again, so a trap recorded while the disguise was broken -- the
+     * decoy pool read a field the data package does not have, and came back
+     * empty -- would otherwise keep its real name for the rest of that seed.
+     * A record that was disguised no longer carries the trap bit, so it is
+     * left alone.
+     */
+    _redisguiseSavedHints() {
+        if (!this.slotData.trap_disguise) return;
+        for (const [table, offset] of [
+            [this.shopHints, this.SHOP_OFFSET],
+            [this.bookHints, this.BOOK_OFFSET],
+        ]) {
+            for (const [key, hint] of Object.entries(table ?? {})) {
+                if ((hint.itemClassification & 0b100) === 0) continue;
+                this._disguise(hint, Number(key) + offset);
+                hint.marked = (hint.itemClassification & 0b101) !== 0;
+            }
+        }
     }
 
     /**
@@ -1279,8 +1309,11 @@ class APIntegration {
         // to look one up. Asking the package for the list returned undefined,
         // which threw and took the whole hint out with it.
         for (const game of this.client.room.games ?? []) {
+            // findPackage hands back archipelago.js's PackageMetadata, whose
+            // item table is itemTable. The raw package's name-to-id map is not
+            // on it, and reading that left the pool empty and every trap bare.
             const pkg = this.client.package.findPackage(game);
-            for (const [name, id] of Object.entries(pkg?.item_name_to_id ?? {})) {
+            for (const [name, id] of Object.entries(pkg?.itemTable ?? {})) {
                 // Our own traps stay out of it: a trap wearing a misspelled
                 // trap name, coloured as progression, contradicts itself.
                 if (game === "Stick Ranger" && id >= this.TRAPS_OFFSET && id < this.TRAPS_OFFSET + 1000) continue;

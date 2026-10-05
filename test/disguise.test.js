@@ -121,43 +121,135 @@ describe("misspell", () => {
 describe("the hint record", () => {
     const MAIN_JS = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "main.js");
     const src = readFileSync(MAIN_JS, "utf8");
-    const body = src.slice(src.indexOf("    _hintFor(networkItem) {"));
-    const method = body.slice(0, body.search(/\n {4}\}/));
+    const slice = (signature) => {
+        const body = src.slice(src.indexOf(`    ${signature} {`));
+        return body.slice(0, body.search(/\n {4}\}/));
+    };
+    const hintFor = slice("_hintFor(networkItem)");
+    const disguise = slice("_disguise(hint, location)");
 
     it("only disguises traps", () => {
-        assert.match(method, /networkItem\.flags & 0b100/, "the trap flag is not what is tested");
-        assert.match(method, /if \(isTrap && this\.slotData\.trap_disguise\)/);
+        assert.match(hintFor, /networkItem\.flags & 0b100/, "the trap flag is not what is tested");
+        assert.match(
+            hintFor,
+            /if \(isTrap && this\.slotData\.trap_disguise\) this\._disguise\(hint, networkItem\.location\);/,
+        );
     });
 
     it("recolours the disguise, or the red name gives it away", () => {
-        assert.match(method, /hint\.itemClassification = 0b001;/, "a disguised trap still reads as a trap");
+        assert.match(disguise, /hint\.itemClassification = 0b001;/, "a disguised trap still reads as a trap");
     });
 
     it("falls back to the real name when no disguise could be made", () => {
-        assert.match(method, /if \(disguise !== null\)/);
+        assert.match(disguise, /if \(disguise !== null\)/);
     });
 
     it("is seeded by the room, so a face cannot be learned across games", () => {
-        assert.match(
-            method,
-            /disguiseFor\(networkItem\.location, this\._decoyNames\(\), this\.client\.room\.seedName\)/,
-        );
+        assert.match(disguise, /disguiseFor\(location, this\._decoyNames\(\), this\.client\.room\.seedName\)/);
     });
 
     it("keeps the base record when the disguise throws", () => {
         // The try sits around the disguise alone, so an undisguised trap is
         // the worst a failure can do -- not a shelf with nothing to say.
-        assert.ok(method.indexOf("const hint = {") < method.indexOf("try {"), "the try covers the base record too");
-        assert.match(method, /catch \(error\) \{\s*\n\s*console\.error\("Could not disguise/);
+        assert.doesNotMatch(hintFor, /try \{/, "the try covers the base record too");
+        assert.match(disguise, /catch \(error\) \{\s*\n\s*console\.error\("Could not disguise/);
+    });
+});
+
+// Records are saved to the server and a scouted cell is never scouted again, so
+// a trap recorded while the disguise was broken kept its real name for the rest
+// of that seed. On connect, any saved trap record is disguised after the fact.
+describe("saved trap records are disguised on connect", () => {
+    const MAIN_JS = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "main.js");
+    const src = readFileSync(MAIN_JS, "utf8");
+
+    function load({ disguiseOn = 1, shopHints = {}, bookHints = {} } = {}) {
+        const methods = ["_redisguiseSavedHints()", "_disguise(hint, location)", "_decoyNames()"].map((sig) => {
+            const body = src.slice(src.indexOf(`    ${sig} {`));
+            return body.slice(0, body.search(/\n {4}\}/) + 6);
+        });
+        const host = new Function(
+            "disguiseFor",
+            `return { SHOP_OFFSET: 20000, BOOK_OFFSET: 10100, TRAPS_OFFSET: 13000, _decoys: undefined, slotData: null, client: null, shopHints: null, bookHints: null, ${methods.join(",\n")} };`,
+        )(disguiseFor);
+        host.slotData = { trap_disguise: disguiseOn };
+        host.shopHints = shopHints;
+        host.bookHints = bookHints;
+        host.client = {
+            room: { games: ["Stick Ranger", "Hollow Knight"], seedName: "seed-a" },
+            package: {
+                findPackage: (game) =>
+                    ({
+                        "Stick Ranger": { itemTable: { "Unlock Lake": 11014, "Kill a Ranger": 13002 } },
+                        "Hollow Knight": { itemTable: { "Mothwing Cloak": 3 } },
+                    })[game] ?? null,
+            },
+        };
+        return host;
+    }
+
+    const bareTrap = () => ({
+        player: "s",
+        item: "Kill a Ranger",
+        itemClassification: 0b100,
+        sprite: null,
+        marked: true,
+    });
+
+    it("dresses a saved trap that still wears its real name", () => {
+        const host = load({ shopHints: { 270: bareTrap() } });
+        host._redisguiseSavedHints();
+        const hint = host.shopHints[270];
+        assert.notEqual(hint.item, "Kill a Ranger", "the trap kept its real name");
+        assert.equal(hint.itemClassification, 0b001);
+        assert.equal(hint.marked, true);
+    });
+
+    it("gives it the same face a fresh scout would", () => {
+        const host = load({ shopHints: { 270: bareTrap() } });
+        host._redisguiseSavedHints();
+        assert.equal(host.shopHints[270].item, disguiseFor(20270, host._decoyNames(), "seed-a"));
+    });
+
+    it("covers book records too", () => {
+        const host = load({ bookHints: { 5: bareTrap() } });
+        host._redisguiseSavedHints();
+        assert.notEqual(host.bookHints[5].item, "Kill a Ranger");
+    });
+
+    it("leaves records that are not traps alone", () => {
+        const sword = { player: "s", item: "Iron Sword 1", itemClassification: 0b000, sprite: 8, marked: false };
+        const host = load({ shopHints: { 8: sword } });
+        host._redisguiseSavedHints();
+        assert.deepEqual(host.shopHints[8], sword);
+    });
+
+    it("leaves an already disguised record alone", () => {
+        const dressed = { player: "s", item: "Unlock Laek", itemClassification: 0b001, sprite: null, marked: true };
+        const host = load({ shopHints: { 270: dressed } });
+        host._redisguiseSavedHints();
+        assert.equal(host.shopHints[270].item, "Unlock Laek");
+    });
+
+    it("does nothing with Trap Disguise off", () => {
+        const host = load({ disguiseOn: 0, shopHints: { 270: bareTrap() } });
+        host._redisguiseSavedHints();
+        assert.equal(host.shopHints[270].item, "Kill a Ranger");
+    });
+
+    it("runs right after the save is loaded", () => {
+        assert.match(src, /await this\.loadAPData\(\);\s*\n\s*this\._redisguiseSavedHints\(\);/);
     });
 });
 
 // Where the decoy names come from.
 //
-// This asked the data package for the room's game list, which it does not have:
-// client.package.games is undefined, so the loop threw. The throw happened
-// inside the locationInfo handler, so the trap went undisguised AND every
-// location after it in that packet lost its hint text too.
+// Two mistakes about archipelago.js in a row left the pool empty. This first
+// asked the data package for the room's game list, which it does not have, and
+// threw. Then it asked each PackageMetadata for item_name_to_id, which is the
+// raw package's field, not the metadata's: the pool came back empty, no error,
+// and every trap stood on the shelf under its own name. The stubs here carry
+// the real shape, itemTable, for that reason.
 describe("_decoyNames", () => {
     const MAIN_JS = join(dirname(fileURLToPath(import.meta.url)), "..", "src", "main.js");
     const src = readFileSync(MAIN_JS, "utf8");
@@ -171,13 +263,27 @@ describe("_decoyNames", () => {
     }
 
     const PACKAGES = {
-        "Stick Ranger": { item_name_to_id: { "Unlock Lake": 1, "Unlock Volcano": 2, "Kill a Ranger": 13002 } },
-        "Hollow Knight": { item_name_to_id: { "Mothwing Cloak": 3 } },
+        "Stick Ranger": { itemTable: { "Unlock Lake": 1, "Unlock Volcano": 2, "Kill a Ranger": 13002 } },
+        "Hollow Knight": { itemTable: { "Mothwing Cloak": 3 } },
     };
 
     it("reads the game list off the room, not the data package", () => {
         assert.match(src, /this\.client\.room\.games/, "the package has no game list");
         assert.doesNotMatch(src, /this\.client\.package\.games/, "this is undefined and throws");
+    });
+
+    it("reads each package's itemTable, which is what findPackage hands back", () => {
+        assert.doesNotMatch(
+            src,
+            /item_name_to_id/,
+            "PackageMetadata has no item_name_to_id; the pool comes back empty",
+        );
+        const archipelago = readFileSync(
+            join(dirname(fileURLToPath(import.meta.url)), "..", "node_modules", "archipelago.js", "dist", "index.d.ts"),
+            "utf8",
+        );
+        assert.match(archipelago, /findPackage\(game: string\): PackageMetadata \| null;/);
+        assert.match(archipelago, /readonly itemTable: Readonly<Record<string, number>>;/);
     });
 
     it("collects names from every game in the room", () => {

@@ -91,7 +91,7 @@ describe("what earns the tile", () => {
 
     it("is read after any disguise, so a disguised trap still matches", () => {
         assert.ok(
-            method.indexOf("hint.itemClassification = 0b001;") < method.indexOf("hint.marked ="),
+            method.indexOf("this._disguise(hint, networkItem.location)") < method.indexOf("hint.marked ="),
             "the tile is decided before the disguise, so a disguised trap could stand out",
         );
     });
