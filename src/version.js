@@ -29,8 +29,10 @@ export function compareVersions(a, b) {
 
 /**
  * What to tell the player about the seed's apworld against this site, or null
- * when they match. A newer seed is an error: the site cannot know what the
- * seed expects of it.
+ * when they match. A newer seed is only information: an apworld release that
+ * changed nothing the client reads is routine, and the two checks that matter
+ * -- every expected slot_data key present, a logic block in a known shape --
+ * raise their own errors when they fail.
  */
 export function versionNotice(seedVersion, siteVersion) {
     if (seedVersion == null) {
@@ -42,8 +44,8 @@ export function versionNotice(seedVersion, siteVersion) {
     const order = compareVersions(seedVersion, siteVersion);
     if (order > 0) {
         return {
-            level: "error",
-            text: `This seed was made with apworld ${seedVersion}, newer than this site (${siteVersion}). Reload to pick up a newer site; if this keeps showing, the site has not been released for it yet.`,
+            level: "info",
+            text: `Seed from apworld ${seedVersion}, newer than this site (${siteVersion}). Anything it added that this site does not know yet runs at its default; reload later for a newer site.`,
         };
     }
     if (order < 0) {

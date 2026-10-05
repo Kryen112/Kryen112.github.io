@@ -46,11 +46,15 @@ describe("versionNotice", () => {
         assert.equal(versionNotice("1.8.12", "1.8.12"), null);
     });
 
-    it("is an error when the seed is newer than the site", () => {
+    it("informs, rather than alarms, when the seed is newer than the site", () => {
+        // An apworld release that changed nothing the client reads is routine;
+        // a missing slot_data key or an unknown logic shape raise their own
+        // errors, so this one only has to say what a newer seed means.
         const notice = versionNotice("1.9.0", "1.8.12");
-        assert.equal(notice.level, "error");
+        assert.equal(notice.level, "info");
         assert.match(notice.text, /1\.9\.0/);
         assert.match(notice.text, /1\.8\.12/);
+        assert.match(notice.text, /default/);
     });
 
     it("only informs when the seed is older", () => {
