@@ -197,4 +197,11 @@ describe("adoptCheckedShopLocations", () => {
         assert.equal(sent.size, 462);
         assert.ok(sent.has(3), "an already-released item would still show the logo");
     });
+
+    it("runs again whenever the room reports new checks, not only at connect", () => {
+        // A second client on this slot, or a !collect, checks shop locations
+        // mid-session; the cell would otherwise keep its logo until a reconnect.
+        const src = readFileSync(MAIN_JS, "utf8");
+        assert.match(src, /this\.client\.room\.on\("locationsChecked", \(\) => this\.adoptCheckedShopLocations\(\)\)/);
+    });
 });

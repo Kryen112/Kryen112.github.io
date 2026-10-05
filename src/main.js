@@ -718,6 +718,12 @@ class APIntegration {
             });
         });
 
+        // The server's view of the shop can move mid-session: a second client
+        // on this slot, or a !collect. Adopt those as they arrive, not only at
+        // connect, or the cell keeps its logo and the next buy spends gold on a
+        // location that is already gone.
+        this.client.room.on("locationsChecked", () => this.adoptCheckedShopLocations());
+
         try {
             window.ArchipelagoMod.pendingSave = false;
             window.ArchipelagoMod.pendingAPItemDrops = [];
