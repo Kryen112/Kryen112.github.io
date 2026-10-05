@@ -76,6 +76,12 @@ const BOSS_ATTACK_IDS = new Set([40, 115, 163, 244, 333, 334, 335, 336, 337, 339
 const TOWN_STAGE_IDS = new Set([0, 20, 47, 70, 77]); // Town, Village, Resort, Forget Tree, Island
 function isTownStage(stage){ return TOWN_STAGE_IDS.has(stage); }
 
+// Seeds from apworld 1.8.12 on say which apworld made them; older ones do not.
+// Every branch that exists only for those older seeds is marked LEGACY, and
+// main.js sets this flag from the seed, so they can all be found and removed
+// together after 2026-11.
+function legacySeed(){ return !!window.ArchipelagoMod.legacySeed; }
+
 // Shop rows normalised onto the 0..32 scale the Town shop uses, so one
 // Progressive Shop count means the same thing in every town regardless of how
 // deep that town's columns are. Mirrored by shop.py in the apworld.
@@ -123,6 +129,19 @@ function applyRingLinkGold(amount){
     antiCheatSet();
 }
 window.ArchipelagoMod.applyRingLinkGold = applyRingLinkGold;
+
+/**
+ * Gold a trap takes away. Applied without touching the pending total: the trap
+ * came from Archipelago, and echoing it as negative rings would take the gold
+ * off every linked player as well as this one.
+ */
+function applyTrapGold(amount){
+    if (!amount) return;
+    antiCheatCheck();
+    Team_Gold = clamp(Team_Gold+amount,0,9999999);
+    antiCheatSet();
+}
+window.ArchipelagoMod.applyTrapGold = applyTrapGold;
 const AP_DROP_FROM_SHOP = 1;
 
 window.ArchipelagoMod.shopIdsSent = window.ArchipelagoMod.shopIdsSent || new Set();
@@ -185,14 +204,14 @@ function shopCheckSprite(itemId){
     return hint.sprite;
 }
 
-// Whether a cell is in stock, which is the only thing Progressive Shop changes.
 // How many of that shop's own Progressive items a row costs. The seed ships the
-// numbers, so the stock the player sees is the stock the fill assumed. Town,
-// Resort and Island charge for their first row as well; Village does not.
+// numbers, so the stock the player sees is the stock the fill assumed. Town
+// starts with its first row stocked; Village, Resort and Island charge one item
+// for theirs.
 function shopReq(town_stage, row, columnLength){
     var progression = window.ArchipelagoMod.shopProgression;
-    if (!progression)
-        return shopTier(row,columnLength); // a seed from before the shops split
+    if (!progression) // LEGACY (remove after 2026-11): a seed from before the shops split
+        return shopTier(row,columnLength);
     return Math.floor((row * progression.steps[town_stage]) / columnLength) + progression.first[town_stage];
 }
 
@@ -200,16 +219,16 @@ function shopReq(town_stage, row, columnLength){
 // single count covering all of them.
 function shopProgressiveCount(town_stage){
     var held = window.ArchipelagoMod.progressiveShopItems;
-    if (typeof held == "number")
-        return held; // a client from before the count became per shop
-    // A seed from before the shops split sends one item covering all four, so
-    // its single count opens every town. Reading that per town found nothing
-    // for Village, Resort and Island and left them shut however many you held.
+    // LEGACY (remove after 2026-11): a seed from before the shops split sends
+    // one item covering all four, so its single count opens every town.
+    // Reading that per town found nothing for Village, Resort and Island and
+    // left them shut however many you held.
     if (!window.ArchipelagoMod.shopProgression)
         return (held || [])[0] || 0;
     return (held || [])[town_stage] || 0;
 }
 
+// Whether a cell is in stock, which is the only thing Progressive Shop changes.
 function shopCellUnlocked(town_stage, column, row, latest_unlock){
     if (window.ArchipelagoMod.progressiveShop)
         return shopReq(town_stage,row,Shop_Items[town_stage][column].length)
@@ -296,9 +315,9 @@ var AP_Img_Grey = new SR_Image;             // AP IMG Grey
 var AP_Icon = new SR_Image;                 // AP Icon
 var AP_Icon_Grey = new SR_Image;            // AP Icon Grey
 // The tile a shop check wears when it holds progression or a trap: the
-// Archipelago logo with an arrow beside it. Swap data/AP_arrow.gif for your own
+// Archipelago logo with a mark beside it. Swap data/AP_marked.gif for your own
 // 24x24 and it is picked up as-is -- nothing here needs changing.
-var AP_Arrow = new SR_Image;                // AP progressive badge
+var AP_Marked = new SR_Image;               // AP marked-check tile
 var Enemy_Head_Img = new SR_Image;          // enemy head images               original name: Va
 var Sign_Img = new SR_Image;                // blank sign icon                 original name: Wa
 var Projectiles_Img = new SR_Image;         // images for all projectiles      original name: Za
@@ -1686,12 +1705,11 @@ function antiCheatCheck(){ // original name: Ne()
         }
     }
     if (Game_Mode==0 || Game_Mode==2){
-        xp_for_prev_LV = 4753000;
-        xp_for_next_LV = 9999999;
-        if (LV[0] < 98){
-            xp_for_prev_LV = xpForLevel(LV[0]);
-            xp_for_next_LV = xpForLevel(LV[0]+1);
-        }
+        // Level 99 is the cap, so it is measured against the last level up
+        // rather than a 100th level that does not exist.
+        var xp_LV = minOf(LV[0],98);
+        xp_for_prev_LV = xpForLevel(xp_LV);
+        xp_for_next_LV = xpForLevel(xp_LV+1);
         if (Team_EXP<xp_for_prev_LV || xp_for_next_LV<Team_EXP){
             console.log("Error: experience is below/above current level");
             if (Randomizer_Mode==0)
@@ -2254,7 +2272,7 @@ function gameStartup(usr_id,lang,cookie,mode,e,g,k,r,m,n,F,H,M){ // original nam
         AP_Img_Grey.IGset("AP_grey.gif");
         AP_Icon.IGset("AP_icon.gif");
         AP_Icon_Grey.IGset("AP_icon_grey.gif");
-        AP_Arrow.IGset("AP_arrow.gif");
+        AP_Marked.IGset("AP_marked.gif");
         Enemy_Head_Img.IGset("en.gif");
         Sign_Img.IGset("next.gif");
         Projectiles_Img.IGset("mag.gif");
@@ -2285,7 +2303,7 @@ function gameStartup(usr_id,lang,cookie,mode,e,g,k,r,m,n,F,H,M){ // original nam
         imgToArray(AP_Img_Grey);
         imgToArray(AP_Icon);
         imgToArray(AP_Icon_Grey);
-        imgToArray(AP_Arrow);
+        imgToArray(AP_Marked);
         imgToArray(Enemy_Head_Img);
         imgToArray(Sign_Img);
         imgToArray(Projectiles_Img);
@@ -3226,7 +3244,7 @@ function townScreens(){ // original name: wf()
                 Large_Text.TXoutputB(shop_left+8,shop_top+116,"Slow "+type_para+"%",type_color,0x000000); // display slow %
             }
         }
-        // Town, Resort and Island start with nothing in stock, so say so rather
+        // Village, Resort and Island start with nothing in stock, so say so rather
         // than showing an empty grid the player cannot explain.
         var stocked_rows = 0;
         for (var sr=0; sr<Shop_Items[town_stage][Menu_Column].length; sr++){
@@ -3252,11 +3270,11 @@ function townScreens(){ // original name: wf()
                 var cell_sprite = cell_is_check? shopCheckSprite(cell_item) :cell_item;
                 if (cell_is_check && cell_sprite<0){
                     // The logo tiles are opaque 24x24, so a marked check takes
-                    // its own tile -- the logo with an arrow beside it --
-                    // rather than having one drawn over the plain logo.
+                    // its own tile rather than having a mark drawn over the
+                    // plain logo.
                     var cell_marked = shopCheckIsMarked(cell_item);
                     dispItem(
-                        cell_marked? AP_Arrow :(cell_blocked? AP_Img_Grey :AP_Img),
+                        cell_marked? AP_Marked :(cell_blocked? AP_Img_Grey :AP_Img),
                         cell_x,cell_y,24,24,0,0,24,24,
                         (cell_marked && cell_blocked)? 0xFF606060 :0xFFFFFFFF);
                 } else dispItem(Item_Img,cell_x,cell_y,24,24,24*getVal(cell_sprite,Item_Ico_Big),0,24,24,cell_blocked? 0xFF606060 :getVal(cell_sprite,Item_Color)); // icon of item in shop
@@ -4725,14 +4743,11 @@ function drawUI(UI_mode){ // original name: Jf()
     L = 10; // left margin
     T = Inv_Top+4;
 
-    xp_for_prev_LV = 4753000;
-    xp_for_next_LV = 9999999;
-    if (LV[0] < 98){
-        xp_for_prev_LV = 0;
-        for (var l=1; l<LV[0]; l++)
-            xp_for_prev_LV += 1000*l;
-        xp_for_next_LV = xp_for_prev_LV+1000*l;
-    }
+    // Level 99 is the cap, so it is measured against the last level up rather
+    // than a 100th level that does not exist; the bar reads full there.
+    var xp_LV = minOf(LV[0],98);
+    xp_for_prev_LV = xpForLevel(xp_LV);
+    xp_for_next_LV = xpForLevel(xp_LV+1);
     setRangersUI();
     if (UI_mode==2){
         antiCheatCheck();
@@ -4792,12 +4807,11 @@ function drawUI(UI_mode){ // original name: Jf()
             // already alive, leaving town requires a living ranger to walk to
             // the sign, and Game Over only restores LP inside a stage. The Kill
             // a Ranger trap fires in town, so four of them ended the save.
-            // Reviving now works with nobody standing, and costs nothing when
-            // the party cannot pay for it.
+            // Reviving now works with nobody standing, and is free then: the
+            // trap already cost the run its party, and a fee it may not be able
+            // to pay would only stall it.
             const party_wiped = LP_Current[0]+LP_Current[1]+LP_Current[2]+LP_Current[3] == 0;
-            revival_cost = maxOf(floor(Team_Gold/10),10*LV[0]);
-            if (party_wiped)
-                revival_cost = minOf(revival_cost,Team_Gold);
+            revival_cost = party_wiped? 0 :maxOf(floor(Team_Gold/10),10*LV[0]);
             revive_data = "Revival $"+revival_cost;
             Large_Text.TXoutputB(L,T+40,"Revival $"+revival_cost,0x808080,0x000000);
             if (isMouseHovered(L,T+40,8*revive_data.length,12)){
@@ -5143,8 +5157,14 @@ function compoCanBeRemoved(compo){
         && Item_Inv[Inv_Last]==0; // only with an empty hand, or a swap would eat it
 }
 
-// Move a compo out of a weapon and onto the cursor.
+// Move a compo out of a weapon and onto the cursor. Bracketed with the
+// anti-cheat like every other change the mod makes to the inventory. The click
+// that calls this already sits inside the inventory screen's own bracket, and
+// nothing changes between that check and this one, so the nested pair is safe
+// -- and it keeps the lift committed on its own if it is ever called from
+// somewhere that is not.
 function liftCompo(weapon,compo_slot){
+    antiCheatCheck();
     if (compo_slot==0){
         Item_Inv[Inv_Last] = Comp1_Inv[weapon];
         Comp1_Inv[weapon] = 0;
@@ -5154,6 +5174,7 @@ function liftCompo(weapon,compo_slot){
     }
     Comp1_Inv[Inv_Last] = 0;
     Comp2_Inv[Inv_Last] = 0;
+    antiCheatSet();
 }
 
 function restrictSlots(item_pos,compo_slot){ // original name: Ng()
@@ -8915,6 +8936,13 @@ function xpForLevel(level){
     return 1000*(level-1)*level/2;
 }
 
+// A yaml multiplier with the medal bonuses on top of it. The bonuses sum across
+// the four rangers and multiply rather than add: 5x with +100% of medals is
+// 10x, not 6x. Gold, loot and XP all stack this way.
+function stackMedal(yaml_mult,bonus_percent){
+    return 100 * (yaml_mult || 1) * (1 + bonus_percent/100);
+}
+
 function enemyDeath(enemy,en_ID,xp_is_given){ // original name: Jg()
     var en_ID2,next_stage_enemy,lvl_diff,xp_earned,exp_mult,anger_crown,spirit_target,gold_value,gold_value_mult,onigiri_rate_mult,drop_rate_mult,direction;
     var highest_en_lvl = 0;
@@ -8951,11 +8979,12 @@ function enemyDeath(enemy,en_ID,xp_is_given){ // original name: Jg()
             xp_earned = 1;
     }
 
-    exp_mult = 100 * (window.ArchipelagoMod.xpMultiplier || 1);
+    var iron_medal_bonus = 0;
     for (var s=0; s<Stickmen_Slots; s++){
         if (checkEff(Stickmen_Slots+s,Medal_Iron))
-            exp_mult += getEff(Stickmen_Slots+s,Eff1);
+            iron_medal_bonus += getEff(Stickmen_Slots+s,Eff1);
     }
+    exp_mult = stackMedal(window.ArchipelagoMod.xpMultiplier,iron_medal_bonus);
     xp_earned = floor(xp_earned*exp_mult/100);
 
     if (xp_is_given==1)
@@ -8974,13 +9003,9 @@ function enemyDeath(enemy,en_ID,xp_is_given){ // original name: Jg()
     // leveling up
     antiCheatCheck();
     Team_EXP = clamp(Team_EXP+xp_earned,0,9999999);
-    xp_for_prev_LV = 4753000;
-    xp_for_next_LV = 9999999;
-
-    if (LV[0]<98){
-        xp_for_prev_LV = xpForLevel(LV[0]);
-        xp_for_next_LV = xpForLevel(LV[0]+1);
-    }
+    var xp_LV = minOf(LV[0],98);
+    xp_for_prev_LV = xpForLevel(xp_LV);
+    xp_for_next_LV = xpForLevel(xp_LV+1);
     if (xp_for_next_LV<=Team_EXP && LV[0]<99){
         LV[0]++;
         for (var s=0; s<Stickmen_Slots; s++)
@@ -9024,23 +9049,18 @@ function enemyDeath(enemy,en_ID,xp_is_given){ // original name: Jg()
     //*/
     gold_value = EN_Info[enemy.EN_array_ID[en_ID]][En_Gold];
     onigiri_rate_mult = 100;
-    drop_rate_mult = 100 * (window.ArchipelagoMod.dropMultiplier || 1);
-    // Medal bonuses sum across all four rangers, then multiply the yaml's
-    // multiplier rather than being added to it -- 5x gold with a +100% Gold
-    // Medal is 10x, not 6x.
     var gold_medal_bonus = 0;
     var bronze_medal_bonus = 0;
     for (var s=0; s<Stickmen_Slots; s++){
-        if (checkEff(Stickmen_Slots+s,Medal_Bronze)){
-            drop_rate_mult += getEff(Stickmen_Slots+s,Eff1);
+        if (checkEff(Stickmen_Slots+s,Medal_Bronze))
             bronze_medal_bonus += getEff(Stickmen_Slots+s,Eff1);
-        }
         if (checkEff(Stickmen_Slots+s,Medal_Silver))
             onigiri_rate_mult += getEff(Stickmen_Slots+s,Eff1);
         if (checkEff(Stickmen_Slots+s,Medal_Gold))
             gold_medal_bonus += getEff(Stickmen_Slots+s,Eff1);
     }
-    gold_value_mult = 100 * (window.ArchipelagoMod.goldMultiplier || 1) * (1 + gold_medal_bonus/100);
+    drop_rate_mult = stackMedal(window.ArchipelagoMod.dropMultiplier,bronze_medal_bonus);
+    gold_value_mult = stackMedal(window.ArchipelagoMod.goldMultiplier,gold_medal_bonus);
     direction = 0;
     if (enemy.EN_species_ID[en_ID]==17)
         direction = enemy.EN_state[en_ID]-1;
@@ -13199,7 +13219,17 @@ function unlockedInRegion(stage_ids){
 
 // Which boss gates are open, keyed by boss stage id. Gates are listed in chain
 // order, so one pass is enough.
+//
+// Asked once per stage dot per frame, and the answer only changes when an
+// unlock or a class arrives, so it is kept for the rest of the frame:
+// mainSequence forgets it every frame, and the client forgets it whenever it
+// hands the game an item.
+var open_gates_cache = null;
+function forgetOpenGates(){ open_gates_cache = null; }
+window.ArchipelagoMod.forgetOpenGates = forgetOpenGates;
 function openGates(logic){
+    if (open_gates_cache !== null && open_gates_cache.logic === logic)
+        return open_gates_cache.open;
     // The starting class counts, matching class_count() in the apworld's rules.
     var classes = window.ArchipelagoMod.rangerClassesUnlocked.size;
     var open = {};
@@ -13208,17 +13238,21 @@ function openGates(logic){
         open[gate.stage] =
             (gate.after === null || open[gate.after])
             && unlocked(gate.stage)
-            && unlockedInRegion(logic.regions[gate.region]) >= gate.stages
+            // A region the description does not list counts as empty rather
+            // than throwing inside the map's draw loop.
+            && unlockedInRegion(logic.regions[gate.region] || []) >= gate.stages
             && classes >= gate.classes;
     }
+    open_gates_cache = { logic: logic, open: open };
     return open;
 }
 
 // Does Archipelago consider this stage reachable right now?
 function in_logic(stage){
     var logic = logicDescription();
-    // An older seed carries no description. Everything unlocked reads as in
-    // logic, which is what the map showed before any of this existed.
+    // LEGACY (remove after 2026-11): an older seed carries no description, and
+    // main.js also drops one it cannot evaluate. Everything unlocked reads as
+    // in logic, which is what the map showed before any of this existed.
     if (!logic) return unlocked(stage);
 
     if (isTownStage(stage)) return true;
@@ -13245,7 +13279,7 @@ function in_logic(stage){
 // Enforce Shop Logic off the two simply disagree and the sale goes through.
 function shopTierInLogic(tier){
     var logic = logicDescription();
-    if (!logic || !logic.shop_gates) return true; // a seed from before shop gating
+    if (!logic || !logic.shop_gates) return true; // LEGACY (remove after 2026-11): a seed from before shop gating
     var open = openGates(logic);
     for (var i=0; i<logic.shop_gates.length; i++){
         if (tier >= logic.shop_gates[i][0])
@@ -13255,10 +13289,33 @@ function shopTierInLogic(tier){
 }
 
 // Enforcement: with Enforce Shop Logic on, a row the seed does not consider
-// reachable yet is greyed out and cannot be bought.
+// reachable yet is greyed out and cannot be bought. Only with Progressive Shop
+// on: without it the shop stocks by the game's own table, which is exactly
+// what logic counts, so a row you can see is a row you can buy.
 function shopCellBlocked(town_stage, column, row){
     return !!window.ArchipelagoMod.enforceShopLogic
+        && !!window.ArchipelagoMod.progressiveShop
         && !shopTierInLogic(shopTier(row,Shop_Items[town_stage][column].length));
+}
+
+// What one gate is still waiting for: its own unlock, the region count and
+// the class count, with the stage ids still missing from the region.
+function gateNeeds(logic, gate){
+    var region = logic.regions[gate.region] || [];
+    var missing = [];
+    for (var r=0; r<region.length; r++){
+        if (!unlocked(region[r])) missing.push(region[r]);
+    }
+    return {
+        stage: gate.stage,
+        region: gate.region,
+        needsOwnUnlock: !unlocked(gate.stage),
+        heldInRegion: region.length-missing.length,
+        requiredInRegion: gate.stages,
+        missingStages: missing,
+        classesHeld: window.ArchipelagoMod.rangerClassesUnlocked.size,
+        classesRequired: gate.classes,
+    };
 }
 
 // What the next locked boss gate is still waiting for.
@@ -13274,32 +13331,58 @@ function nextGateNeeds(){
     if (!logic) return null;
 
     var open = openGates(logic);
-    var classes = window.ArchipelagoMod.rangerClassesUnlocked.size;
-
     for (var i=0; i<logic.gates.length; i++){
         var gate = logic.gates[i];
         if (open[gate.stage]) continue; // already through this one
-
         // The gates chain, so the first closed one is the one being worked on.
-        var region = logic.regions[gate.region] || [];
-        var missing = [];
-        for (var r=0; r<region.length; r++){
-            if (!unlocked(region[r])) missing.push(region[r]);
-        }
-        return {
-            stage: gate.stage,
-            region: gate.region,
-            needsOwnUnlock: !unlocked(gate.stage),
-            heldInRegion: region.length-missing.length,
-            requiredInRegion: gate.stages,
-            missingStages: missing,
-            classesHeld: classes,
-            classesRequired: gate.classes,
-        };
+        return gateNeeds(logic, gate);
     }
     return null; // every gate open
 }
 window.ArchipelagoMod.nextGateNeeds = nextGateNeeds;
+
+function gatesByStage(logic){
+    var byStage = {};
+    for (var i=0; i<logic.gates.length; i++) byStage[logic.gates[i].stage] = logic.gates[i];
+    return byStage;
+}
+
+// The gate a stage sits behind: itself for a boss stage, the last gate for a
+// boss rush stage, its region's gate for anything else, and null when it sits
+// behind no gate at all.
+function gateFor(logic, stage){
+    var byStage = gatesByStage(logic);
+    if (stage in byStage) return byStage[stage];
+    for (var b=0; b<(logic.boss_rush || []).length; b++){
+        if (logic.boss_rush[b].stage === stage) return byStage[logic.boss_rush[b].after] || null;
+    }
+    for (var region in logic.regions){
+        if (logic.regions[region].indexOf(stage) === -1) continue;
+        var gate = logic.region_gate[region];
+        return gate === null || gate === undefined ? null : byStage[gate] || null;
+    }
+    return null;
+}
+
+// Why a barred stage cannot be entered: the first shut gate on the way to it
+// and what that gate still lacks, so a refused click can say so rather than
+// nothing. A Desert stage waits on Submarine Shrine, but while Castle is still
+// shut that is the real blocker.
+function blockedStageNeeds(stage){
+    var logic = logicDescription();
+    if (!logic) return null;
+    var gate = gateFor(logic, stage);
+    if (!gate) return null;
+    var open = openGates(logic);
+    var byStage = gatesByStage(logic);
+    var earlier = byStage[gate.after];
+    while (earlier && !open[earlier.stage]){
+        gate = earlier;
+        earlier = byStage[gate.after];
+    }
+    return gateNeeds(logic, gate);
+}
+window.ArchipelagoMod.blockedStageNeeds = blockedStageNeeds;
 
 // Enforcement: with the option on, a stage out of logic cannot be entered at
 // all. Only meaningful when the seed described its logic.
@@ -13530,6 +13613,8 @@ SR_map.prototype.MAPmain = function(){ // uh.prototype.b
                         Current_Stage = s;
                         Current_Screen = 0;
                         Sequence_Step = 10;
+                    } else if (Clicked && stageIsBlocked(s) && window.ArchipelagoMod.explainBlockedStage){
+                        window.ArchipelagoMod.explainBlockedStage(s); // say why, rather than nothing
                     }
                 } else {
                    Current_Stage = s;
@@ -13595,6 +13680,7 @@ var Layer6 = new Float32Array(Win_Height);              // original name: oh
 function mainSequence(){ // original name: rf()
     var game_ticks_passed,area,b;
     var ticks_per_second = 60;
+    forgetOpenGates(); // an unlock or a class may have arrived since the last frame
     if (Animation_Frame){
         Animation_Frame(mainSequence);
         Animation_Frame_Counter++;
@@ -14627,9 +14713,14 @@ document.onkeyup = function(event){ // vh.onkeyup
 
 // A keyup never arrives if the window loses focus mid-press, so the key would
 // stay held. Alt-tabbing while walking used to leave a ranger walking.
-window.addEventListener("blur", function(){
+function releaseAllKeys(){
     for (var k=0; k<256; k++)
         Is_Key_Held[k] = false;
+}
+window.addEventListener("blur", releaseAllKeys);
+// A tab switch does not always blur the window, but it does hide the document.
+document.addEventListener("visibilitychange", function(){
+    if (document.hidden) releaseAllKeys();
 });
 
 var Mouse_In_Window = false; // original name: bi
