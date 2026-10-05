@@ -41,18 +41,24 @@ run("git add -A");
 run(`git commit -m "Release version ${version}"`);
 run("git push");
 
-// Let the push register before asking for its run.
+// The run for this push, found by its commit: straight after a push the newest
+// run on main is still the previous one, already green, and watching that would
+// tag before CI had looked at the release. In-process sleep, because a shell
+// `sleep` is not there when this runs from PowerShell.
+const sleep = (seconds) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, seconds * 1000);
+const head = read("git rev-parse HEAD");
 let runId = "";
-for (let attempt = 0; attempt < 6 && runId === ""; attempt++) {
+for (let attempt = 0; attempt < 12 && runId === ""; attempt++) {
     try {
-        runId = read('gh run list --branch main --limit 1 --json databaseId --jq ".[0].databaseId"');
+        const runs = JSON.parse(read("gh run list --branch main --limit 5 --json databaseId,headSha"));
+        runId = String(runs.find((run) => run.headSha === head)?.databaseId ?? "");
     } catch {
         runId = "";
     }
-    if (runId === "") execSync("sleep 5");
+    if (runId === "") sleep(5);
 }
 if (runId === "") {
-    console.error("could not find the CI run; tag by hand once it is green: git tag " + version);
+    console.error(`could not find the CI run for ${head}; tag by hand once it is green: git tag ${version}`);
     process.exit(1);
 }
 run(`gh run watch ${runId} --exit-status`);
